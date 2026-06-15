@@ -18,6 +18,7 @@ import {
 } from "@/lib/render-utils";
 import { embedIconStickerSvgs } from "@/lib/sticker-svg";
 import { renderWithServer, renderServerEnabled } from "@/lib/render-server-client";
+import { localizeBrollClips, type LocalizableClip } from "@/lib/broll-localize";
 
 // ── Preset/CRF de x264 desde hw_profile.json (#4/#5). Para el camino `npx remotion
 //    render`: si el perfil recomienda un preset/crf válido, los pasamos por flags.
@@ -143,6 +144,17 @@ export async function POST(req: NextRequest) {
       // viejos / proyectos guardados), se respeta tal cual.
       if (typeof fullProps.musicUrl === "string" && fullProps.musicUrl.startsWith("/")) {
         fullProps.musicUrl = `${apiHost}${fullProps.musicUrl}`;
+      }
+      // B-ROLL LOCAL: esta ruta NO pasa por build-props.mjs, así que localizamos acá.
+      // Si el editor mandó clips con URL remota (Pexels/CC0 — p.ej. del broll-picker o
+      // un proyecto viejo), los bajamos a disco antes de renderizar; si no, OffthreadVideo
+      // seekea por internet en CADA frame (CPU ociosa, render ~10x más lento). Cache
+      // compartido con el wizard (mismo BROLL_DIR + sha del url) → no re-descarga.
+      if (Array.isArray(fullProps.bRoll)) {
+        fullProps.bRoll = await localizeBrollClips(
+          fullProps.bRoll as LocalizableClip[],
+          { host: apiHost }
+        );
       }
       // PRUEBA GRATUITA — esta ruta no pasa por build-props.mjs, así que la
       // marca de agua se inyecta directo en los props del render.

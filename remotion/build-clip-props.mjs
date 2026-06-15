@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { resolveEditorialCardIcons, resolveIconStickerSvg } from "./editorial-icons.mjs";
 import { needsTrialWatermark } from "./license-check.mjs";
 import { applyHookTemplate } from "./hook-templates.mjs";
+import { localizeBrollClips } from "./broll-localize.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { existsSync as _existsSync } from "node:fs";
@@ -82,11 +83,15 @@ const subtitles =
     ? project.manualSubtitles
     : words;
 
+// B-roll local (defensa: los largos hoy no usan b-roll, pero si un proyecto trae
+// clips con URL remota los bajamos a disco igual que en los shorts — cache compartido).
+const bRollLocal = await localizeBrollClips(project.bRoll || [], { dataRoot: DATA_ROOT, host: HOST });
+
 const props = {
   rawVideoUrl: `${HOST}/api/long_form/stream?file=${encodeURIComponent(clipId)}&source=clip`,
   videoDurationSec: +transcript.duration.toFixed(3),
   words: subtitles,
-  bRoll: (project.bRoll || []).map((c) => ({ start: c.start, end: c.end, url: c.url })),
+  bRoll: bRollLocal.map((c) => ({ start: c.start, end: c.end, url: c.url })),
   // musicTrack: NOMBRE de archivo o URL "/api/music/stream?..." (pickRandomMusicTrack).
   // Antes se re-envolvía siempre → URL doble-encodeada → render roto con música.
   musicUrl: (() => {
