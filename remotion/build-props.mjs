@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { resolveEditorialCardIcons, resolveIconStickerSvg } from "./editorial-icons.mjs";
 import { needsTrialWatermark } from "./license-check.mjs";
 import { applyHookTemplate } from "./hook-templates.mjs";
+import { localizeBrollClips } from "./broll-localize.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const VIDEO_ID = process.argv[2] || "D01_test_01";
@@ -110,6 +111,11 @@ function filterAndRemap(arr, fields) {
 
 const subtitlesRemapped = filterAndRemap(words, ["start", "end"]);
 const bRollRemapped = filterAndRemap(project.bRoll || [], ["start", "end"]);
+// Localizar el b-roll REMOTO a disco ANTES de renderizar. Si a OffthreadVideo se le
+// pasan URLs de internet (Pexels/CC0), seekea por HTTP en CADA frame → la CPU queda
+// ociosa esperando la red y un video de 1 min tarda ~30 min. Bajándolo una vez a
+// local (cacheado, con keyframes densos) el seek es de milisegundos y el render vuela.
+const bRollLocal = await localizeBrollClips(bRollRemapped, { dataRoot: DATA_ROOT, host: HOST });
 const zoomMarksRemapped = filterAndRemap(project.zoomMarks || [], ["at"]);
 const wordStickersRemapped = filterAndRemap(project.wordStickers || [], ["at"]);
 const floatingEmojisRemapped = filterAndRemap(project.floatingEmojis || [], ["at"]);
@@ -151,7 +157,7 @@ const props = {
   rawVideoUrl: `${HOST}/api/videos/${encodeURIComponent(videoIdForUrl)}/stream?source=raw`,
   videoDurationSec: +totalDuration.toFixed(3),
   words: subtitles,
-  bRoll: bRollRemapped.map((c) => ({ start: c.start, end: c.end, url: c.url })),
+  bRoll: bRollLocal.map((c) => ({ start: c.start, end: c.end, url: c.url })),
   // musicTrack puede venir como NOMBRE de archivo ("tema.mp3") o ya como URL
   // ("/api/music/stream?file=..." — lo que devuelve pickRandomMusicTrack). Antes
   // se re-envolvía siempre → URL doble-encodeada → el <Audio> tiraba el render.
