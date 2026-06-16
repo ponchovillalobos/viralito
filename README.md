@@ -52,7 +52,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-💛 **¿Te sirve la app? [Apoyala con una donación](.github/FUNDING.yml)** — mantiene el desarrollo vivo.
+☕ **¿Te sirve la app? [Invítame un cafecito](https://buy.stripe.com/aFadRb2R3ghu0CF1JCgnK04)** — es gratis y open source; tu apoyo mantiene el desarrollo vivo. 💛
 
 ---
 
@@ -169,7 +169,7 @@ de la app con el link directo al instalador de
 
 - ⭐ Dale una estrella al repo — ayuda más de lo que piensas
 - 🐛 Issues y PRs bienvenidos
-- 💛 Donaciones: activa el botón Sponsor (ver `.github/FUNDING.yml`)
+- ☕ **[Invítame un cafecito](https://buy.stripe.com/aFadRb2R3ghu0CF1JCgnK04)** — la app es gratis; tu donación mantiene el desarrollo y los servidores de pruebas. También aparece como botón **Sponsor** arriba del repo.
 
 ## 📄 Licencia
 
