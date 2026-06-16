@@ -7,7 +7,6 @@ import { NotificationPoller } from "@/components/layout/notification-poller";
 import { QueuePanel } from "@/components/jobs/queue-panel";
 import { SetupBanner } from "@/components/layout/setup-banner";
 import { UpdateBanner } from "@/components/layout/update-banner";
-import { SetupGate } from "@/components/layout/setup-gate";
 
 // Inter — sans-serif moderna y muy legible, estándar de UI (Figma, Linear, Notion).
 // Cargamos los weights variables para títulos (700/800) y cuerpo (400/500/600).

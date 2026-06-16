@@ -23,7 +23,7 @@ SetCompressor /SOLID lzma
 ; ----------------------------------------------------------------------------
 !define APP_NAME      "Viralito"
 !define APP_ID        "EstrategiaViralStudio"
-!define APP_VERSION   "0.4.2"
+!define APP_VERSION   "0.4.3"
 !define APP_PUBLISHER "Poncho Robles"
 !define APP_URL       "https://github.com/ponchovillalobos/viralito"
 !define APP_EXE       "desktop.exe"

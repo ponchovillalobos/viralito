@@ -5,4 +5,4 @@
  * create-next-app y leerlo del disco en producción es frágil; al publicar
  * una release nueva basta con subir este número junto con el tag de GitHub.
  */
-export const APP_VERSION = "0.4.2";
+export const APP_VERSION = "0.4.3";
