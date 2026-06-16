@@ -1,4 +1,4 @@
-// requiere vitest (no configurado aún)
+// @vitest-environment jsdom
 //
 // Pruebas del pre-flight gate (T5). NO se corren todavía: el proyecto aún no
 // tiene vitest + jsdom + @testing-library/react configurados para componentes
@@ -124,8 +124,11 @@ describe("SetupGate", () => {
     expect(screen.queryByText("contenido principal")).toBeNull();
   });
 
-  it("(c) con diagnose ok:false por ffmpeg muestra 'reinstalar' y NO llama setup/full", async () => {
-    const f = mockFetch(diagnoseWith({ ffmpeg: { ok: false } }));
+  it("(c) con ffmpeg AUSENTE (present:false) muestra 'reinstalar' y NO llama setup/full", async () => {
+    // FATAL = falta un binario del sistema en disco (present:false). Un ffmpeg que
+    // EXISTE pero falló (ok:false sin present:false) es 'repairable' por diseño
+    // (ver classify(): evita el falso "reinstala" en PCs sanas).
+    const f = mockFetch(diagnoseWith({ ffmpeg: { ok: false, present: false } }));
     vi.stubGlobal("fetch", f);
 
     render(

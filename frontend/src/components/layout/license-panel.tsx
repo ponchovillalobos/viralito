@@ -67,6 +67,8 @@ export function LicensePanel() {
   }, []);
 
   useEffect(() => {
+    // Carga inicial de la licencia (refresh hace setLoading(true) sync): fetch-on-mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 

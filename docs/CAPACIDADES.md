@@ -93,7 +93,11 @@ viral y el wizard muestra un badge 🔥 con el puntaje + razones.
   También clientes opcionales de Freesound/Pixabay (requieren key gratis).
 - **SFX**: banco sintetizado local + repo CC0 de GitHub + matching automático a la
   transcripción (palabra → sonido).
-- **B-roll**: Pexels por transcripción (`autoMatchBroll`), fullscreen o PIP.
+- **B-roll**: Pexels por transcripción (`autoMatchBroll`), fullscreen o PIP. Sólo en
+  `broll_full`/`broll_pip` (los demás estilos nacen con `bRoll: []`). Antes de renderizar, el
+  clip remoto se descarga y normaliza a local (`{DATA_ROOT}/assets/broll`) y se sirve vía
+  `/api/assets/broll/stream` para que Remotion no seekee por HTTP frame-a-frame (render ~6× más
+  rápido). Ver `docs/EFFECTS.md` §9.
 - **Imágenes/overlays**: subida manual + matching a timestamps + modo cinematográfico.
 - **Emojis**: 139 curados (renderizan a color). **Stickers animados (Lottie, 4)**:
   pulse_ring, sparkle, star5, arrow_down. **Iconos**: 30 (lucide).

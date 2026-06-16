@@ -12,7 +12,7 @@
  * clip ya bajado por el wizard no se vuelve a bajar en el editor y viceversa.
  */
 import { createHash } from "node:crypto";
-import { existsSync, statSync, createWriteStream } from "node:fs";
+import { statSync, createWriteStream } from "node:fs";
 import { mkdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -82,13 +82,25 @@ export async function localizeBrollClips<T extends LocalizableClip>(
       const sha = createHash("sha1").update(url).digest("hex").slice(0, 16);
       const target = path.join(BROLL_DIR, `${sha}.mp4`);
       if (!isUsable(target)) {
-        const raw = path.join(BROLL_DIR, `${sha}.src`);
-        await download(url, raw);
-        const ok = await normalize(raw, target);
-        if (ok) {
+        // Temporales ÚNICOS por proceso (pid + random) para evitar TOCTOU: el cache se
+        // comparte con el builder .mjs y con renders paralelos. El `target` final sólo
+        // aparece vía rename atómico de un archivo ya completo → un lector concurrente
+        // lo ve entero o no lo ve (usa la URL remota), nunca a medio escribir.
+        const tag = `${process.pid}.${Math.random().toString(36).slice(2, 10)}`;
+        const raw = path.join(BROLL_DIR, `${sha}.${tag}.src`);
+        const part = path.join(BROLL_DIR, `${sha}.${tag}.part.mp4`);
+        try {
+          await download(url, raw);
+          const ok = await normalize(raw, part);
+          const finalSrc = ok ? part : raw;
+          if (!isUsable(target)) {
+            await rename(finalSrc, target).catch(() => {
+              // otro proceso ya colocó el target: ok si quedó usable.
+            });
+          }
+        } finally {
           await rm(raw, { force: true }).catch(() => {});
-        } else {
-          await rename(raw, target).catch(() => {});
+          await rm(part, { force: true }).catch(() => {});
         }
       }
       if (isUsable(target)) {

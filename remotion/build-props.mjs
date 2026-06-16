@@ -223,8 +223,8 @@ const props = {
     ? project.imageOverlays.map((o) => ({
         id: o.id,
         // URL absoluta porque Remotion render no comparte el contexto del navegador.
-        // En dev el host es http://localhost:3000.
-        url: o.url?.startsWith("http") ? o.url : `http://localhost:3000${o.url}`,
+        // Usa HOST (VIRAL_API_HOST) porque la app instalada corre en 3100+, no 3000.
+        url: o.url?.startsWith("http") ? o.url : `${HOST}${o.url}`,
         startTime: o.startTime ?? 0,
         endTime: o.endTime ?? 3,
         effect: o.effect ?? "memory_flash",

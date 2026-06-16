@@ -384,7 +384,6 @@ export function SettingsDialog({ open, onOpenChange, onSaved }: SettingsDialogPr
       .catch(() => {});
     // Diagnóstico silencioso para el banner H6 (driver NVIDIA viejo → render en CPU).
     void diagnoseSilencioso();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch("/api/settings")
       .then((r) => r.json())

@@ -18,7 +18,7 @@
 
 **Elementos**:
 - Subtítulos Bebas Neue 96px, color blanco, highlight en accent color
-- B-roll de Pexels en **fullscreen** durante su rango
+- **Sin b-roll automático**: silent nace con `bRoll: []` (sólo `broll_full`/`broll_pip` autollenan b-roll de Pexels por transcripción). El `bRollMode: "fullscreen"` es el default heredado, pero si no agregas clips a mano no se muestra nada — el estilo es deliberadamente limpio.
 - 2-3 animaciones suaves: zoom on hook, glow keyword, shake emphasis
 - Sin emphasis cards, sin stickers, sin floating emojis, sin vignette
 - Color rotación opcional para subtítulos multicolor
@@ -48,7 +48,7 @@
 
 **Cuándo usar**: hooks de 3s, cierres con CTA fuerte, videos con 3-5 conceptos clave a memorizar.
 
-**Elementos**: igual que Silent +
+**Elementos**: igual que Silent (tampoco autollena b-roll; nace con `bRoll: []`) +
 - **3-5 emphasis cards fullscreen** que tapan todo durante 0.8-1.4s
 - Cada card: emoji enorme (360px) + palabra gigante (90-220px auto-fit) + accent line creciente + blur de fondo
 - Subtítulos siguen activos pero pausan visualmente durante la card

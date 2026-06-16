@@ -165,6 +165,9 @@ export function QueuePanel() {
   const active = data.active.filter((e) => !dismissed[e.jobId]);
   const pending = data.pending.filter((e) => !dismissed[e.jobId]);
   const finished = (data.finished ?? []).filter(
+    // Mostrar sólo lo terminado en las últimas 24h. Date.now() en el filtro re-evalúa
+    // en cada poll (cada 3s), que es justo lo que queremos; granularidad de día.
+    // eslint-disable-next-line react-hooks/purity
     (e) => !dismissed[e.jobId] && (e.finishedAt ?? 0) > Date.now() - DAY_MS
   );
 

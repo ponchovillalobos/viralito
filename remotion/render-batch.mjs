@@ -41,7 +41,8 @@ const RENDERS_DIR = path.join(DATA_ROOT, "renders");
 // Codec de salida según el perfil de hardware (H3). hw_profile.json lo escribe
 // Python; acá lo leemos para elegir el --codec de Remotion. NOTA: Remotion no
 // expone NVENC/QSV/AMF (su renderer encodea en CPU), así que esto siempre resuelve
-// a "h264"; el encoder de hardware real solo se reporta en el log. Ver remotion/lib/encoder.ts.
+// a "h264"; el encoder de hardware real solo se reporta en el log. El re-encode por
+// hardware (NVENC/QSV/AMF) lo hace después python/postencode.py sobre el .mp4 final.
 import { readFileSync } from "node:fs";
 function pickRemotionCodec() {
   try {

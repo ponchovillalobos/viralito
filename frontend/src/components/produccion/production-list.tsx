@@ -249,7 +249,6 @@ export function ProductionList() {
   // quiere `use(promise)` (React 19); no migramos porque la pantalla tiene polling
   // y manejo de errores que mejor quedan aquí.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     loadSchedule();
     fetch("/api/settings")

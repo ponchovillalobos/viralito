@@ -21,6 +21,9 @@ export function useLocalStorageList(key: string, cap = Infinity) {
       const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
+        // Lectura post-montaje a propósito (SSR-safe, ver arriba): no se puede usar un
+        // initializer de useState sin romper la hidratación de Next.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (Array.isArray(parsed)) setList(parsed.filter((x): x is string => typeof x === "string"));
       }
     } catch {

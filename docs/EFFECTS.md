@@ -72,6 +72,24 @@ cinética (con un preset distinto por estilo para mantener identidad).
 > confiable, por eso el "quitar fondo" compone el resultado en Python (MP4 opaco) en vez de
 > exportar un video transparente. Es más robusto y se ve igual de pro.
 
+### 9. B-roll local (descarga + stream) ⚡
+- `broll_full`/`broll_pip` autollenan clips de **Pexels por transcripción** (`lib/pexels.ts`
+  → `autoMatchBroll`), que llegan como **URLs remotas** (`https://videos.pexels.com/...`).
+- **Problema:** si esas URLs remotas se le pasan directo a Remotion `<OffthreadVideo>`, hace
+  peticiones HTTP **por rango en CADA frame** para seekear → la CPU queda ociosa esperando la
+  red y un video de 1 min puede tardar ~30 min.
+- **Solución (antes de renderizar):** se **descarga** cada clip remoto UNA vez a
+  `{DATA_ROOT}/assets/broll/<sha1(url)>.mp4` y se **re-codifica** con keyframes densos (GOP
+  corto, `-an`) para seek instantáneo. La URL del clip se reescribe a
+  `/api/assets/broll/stream?file=<sha>.mp4`, que sirve el archivo local con soporte **Range/206**.
+  El seek pasa de segundos (red) a milisegundos (disco): render ~6× más rápido.
+- **Dónde:** `remotion/broll-localize.mjs` (wizard/auto-build, vía `build-props.mjs`) y su espejo
+  `frontend/src/lib/broll-localize.ts` (editor manual, vía `videos/render/route.ts`). Comparten el
+  mismo cache por `sha` del URL. Es **best-effort**: si la descarga/ffmpeg falla, se deja la URL
+  remota (lento pero no rompe). Los clips ya locales/relativos se dejan intactos.
+- **Endpoint:** `frontend/src/app/api/assets/broll/stream/route.ts` — Range/206 + CORS abierto
+  (el render headless lee desde otro origen) + guard de path-traversal (`?file` sin `..`/`/`/`\`).
+
 ---
 
 ## SFX coordinados

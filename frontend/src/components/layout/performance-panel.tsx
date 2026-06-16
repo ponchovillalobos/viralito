@@ -106,6 +106,8 @@ export function PerformancePanel() {
   }, []);
 
   useEffect(() => {
+    // Carga inicial del diagnóstico (load hace setLoading(true) sync): fetch-on-mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

@@ -53,6 +53,9 @@ export function MusicPicker({ selected, volume, onSelect, onVolumeChange }: Prop
 
   // Mover el slider mientras un track suena baja/sube el preview en tiempo real.
   useEffect(() => {
+    // Mutar la propiedad del elemento <audio> del DOM es el uso correcto de un effect
+    // (sincronizar con un sistema externo); el React Compiler lo marca por precaución.
+    // eslint-disable-next-line react-hooks/immutability
     if (audio) audio.volume = Math.max(0, Math.min(1, volume ?? 0.35));
   }, [volume, audio]);
 

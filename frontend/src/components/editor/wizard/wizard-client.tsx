@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Sparkles, Send } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
@@ -24,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { StyleMiniDemo } from "@/components/editor/wizard/style-mini-demo";
 import { CinematicStep } from "@/components/editor/wizard/cinematic-step";
-import { HelpHint } from "@/components/ui/help-hint";
 import { Confetti } from "@/components/ui/confetti";
 import {
   Montserrat, Poppins, Oswald, Bangers, Luckiest_Guy, Archivo_Black, Teko, Righteous,
@@ -522,6 +520,8 @@ export function WizardClient() {
   // sola vez por sesión del wizard). Si falla o viene vacío, no se muestra nada.
   useEffect(() => {
     if (step !== 2 || feedFetched) return;
+    // Guard "una sola vez por sesión": marcar fetched antes del fetch evita doble llamada.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFeedFetched(true);
     fetch("/api/presets/feed", { cache: "no-store" })
       .then((r) => r.json())

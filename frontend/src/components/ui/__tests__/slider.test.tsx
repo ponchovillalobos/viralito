@@ -1,4 +1,4 @@
-// requiere vitest (no configurado aún para componentes React)
+// @vitest-environment jsdom
 //
 // Pruebas del <Slider> (H8 — volumen de música regulable). NO se corren todavía:
 // el proyecto aún no tiene jsdom + @testing-library/react cableados para React.

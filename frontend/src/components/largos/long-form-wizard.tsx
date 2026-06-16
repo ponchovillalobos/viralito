@@ -463,6 +463,9 @@ export function LongFormWizard() {
   // (y cada vez que el usuario vuelve a seleccionar ese modo).
   useEffect(() => {
     if (step === 2 && !useHeuristic) {
+      // checkIaLocal hace setState al iniciar (semáforo "consultando"): es la carga
+      // al entrar al paso 2, no un loop de render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       checkIaLocal();
     }
   }, [step, useHeuristic, checkIaLocal]);

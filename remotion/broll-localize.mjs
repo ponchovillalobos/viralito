@@ -97,14 +97,27 @@ export async function localizeBrollClips(clips, { dataRoot, host }) {
       const sha = createHash("sha1").update(url).digest("hex").slice(0, 16);
       const target = path.join(brollDir, `${sha}.mp4`);
       if (!isUsable(target)) {
-        const raw = path.join(brollDir, `${sha}.src`);
-        await download(url, raw);
-        const ok = await normalize(ffmpeg, raw, target);
-        if (ok) {
-          await rm(raw, { force: true }).catch(() => {});
-        } else {
+        // Temporales ÚNICOS por proceso (pid + random) para evitar TOCTOU: largos
+        // renderiza en paralelo con el MISMO brollDir, y el wizard/editor pueden
+        // localizar el mismo url a la vez. El `target` final sólo aparece vía un
+        // rename atómico de un archivo ya 100% escrito, así un lector concurrente
+        // ve el .mp4 completo o no lo ve (y usa la URL remota), nunca a medio escribir.
+        const tag = `${process.pid}.${Math.random().toString(36).slice(2, 10)}`;
+        const raw = path.join(brollDir, `${sha}.${tag}.src`);
+        const part = path.join(brollDir, `${sha}.${tag}.part.mp4`);
+        try {
+          await download(url, raw);
+          const ok = await normalize(ffmpeg, raw, part);
           // ffmpeg no disponible o falló → usar el archivo crudo descargado igual.
-          await rename(raw, target).catch(() => {});
+          const finalSrc = ok ? part : raw;
+          if (!isUsable(target)) {
+            await rename(finalSrc, target).catch(() => {
+              // EEXIST/EPERM en Windows si otro proceso ya colocó el target: ok si quedó usable.
+            });
+          }
+        } finally {
+          await rm(raw, { force: true }).catch(() => {});
+          await rm(part, { force: true }).catch(() => {});
         }
       }
       if (isUsable(target)) {
