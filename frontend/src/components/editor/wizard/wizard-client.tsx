@@ -1676,12 +1676,9 @@ export function WizardClient() {
           </div>
 
           <p className="mb-4 text-sm text-muted-foreground">
-            Más abajo tienes <strong className="text-foreground">todos los estilos</strong> con su
-            vista previa y descripción — toca para elegir{" "}
-            <strong className="text-foreground">uno o varios</strong> (se crea un video por cada uno
-            y los comparas). Las tarjetas de aquí abajo son <strong className="text-foreground">atajos
-            rápidos</strong> por familia (eligen un solo estilo). El color, la letra y la música se
-            ajustan en el paso siguiente y en los submenús de cada estilo.
+            Elegí <strong className="text-foreground">uno o varios estilos</strong> abajo, cada uno
+            con su vista previa y descripción (se crea un video por cada uno y los comparás). El
+            color, la letra y la música se ajustan en el paso siguiente y en los submenús de cada estilo.
           </p>
 
           {/* Estado "Personalizado": multi-selección o un estilo sin familia
@@ -1699,118 +1696,13 @@ export function WizardClient() {
             </div>
           )}
 
-          {/* 5 tarjetas-preset (selección ÚNICA): atajos por familia. El selector
-              COMPLETO (todos los estilos, multi-selección) está abierto más abajo. */}
-          <p className="mb-2 font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-            Atajos rápidos (eligen un estilo) · o usa «Todos los estilos» abajo
-          </p>
-          <div className="space-y-3">
-            {PRESETS.map((p) => {
-              const isActive = activePreset?.id === p.id;
-              const variant = isActive ? selectedStyles[0] : p.variants[0].id;
-              const pick = () => {
-                // Si ya está activa, no pisar la variante elegida con el default.
-                if (!isActive) setSelectedStyles([p.variants[0].id]);
-              };
-              return (
-                <div
-                  key={p.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={pick}
-                  onKeyDown={(e) => {
-                    // Solo cuando el foco está en la TARJETA misma: si viene de un
-                    // chip o submenú interno, no robarle el Enter/Espacio.
-                    if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
-                      e.preventDefault();
-                      pick();
-                    }
-                  }}
-                  className={`relative cursor-pointer rounded-lg border bg-card p-4 transition-all ${
-                    isActive
-                      ? "border-primary ring-1 ring-primary bg-primary/5"
-                      : "border-border hover:border-foreground/30"
-                  }`}
-                >
-                  {p.recommended && (
-                    <span className="absolute -top-2 left-3 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                      Recomendado
-                    </span>
-                  )}
-                  <div className="flex items-start gap-3">
-                    {/* Mini-demo EN MOVIMIENTO de la variante activa de la familia. */}
-                    <StyleMiniDemo styleId={variant} accent={accent} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {p.emoji} {p.name}
-                        </span>
-                        {isActive && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
-                      </div>
-                      <p className="text-xs text-muted-foreground">{p.description}</p>
-                      {p.variants.length > 1 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {p.variants.map((v) => {
-                            const chipActive = isActive && selectedStyles[0] === v.id;
-                            return (
-                              <button
-                                key={v.id}
-                                type="button"
-                                onClick={(e) => {
-                                  // Sin stopPropagation el click subiría a la
-                                  // tarjeta y pisaría la variante con el default.
-                                  e.stopPropagation();
-                                  setSelectedStyles([v.id]);
-                                }}
-                                className={`rounded-full border px-2.5 py-1 text-[11px] transition-all ${
-                                  chipActive
-                                    ? "border-primary bg-primary/15 font-medium text-primary"
-                                    : "border-border bg-muted/30 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                                }`}
-                              >
-                                {v.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* Submenús de la familia: viven DENTRO de su tarjeta activa. */}
-                  {p.id === "viral" && isActive && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-muted-foreground transition hover:text-foreground">
-                        🔥 Ajustar la intensidad de los efectos (opcional)
-                      </summary>
-                      {fxIntensityPanel}
-                    </details>
-                  )}
-                  {p.id === "animado" && isActive && MOTION_STYLES.includes(variant) && motionBackgroundPanel}
-                  {p.id === "revista" && isActive && editorialThemePanel}
-                  {/* 🎵 Música: solo en familias cuya variante activa lleva música
-                      (clips/revista siempre; animado solo en variantes motion_*). */}
-                  {p.id === "animado" && isActive && MOTION_STYLES.includes(variant) && musicPanel}
-                  {p.id === "revista" && isActive && musicPanel}
-                  {p.id === "clips" && isActive && musicPanel}
-                </div>
-              );
-            })}
-          </div>
-          {/* Submenús sueltos: si el estilo vino del MODO AVANZADO y su tarjeta
-              no está activa (multi-selección / Personalizado), el selector se
-              muestra igual — la condición por selectedStyles de siempre. */}
-          {selectedStyles.includes("editorial") && activePreset?.id !== "revista" && editorialThemePanel}
-          {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && activePreset?.id !== "animado" && motionBackgroundPanel}
-          {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && activePreset?.id !== "viral" && fxIntensityPanel}
-          {/* 🎵 Música suelta: hay un estilo con música elegido (modo avanzado /
-              multi-selección) y su tarjeta-familia no lo está mostrando ya. */}
-          {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) &&
-            !(
-              activePreset?.id === "revista" ||
-              activePreset?.id === "clips" ||
-              (activePreset?.id === "animado" && MUSIC_STYLES.includes(selectedStyles[0]))
-            ) &&
-            musicPanel}
+          {/* Submenús de cada estilo elegido: tema editorial / fondo motion /
+              intensidad de FX / música aparecen según los estilos seleccionados abajo. */}
+          {selectedStyles.includes("editorial") && editorialThemePanel}
+          {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
+          {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
+          {/* 🎵 Música: si hay algún estilo con música elegido. */}
+          {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) && musicPanel}
 
           {/* La vista previa REAL también vive acá: elegir estilo viendo cómo queda. */}
           {previewPanel}
