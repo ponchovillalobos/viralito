@@ -16,6 +16,7 @@ from pathlib import Path
 
 from config import CUTS_DIR, FFMPEG_PATH, RAW_DIR
 from hw_profile import ffmpeg_full_args
+from extract_clips import source_is_rotated
 from lib.ffmpeg_safe_run import safe_ffmpeg
 
 
@@ -95,14 +96,20 @@ def _cut_with_concat_demuxer(video_path: Path, segments: list, out_path: Path, o
     work_dir = Path(tempfile.mkdtemp(prefix="hermes_cut_"))
     list_file = work_dir / "list.txt"
     chunk_paths: list[Path] = []
+    # Si el source trae bandera de rotación (vertical de celular), NO usar decode por
+    # GPU: la rotación se saltearía y el clean.mp4 saldría girado. Con decode CPU
+    # ffmpeg la hornea en los píxeles.
+    src_rotated = source_is_rotated(video_path)
 
     try:
         for i, seg in enumerate(segments):
             start, end = float(seg["start"]), float(seg["end"])
             duration = end - start
             chunk_path = work_dir / f"chunk_{i:05d}.mp4"
-            # Trim simple por chunk (sin filtergraph): seguro inyectar decode hwaccel.
-            ff = ffmpeg_full_args(input_path=str(video_path), quality="fast")
+            # Trim simple por chunk. Decode hwaccel solo si el source NO está rotado.
+            ff = ffmpeg_full_args(
+                input_path=(None if src_rotated else str(video_path)), quality="fast"
+            )
             cmd = [
                 str(FFMPEG_PATH),
                 "-y",

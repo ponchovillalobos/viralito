@@ -41,8 +41,15 @@ PYTHON_DIR = Path(__file__).resolve().parent
 VENV_PYTHON = Path(sys.executable)
 
 
-def detect_aspect(video_path: Path) -> tuple[int, int] | None:
-    """Devuelve (width, height) del primer video stream usando ffprobe. None si falla."""
+def _probe_dims_rotation(video_path: Path) -> tuple[int, int, int] | None:
+    """(width, height, rotation) del primer video stream. None si falla.
+
+    OJO: ffprobe reporta los píxeles tal cual están ALMACENADOS. Los videos de
+    celular suelen guardarse APAISADOS (p.ej. 1920x1080) con una BANDERA de
+    rotación (90/270) que el reproductor aplica para mostrarlos verticales. Si
+    solo miramos width/height creemos que un 9:16 vertical es 16:9 → lo
+    reencuadramos y, peor, con decode por GPU ffmpeg no aplica la rotación y el
+    video sale GIRADO. Por eso devolvemos también la rotación (grados, 0/90/180/270)."""
     try:
         from config import FFPROBE_PATH
     except ImportError:
@@ -53,20 +60,69 @@ def detect_aspect(video_path: Path) -> tuple[int, int] | None:
                 str(FFPROBE_PATH),
                 "-v", "error",
                 "-select_streams", "v:0",
-                "-show_entries", "stream=width,height",
-                "-of", "csv=p=0",
+                "-show_entries",
+                "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
+                "-of", "json",
                 str(video_path),
             ],
             capture_output=True,
             text=True,
             check=True,
         )
-        parts = result.stdout.strip().split(",")
-        if len(parts) >= 2:
-            return int(parts[0]), int(parts[1])
+        data = json.loads(result.stdout or "{}")
+        streams = data.get("streams") or []
+        if not streams:
+            return None
+        s = streams[0]
+        w, h = int(s.get("width") or 0), int(s.get("height") or 0)
+        if w <= 0 or h <= 0:
+            return None
+        rot = 0
+        # 1) tag legacy "rotate" (mov/mp4 viejos)
+        tags = s.get("tags") or {}
+        if tags.get("rotate") is not None:
+            try:
+                rot = int(float(tags["rotate"]))
+            except (TypeError, ValueError):
+                rot = 0
+        # 2) displaymatrix side-data (ffmpeg moderno) — pisa al tag si está
+        for sd in s.get("side_data_list") or []:
+            if sd.get("rotation") is not None:
+                try:
+                    rot = int(float(sd["rotation"]))
+                except (TypeError, ValueError):
+                    pass
+                break
+        rot = abs(rot) % 360
+        # snap a 0/90/180/270 (algunos archivos traen -90 → 270, etc.)
+        rot = min((0, 90, 180, 270), key=lambda r: abs(r - rot))
+        return w, h, rot
     except Exception:
         return None
-    return None
+
+
+def detect_aspect(video_path: Path) -> tuple[int, int] | None:
+    """(width, height) de PANTALLA (display) — ya con la rotación aplicada.
+
+    Si el archivo está apaisado pero tiene bandera de rotación 90/270, devolvemos
+    las dimensiones verticales (swap), que es lo que el usuario realmente ve. Así
+    needs_reframe juzga el aspect REAL y no reencuadra un vertical creyéndolo
+    horizontal."""
+    probe = _probe_dims_rotation(video_path)
+    if not probe:
+        return None
+    w, h, rot = probe
+    if rot in (90, 270):
+        return h, w
+    return w, h
+
+
+def source_is_rotated(video_path: Path) -> bool:
+    """True si el source trae bandera de rotación (90/180/270). En ese caso hay que
+    decodificar por CPU (sin -hwaccel) para que ffmpeg HORNEE la rotación en los
+    píxeles; con decode por GPU la rotación se saltea y el video sale girado."""
+    probe = _probe_dims_rotation(video_path)
+    return bool(probe and probe[2] != 0)
 
 
 def needs_reframe(clean_path: Path, target_aspect: str | None) -> bool:
@@ -177,6 +233,11 @@ def extract_clip(
     """
     metadata: dict = {"center_crop": False, "face_detected": False, "face_bbox": None}
 
+    # ¿El source trae bandera de rotación (video vertical de celular)? Si la hay,
+    # decodificamos por CPU para que ffmpeg HORNEE la rotación; con decode por GPU
+    # (qsv/cuda) la rotación se saltea y el clip sale GIRADO.
+    src_rotated = source_is_rotated(clean_path)
+
     if not needs_reframe(clean_path, target_aspect) or face_tracking == "off":
         # Path simple: extract con (o sin) center crop, 1 solo pase de ffmpeg
         will_crop = (
@@ -185,9 +246,10 @@ def extract_clip(
         )
         # CONSERVADOR: solo inyectamos decode hwaccel cuando NO hay -vf crop (el crop
         # corre en CPU y -hwaccel_output_format cuda entregaría frames en VRAM que el
-        # filtro no consume). Con crop → encoder adaptativo solo (input_path=None).
+        # filtro no consume) Y el source NO está rotado (la rotación necesita decode
+        # CPU para hornearse). Con crop o con rotación → encoder adaptativo solo.
         ff = ffmpeg_full_args(
-            input_path=(None if will_crop else str(clean_path)),
+            input_path=(None if (will_crop or src_rotated) else str(clean_path)),
             quality="final",
         )
         cmd = [
@@ -217,8 +279,12 @@ def extract_clip(
     # Path face-aware: 2 pases de ffmpeg + face_tracking entre medio
     # Pase 1: extract temporal sin crop espacial → archivo .tmp.mp4
     tmp_path = out_path.with_suffix(".tmp.mp4")
-    # Pase 1: trim temporal puro (sin -vf) → decode hwaccel seguro.
-    ff1 = ffmpeg_full_args(input_path=str(clean_path), quality="fast")
+    # Pase 1: trim temporal puro (sin -vf). Decode hwaccel SOLO si el source no está
+    # rotado; si lo está, CPU para hornear la rotación (si no, el tmp sale girado y
+    # arruina el face-tracking + el crop del pase 2).
+    ff1 = ffmpeg_full_args(
+        input_path=(None if src_rotated else str(clean_path)), quality="fast"
+    )
     res1 = safe_ffmpeg([
         str(FFMPEG_PATH),
         "-y",
