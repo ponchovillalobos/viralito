@@ -3,6 +3,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { runPythonJson } from "@/lib/run-python";
 import { humanizeError } from "@/lib/humanize-error";
+import { withSerialLock } from "@/lib/serial-lock";
 import { RAW_DIR, TRANSCRIPTS_DIR } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
@@ -27,9 +28,15 @@ export async function POST(req: NextRequest) {
   // SIN timeout total: la primera vez puede descargar el modelo (~1.5 GB) y un
   // video largo en CPU tarda. El idle-timeout de 8 min detecta cuelgues REALES
   // (descarga y transcripción vivas emiten progreso) sin matar trabajo legítimo.
-  const result = await runPythonJson("transcribe.py", [videoPath], {
-    idleTimeoutMs: 8 * 60 * 1000,
-  });
+  //
+  // Candado serial: varias transcripciones a la vez saturan CPU/GPU (y en GPU
+  // agotan la VRAM y se traba). Con el lock, los uploads en paralelo se encolan y
+  // se transcriben uno por uno. No cambia el resultado, solo el orden.
+  const result = await withSerialLock("transcribe", () =>
+    runPythonJson("transcribe.py", [videoPath], {
+      idleTimeoutMs: 8 * 60 * 1000,
+    })
+  );
 
   if (!result.ok) {
     const human = humanizeError(result.stderr, "No se pudo transcribir el video.");
