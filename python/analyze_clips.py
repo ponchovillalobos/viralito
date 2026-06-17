@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 import urllib.request
@@ -304,11 +307,66 @@ def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
     return body.get("response", "").strip()
 
 
+def clip_provider() -> str:
+    """Mejor LLM para ELEGIR clips virales. Prefiere CLI OAuth (modelos frontier — Claude /
+    ChatGPT — gratis con tu suscripción, MUCHO más listos que el Ollama local) sobre Ollama.
+    Elegir bien qué es viral es la tarea más delicada del pipeline, así que va al mejor modelo.
+    Override: VIRAL_CLIP_PROVIDER=claude|codex|ollama. Default: claude > codex > ollama.
+    """
+    override = os.environ.get("VIRAL_CLIP_PROVIDER", "").strip().lower()
+    if override in ("claude", "codex", "ollama"):
+        return override
+    if shutil.which("claude"):
+        return "claude"
+    if shutil.which("codex"):
+        return "codex"
+    return "ollama"
+
+
+def _run_cli_utf8(args: list[str], timeout: int = 300) -> tuple[int, str, str]:
+    """Ejecuta un CLI forzando IO en UTF-8 (Windows mete mojibake cp1252 si no). Patrón
+    espejo del de generate_caption.py. Devuelve (rc, stdout, stderr) decodificados."""
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env.setdefault("LANG", "en_US.UTF-8")
+    proc = subprocess.run(args, capture_output=True, timeout=timeout, env=env)
+    out = proc.stdout.decode("utf-8", errors="replace") if proc.stdout else ""
+    err = proc.stderr.decode("utf-8", errors="replace") if proc.stderr else ""
+    return proc.returncode, out, err
+
+
+def _cli_request(prompt: str, provider: str, timeout: int = 300) -> str:
+    """Llama al CLI OAuth (claude/codex) con el prompt como argv (evita el mojibake de
+    stdin en Windows) y devuelve el texto crudo. El prompt ya pide 'SOLO JSON'."""
+    if provider == "claude":
+        b = shutil.which("claude")
+        if not b:
+            raise RuntimeError("claude CLI no encontrado")
+        args = [b, "--print", "--output-format", "text", prompt]
+    else:  # codex
+        b = shutil.which("codex")
+        if not b:
+            raise RuntimeError("codex CLI no encontrado")
+        args = [b, "exec", "--skip-git-repo-check", prompt]
+    rc, out, err = _run_cli_utf8(args, timeout=timeout)
+    if rc != 0:
+        raise RuntimeError(f"{provider} CLI rc={rc}: {err[-300:]}")
+    return out
+
+
+def _llm_complete(prompt: str, provider: str, model: str, temperature: float = 0.3) -> str:
+    """Texto crudo del LLM elegido: CLI OAuth (claude/codex) u Ollama local."""
+    if provider in ("claude", "codex"):
+        return _cli_request(prompt, provider)
+    return _ollama_request(prompt, model, temperature=temperature)
+
+
 def call_ollama(
     transcript_text: str,
     model: str = OLLAMA_MODEL,
     min_clips: int = 10,
     max_clips: int = 15,
+    provider: str = "ollama",
 ) -> dict[str, Any]:
     """Llama a Ollama con retries y parser tolerante.
 
@@ -335,22 +393,23 @@ def call_ollama(
         ("temp=0.1 prompt corto", f"{system}\n\nTRANSCRIPT:\n{transcript_text}\n\nJSON:", 0.1),
     ]
     for label, prompt, temp in attempts:
-        print(f"[ollama] llamando {model} ({label}, puede tardar ~1-3 min)...", file=sys.stderr)
+        who = provider if provider in ("claude", "codex") else model
+        print(f"[llm:{provider}] llamando {who} ({label}, puede tardar ~10-60s)...", file=sys.stderr)
         t0 = time.time()
         try:
-            response_text = _ollama_request(prompt, model, temperature=temp)
+            response_text = _llm_complete(prompt, provider, model, temperature=temp)
         except Exception as exc:
-            print(f"[ollama] error en request ({label}): {exc}", file=sys.stderr)
+            print(f"[llm:{provider}] error en request ({label}): {exc}", file=sys.stderr)
             continue
         elapsed = time.time() - t0
-        print(f"[ollama] respuesta en {elapsed:.1f}s ({len(response_text)} chars)", file=sys.stderr)
+        print(f"[llm:{provider}] respuesta en {elapsed:.1f}s ({len(response_text)} chars)", file=sys.stderr)
         clips = _try_parse_clips(response_text)
         if clips is not None and len(clips) > 0:
-            print(f"[ollama] parseados {len(clips)} clips OK ({label})", file=sys.stderr)
+            print(f"[llm:{provider}] parseados {len(clips)} clips OK ({label})", file=sys.stderr)
             return {"clips": clips}
-        print(f"[ollama] {label} devolvió 0 clips parseables, reintentando...", file=sys.stderr)
+        print(f"[llm:{provider}] {label} devolvió 0 clips parseables, reintentando...", file=sys.stderr)
     # Si llegamos acá, ningún intento funcionó
-    print("[ollama] todos los reintentos fallaron — caller debería usar fallback heurístico", file=sys.stderr)
+    print(f"[llm:{provider}] todos los reintentos fallaron — caller debería usar fallback heurístico", file=sys.stderr)
     return {"clips": []}
 
 
@@ -488,7 +547,8 @@ def chunk_words(words: list[dict[str, Any]], chunk_sec: int = 720) -> list[list[
     return [c for c in chunks if c]
 
 
-def analyze_chunk(words: list[dict[str, Any]], model: str, target_clips: int = 2) -> list[dict[str, Any]]:
+def analyze_chunk(words: list[dict[str, Any]], model: str, target_clips: int = 2,
+                  provider: str = "ollama") -> list[dict[str, Any]]:
     """Llama Ollama con un chunk de transcript. Pide hasta N clips. Tolerante a JSON roto."""
     text = build_transcript_text(words, window_sec=15)
     # En modo chunked cada fragmento pide hasta `target_clips`; el mínimo es bajo
@@ -502,22 +562,22 @@ def analyze_chunk(words: list[dict[str, Any]], model: str, target_clips: int = 2
         "REGLA CRÍTICA: NUNCA uses comillas dobles dentro de valores string — usá simples o —."
     )
     prompt = f"{system}{extra}\n\nTRANSCRIPT:\n{text}\n\nResponde con el JSON ahora:"
-    print(f"[ollama] chunk con {len(words)} palabras...", file=sys.stderr)
+    print(f"[llm:{provider}] chunk con {len(words)} palabras...", file=sys.stderr)
     t0 = time.time()
-    # 2 intentos por chunk: temp 0.3, después temp 0.1
+    # 2 intentos por chunk: temp 0.3, después temp 0.1 (la temp solo aplica a Ollama)
     for label, temp in [("temp=0.3", 0.3), ("temp=0.1 retry", 0.1)]:
         try:
-            response_text = _ollama_request(prompt, model, temperature=temp)
+            response_text = _llm_complete(prompt, provider, model, temperature=temp)
         except Exception as exc:
-            print(f"[ollama] chunk request error ({label}): {exc}", file=sys.stderr)
+            print(f"[llm:{provider}] chunk request error ({label}): {exc}", file=sys.stderr)
             continue
         clips = _try_parse_clips(response_text)
         if clips:
             elapsed = time.time() - t0
-            print(f"[ollama] chunk ({label}): {len(clips)} clips en {elapsed:.1f}s", file=sys.stderr)
+            print(f"[llm:{provider}] chunk ({label}): {len(clips)} clips en {elapsed:.1f}s", file=sys.stderr)
             return clips
-        print(f"[ollama] chunk ({label}): 0 clips, reintentando...", file=sys.stderr)
-    print(f"[ollama] chunk: todos los retries fallaron", file=sys.stderr)
+        print(f"[llm:{provider}] chunk ({label}): 0 clips, reintentando...", file=sys.stderr)
+    print(f"[llm:{provider}] chunk: todos los retries fallaron", file=sys.stderr)
     return []
 
 
@@ -565,6 +625,11 @@ def main() -> int:
     parser.add_argument("video_id", nargs="?", help="ID del video (sin extensión)")
     parser.add_argument("--transcript", help="Path al transcript JSON")
     parser.add_argument("--model", default=OLLAMA_MODEL, help=f"Modelo Ollama (default: {OLLAMA_MODEL})")
+    parser.add_argument(
+        "--provider", default=None, choices=["claude", "codex", "ollama"],
+        help="LLM que elige los clips. Default: auto (claude > codex > ollama). "
+             "claude/codex usan CLI OAuth (modelos frontier, gratis con suscripción).",
+    )
     parser.add_argument("--max-clips", type=int, default=12)
     parser.add_argument("--chunk-sec", type=int, default=720, help="Tamaño de chunk en seg (default 12 min)")
     parser.add_argument(
@@ -575,6 +640,11 @@ def main() -> int:
     args = parser.parse_args()
 
     ensure_long_form_dirs()
+
+    # Provider del LLM que elige los clips: auto (claude > codex > ollama) salvo override.
+    provider = args.provider or clip_provider()
+    if not args.use_heuristic:
+        print(f"[analyze_clips] modelo para elegir clips: {provider}", file=sys.stderr)
 
     if args.transcript:
         transcript_path = Path(args.transcript)
@@ -609,7 +679,7 @@ def main() -> int:
         # devuelva varios candidatos, no 3.
         target_min = max(4, min(10, args.max_clips - 2))
         text = build_transcript_text(words, window_sec=15)
-        result = call_ollama(text, model=args.model, min_clips=target_min, max_clips=args.max_clips)
+        result = call_ollama(text, model=args.model, min_clips=target_min, max_clips=args.max_clips, provider=provider)
         raw_clips = result.get("clips", []) if isinstance(result, dict) else []
     else:
         chunks = chunk_words(words, chunk_sec=args.chunk_sec)
@@ -620,7 +690,7 @@ def main() -> int:
         for i, chunk in enumerate(chunks):
             print(f"\n[chunk {i + 1}/{len(chunks)}]", file=sys.stderr)
             try:
-                raw_clips.extend(analyze_chunk(chunk, model=args.model, target_clips=per_chunk))
+                raw_clips.extend(analyze_chunk(chunk, model=args.model, target_clips=per_chunk, provider=provider))
             except Exception as e:
                 print(f"[chunk {i + 1}] error: {e}", file=sys.stderr)
 
@@ -673,6 +743,7 @@ def main() -> int:
 
     proposal = {
         "video_id": video_id,
+        "provider": "heuristic" if used_fallback else provider,
         "model": args.model,
         "transcript_duration": duration,
         "fallback_heuristic": used_fallback,
