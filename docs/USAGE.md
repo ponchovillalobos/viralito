@@ -138,7 +138,7 @@ Esto corre automáticamente:
 | 3. Cut silences → CLEAN | 5-25 min (depende de cantidad de silencios) |
 | 4. Re-transcribe del CLEAN | 15-25 min |
 | 5. Ollama analyze (chunked) | 2-10 min |
-| 6. Extract 5-7 clips | 1 min |
+| 6. Extract 10-15 clips | 1-2 min |
 | 7. Render cada clip estilo Supreme | ~4 min × N clips |
 
 **Total: 50-100 min para video de 1h.**
@@ -149,7 +149,7 @@ Después tendrás:
 
 1. **`long_form/clean/<id>_clean.mp4`** — tu video largo con silencios cortados, sin estilos virales. Ideal para YouTube long form.
 
-2. **`long_form/renders/<id>_cNN_<slug>_supreme.mp4`** — 5-7 clips de 30-60s con estilo Supreme listos para TikTok/Reels.
+2. **`long_form/renders/<id>_cNN_<slug>_supreme.mp4`** — **10-15 clips** de 30-60s con estilo Supreme listos para TikTok/Reels. El techo lo ajusta el pipeline según la duración (≈1 clip cada 5 min, mínimo 15, tope 30); Ollama saca solo los que valen.
 
 3. **`long_form/projects/<id>_cNN_<slug>.json`** — proyecto JSON de cada clip con caption viral generado por Ollama, hashtags, día, plataformas, etc.
 
@@ -159,11 +159,13 @@ Después tendrás:
 # Saltarse el render (solo extraer clips para revisarlos)
 .\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal
 
-# Limitar a N clips
-.\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --max-clips 3
+# Ajustar el techo de clips (default: ~1 cada 5 min, mínimo 15, tope 30).
+# Subilo si querés MÁS variantes; bajalo si solo querés los top.
+.\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --max-clips 20
 
-# Usar modelo Ollama más grande (mejor calidad, más lento)
-.\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --model gemma4:26b
+# El modelo se autodetecta según el hardware (qwen3:1.7b / 4b / 8b / 14b). Para forzar:
+.\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --model qwen3:8b
+# Máxima calidad (lento sin GPU): --model gemma4:26b
 
 # Saltar transcribe (si ya tenés el JSON)
 .\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --skip-transcribe --render

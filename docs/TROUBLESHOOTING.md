@@ -282,6 +282,52 @@ Remove-Item -Recurse -Force "C:\viral-data\videos\long_form\renders"
 # Volver a crear las carpetas (ver SETUP.md)
 ```
 
+## Video largo: salen MUY pocos clips (3-4 en vez de 10-15)
+
+El prompt de análisis ahora pide **entre 10 y 15 clips** (techo dinámico ≈1 cada 5 min,
+mínimo 15, tope 30) y recorre todo el video, no solo el arranque. Si aun así salen pocos:
+
+- **Es un video corto** (< 15 min): hay menos material; es normal sacar menos.
+- **El modelo Ollama es demasiado chico.** El modelo se **autodetecta según el hardware**
+  (`hw_profile.py`): qwen3:1.7b (RAM baja) → qwen3:4b (≥16 GB) → **qwen3:8b** (CPU fuerte
+  con ≥24 GB, o GPU) → qwen3:14b (≥16 GB VRAM). En una máquina sin GPU pero con buen CPU
+  y 32 GB, ahora elige **qwen3:8b** solo. Si querés forzar otro:
+  ```powershell
+  # Borrá el análisis viejo para forzar regenerar
+  Remove-Item "C:\hermes-data\videos\long_form\proposals\D13_curso_principal.json"
+  # Balance recomendado en CPU:
+  .\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --model qwen3:8b --skip-transcribe
+  # Máxima calidad (lento sin GPU, ~3-5h en un video de varias horas):
+  .\venv\Scripts\python.exe long_form_pipeline.py D13_curso_principal --render --model gemma4:26b --skip-transcribe
+  ```
+- **Forzá más candidatos**: subí el techo con `--max-clips 20`.
+
+## No suena la música / siempre suena la misma
+
+La música **no se versiona en GitHub** (los `.mp3` están en `.gitignore` — son cientos de
+MB). Viven en `C:\hermes-data\videos\assets\music` (o `C:\viral-data\...` según tu setup).
+
+- **No hay música en ningún render** → la carpeta está vacía. Descargá la biblioteca CC0:
+  ```powershell
+  cd python
+  .\venv\Scripts\python.exe github_music.py            # FreePD / SoundSafari (CC0)
+  .\venv\Scripts\python.exe download_music_library.py  # Incompetech + Chosic
+  .\venv\Scripts\python.exe download_lofi_music.py     # open-lofi (166 tracks)
+  ```
+- **Suena, pero no pega con el tono del video** → era un bug de mapeo: el director
+  emocional emite los moods `hype / tension / inspirador / chill / epico`, pero los
+  archivos se llaman `-energetic-`, `-epic-`, `-calm-`, `-lofi-`… Antes 3 de 5 moods no
+  matcheaban nada y la pista salía al azar. Ya está arreglado con un mapa de alias en
+  `pickRandomMusicTrack` (`frontend/src/lib/style-templates.ts`).
+
+## Subir un video grande falla / se trunca
+
+Los topes de subida se elevaron: **16 GB** shorts, **64 GB** largos (server) y **8 GB** en
+el navegador. Pero subir por HTTP **buffea el archivo entero en RAM**, así que un video
+enorme (HEVC de 2h+, decenas de GB) puede reventar la memoria igual. Para esos usá
+**«Importar por ruta»** en el wizard de largos (o `/api/long_form/import-path`): copia/
+hardlink por filesystem, sin pasar por HTTP ni RAM, **sin límite de tamaño**.
+
 ## Reportar bugs
 
 Si encontrás un error nuevo:

@@ -32,6 +32,33 @@
 
 </details>
 
+## 💻 Requisitos mínimos del equipo
+
+Todo corre **local**, así que la potencia de tu compu define qué tan rápido edita
+y qué modelo de IA usa. **Todo es CPU** salvo que tengas GPU NVIDIA — el sistema
+**detecta tu hardware solo** y elige el mejor modelo que tu equipo aguante.
+
+| | Mínimo (funciona) | Recomendado | Óptimo (sin GPU) |
+|---|---|---|---|
+| **SO** | Windows 10/11 x64 | Windows 10/11 x64 | Windows 11 x64 |
+| **CPU** | 4 núcleos | 8 núcleos | i7/i9 o Ryzen 7/9, 8+ núcleos |
+| **RAM** | 8 GB | 16 GB | 32 GB |
+| **Disco libre** | ~15 GB (SSD ideal) | ~20 GB SSD | ~25 GB SSD |
+| **GPU** | no hace falta | no hace falta | opcional |
+| **Modelo de IA que usa** | `qwen3:1.7b` | `qwen3:4b` | `qwen3:8b` |
+| **Análisis de 1 h de video** | lento | medio | ~aceptable |
+
+- **Con GPU NVIDIA (≥ 6 GB VRAM)**: la transcripción y el análisis vuelan, y habilita
+  modelos más grandes (`qwen3:8b`/`14b`) a buena velocidad. Es lo que más acelera todo.
+- **GPU integrada Intel (Iris Xe)**: acelera el *armado del video* (encode QSV), pero
+  **no** la IA — esa sigue en CPU.
+- **El disco** se va en: modelo de voz (~1.5 GB) + modelo de IA (1.4–5 GB) + biblioteca
+  de música/efectos/iconos/animaciones (~3–4 GB) + ffmpeg/Chromium (~0.3 GB).
+  La primera vez se descarga todo solo; después se reutiliza.
+
+> 💡 ¿RAM justa (8 GB)? Funciona, pero cerrá Chrome y apps pesadas mientras renderiza.
+> El cuello de botella casi siempre es la RAM y tener (o no) GPU NVIDIA.
+
 > Subes un video hablado → la IA lo transcribe, lo corta, le pone subtítulos
 > karaoke, efectos, música, gráficas animadas e ilustraciones según lo que dices,
 > y te genera la descripción perfecta para cada red. Lo que Opus Clip y Submagic
@@ -187,7 +214,8 @@ Los fondos animados están inspirados en [remotion-scenes](https://github.com/li
 
 ### Correr desde código
 
-Requisitos: Windows 10/11 x64, Node 18+, Python 3.11, ~10 GB libres.
+Requisitos: Windows 10/11 x64, Node 18+, Python 3.11, **Ollama**, ~20 GB libres
+(ver [Requisitos mínimos](#-requisitos-mínimos-del-equipo) arriba).
 
 ```bash
 git clone https://github.com/ponchovillalobos/viralito
@@ -204,12 +232,22 @@ cd frontend && npm install && cd ../remotion && npm install && cd ..
 # 3. ffmpeg: bajá el build "essentials" de gyan.dev y descomprimilo en
 #    C:\viral-data\tools\  (o seteá VIRAL_FFMPEG_EXE)
 
-# 4. Arrancar
+# 4. Ollama (motor de IA local): instalá desde https://ollama.com/download/windows
+#    No hace falta bajar el modelo a mano: el sistema elige y descarga el que
+#    tu hardware aguante (qwen3:1.7b / 4b / 8b) la primera vez.
+
+# 5. Arrancar
 cd frontend && npm run dev    # → http://localhost:3000
 ```
 
-Los modelos de transcripción (~2 GB) se descargan solos la primera vez.
-Guía completa: [`docs/USAGE.md`](./docs/USAGE.md) · Efectos: [`docs/EFFECTS.md`](./docs/EFFECTS.md)
+**Importante — descargá TODO de una vez:** abrí la app → **«Mi sistema» → «Configurar
+todo»**. Eso baja en una sola pasada el modelo de voz, el modelo de IA, y TODAS las
+bibliotecas (música, efectos, **iconos** Phosphor/Tabler/Material/Lucide, animaciones
+Lottie, ilustraciones, overlays). Re-valida lo que ya está, así que es seguro re-correrlo
+si una descarga quedó a medias.
+
+Guía completa: [`docs/USAGE.md`](./docs/USAGE.md) · Prerequisitos detallados:
+[`PREREQUISITES.md`](./PREREQUISITES.md) · Efectos: [`docs/EFFECTS.md`](./docs/EFFECTS.md)
 
 ### Construir la app de escritorio
 

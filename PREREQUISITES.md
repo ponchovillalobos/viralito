@@ -49,33 +49,35 @@ Lista exhaustiva de TODO lo que necesita el proyecto para funcionar. Si copiás 
 
 ## Modelos de Ollama (descargar después de instalar Ollama)
 
-El sistema usa Ollama para identificar clips virales en videos largos. Necesitás al menos UNO de estos modelos:
+El sistema usa Ollama para identificar clips virales en videos largos. **No tenés que
+elegir el modelo a mano**: al arrancar, `hw_profile.py` detecta tu hardware y elige el
+mejor que tu equipo aguante. El instalador/«Configurar todo» lo descarga solo.
 
-### Modelo recomendado: `qwen3:1.7b` (default del proyecto)
+### Auto-selección por hardware (lo que hace el sistema)
 
-- **Tamaño**: 1.3 GB
-- **Velocidad**: rápido en CPU (~30s por chunk de 12 min)
-- **Calidad**: buena para identificar clips, JSON estructurado
-- **Comando**:
-  ```powershell
-  ollama pull qwen3:1.7b
-  ```
+| Tu equipo | Modelo elegido | Tamaño |
+|---|---|---|
+| RAM < 16 GB, o CPU/PC modesta | `qwen3:1.7b` | 1.4 GB |
+| RAM ≥ 16 GB (CPU) | `qwen3:4b` | 2.5 GB |
+| CPU fuerte (≥ 8 núcleos) + RAM ≥ 24 GB, **o** GPU con ≥ 5 GB VRAM | `qwen3:8b` | 5.2 GB |
+| GPU con ≥ 16 GB VRAM | `qwen3:14b` | ~9 GB |
 
-### Modelo alternativo (mejor calidad, más lento): `gemma4:26b`
+`qwen3:1.7b` queda siempre como red de seguridad (es el fallback si la detección falla).
 
-- **Tamaño**: 16.8 GB
-- **Velocidad**: lento en CPU (~5-15 min por chunk en máquina sin GPU)
-- **Calidad**: superior, mejor caption viral, mejor identificación de hooks
-- **Cuándo usar**: si el video es muy importante y tenés tiempo
-- **Comando**:
-  ```powershell
-  ollama pull gemma4:26b
-  ```
+### Forzar un modelo (opcional)
 
-Para forzar un modelo distinto en el pipeline:
 ```powershell
-python long_form_pipeline.py D13_curso --render --model gemma4:26b
+# Override puntual en el pipeline:
+python long_form_pipeline.py D13_curso --render --model qwen3:8b
+# O fijar uno para todo con la variable de entorno VIRAL_OLLAMA_MODEL.
 ```
+
+### Modelo de máxima calidad (opcional, NO viene por default): `gemma4:26b`
+
+- **Tamaño**: ~17 GB. **Velocidad**: lento en CPU (~5-15 min por chunk sin GPU).
+- **Calidad**: superior, pero en una máquina **sin GPU** un video largo puede tardar
+  horas. Por eso no se instala por default — usalo solo si tenés GPU o mucho tiempo.
+- **Comando**: `ollama pull gemma4:26b` y luego `--model gemma4:26b`.
 
 ### Otros modelos opcionales (no usados por default)
 
@@ -308,9 +310,9 @@ Si decidís usar Anthropic / OpenAI en vez de Ollama (mejor calidad pero pago): 
 | Repo `Estrategia_Viral_Poncho/` (con node_modules) | ~2 GB |
 | `python/venv/` | ~3 GB |
 | Modelos WhisperX en `~/.cache/` | ~1.5 GB |
-| Modelo Ollama qwen3:1.7b | 1.3 GB |
-| Modelo Ollama gemma4:26b (opcional) | 16.8 GB |
+| Modelo Ollama (auto: `qwen3:1.7b`/`4b`/`8b`) | 1.4–5.2 GB |
+| Bibliotecas de assets (música, sfx, iconos, lottie, ilustraciones) | ~3–4 GB |
 | FFmpeg portable | 90 MB |
-| Pack SFX clonado | 50 MB |
-| **Subtotal sistema** | **~8 GB** (con qwen3 solo) o **~25 GB** (con gemma4) |
+| `gemma4:26b` (opcional, NO por default) | ~17 GB |
+| **Subtotal sistema** | **~12–15 GB** (auto) · **+17 GB** si agregás gemma4 |
 | Videos procesados | ~100 MB por short, ~3 GB por video largo |
