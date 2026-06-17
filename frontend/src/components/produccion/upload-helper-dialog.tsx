@@ -130,34 +130,34 @@ export function UploadHelperDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Music2 className="h-4 w-4 text-pink-400" />
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Music2 className="h-5 w-5 text-pink-400" />
             Subir a TikTok{tiktokHandle ? ` como ${tiktokHandle}` : ""}
           </DialogTitle>
-          <DialogDescription className="font-mono-tab text-[11px]">
-            {projectId}
+          <DialogDescription className="text-sm">
+            Seguí los 2 pasos. Es rápido: abrís la carpeta, arrastrás el video y pegás el texto.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          {/* ── Step 1: abrir explorer y TikTok ───── */}
+        <div className="space-y-4">
+          {/* ── Paso 1: abrir carpeta y TikTok ───── */}
           <div
-            className={`rounded-lg border p-3 ${
+            className={`rounded-xl border p-4 ${
               step1Done
                 ? "border-emerald-500/40 bg-emerald-500/5"
                 : "border-border bg-muted/30"
             }`}
           >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-                {step1Done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground text-[9px]">
-                    1
-                  </span>
-                )}
-                Paso 1 — Abrir Explorer + TikTok
+            <div className="mb-3 flex items-center gap-2.5">
+              {step1Done ? (
+                <CheckCircle2 className="h-7 w-7 shrink-0 text-emerald-400" />
+              ) : (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-violet text-sm font-bold text-white">
+                  1
+                </span>
+              )}
+              <span className="text-base font-semibold text-foreground">
+                Abrí la carpeta y TikTok
               </span>
             </div>
 
@@ -166,62 +166,64 @@ export function UploadHelperDialog({
                 onClick={startUpload}
                 disabled={busy !== null}
                 variant={step1Done ? "outline" : "default"}
-                className="flex-col h-auto py-2"
+                className="flex-col h-auto py-3"
               >
                 {busy === "start" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  <FolderOpen className="h-4 w-4" />
+                  <FolderOpen className="h-6 w-6" />
                 )}
-                <span className="mt-1 text-[10px]">
-                  {step1Done ? "Reabrir Explorer" : "Abrir Explorer"}
+                <span className="mt-1.5 text-sm font-medium">
+                  {step1Done ? "Reabrir carpeta" : "Abrir carpeta"}
                 </span>
               </Button>
               <Button
                 onClick={openTikTok}
                 disabled={busy !== null}
                 variant="default"
-                className="flex-col h-auto py-2 bg-pink-500 hover:bg-pink-400 text-white"
+                className="flex-col h-auto py-3 bg-pink-500 hover:bg-pink-400 text-white"
               >
                 {busy === "openTiktok" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  <Music2 className="h-4 w-4" />
+                  <Music2 className="h-6 w-6" />
                 )}
-                <span className="mt-1 text-[10px]">Abrir TikTok</span>
+                <span className="mt-1.5 text-sm font-medium">Abrir TikTok</span>
               </Button>
             </div>
 
             {step1Done && renderPath && (
-              <div className="mt-3 space-y-2 rounded-md border border-border bg-card p-2">
-                <div className="flex items-center gap-1.5 font-mono-tab text-[10px] text-muted-foreground">
-                  <Hand className="h-3 w-3 text-amber-400" />
-                  ARRASTRÁ el video desde el Explorer (que se abrió) al área de
-                  subida de TikTok.
+              <div className="mt-3 space-y-2 rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start gap-2 text-sm text-foreground">
+                  <Hand className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                  <span>
+                    <strong>Arrastrá</strong> el video desde la carpeta que se abrió
+                    hasta el área de subida de TikTok.
+                  </span>
                 </div>
-                <div className="rounded bg-muted/30 px-2 py-1.5 font-mono-tab text-[10px] text-foreground/80 break-all">
+                <div className="rounded bg-muted/40 px-2.5 py-2 font-mono-tab text-xs text-foreground/80 break-all">
                   {renderPath}
                 </div>
                 <button
                   type="button"
                   onClick={copyPath}
                   disabled={busy !== null}
-                  className="flex w-full items-center justify-center gap-1 rounded border border-border px-2 py-1 font-mono-tab text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   {busy === "copyPath" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-4 w-4" />
                   )}
-                  copiar ruta (fallback si no puedes arrastrar)
+                  Copiar ruta (por si no podés arrastrar)
                 </button>
               </div>
             )}
           </div>
 
-          {/* ── Step 2: copiar caption ───── */}
+          {/* ── Paso 2: copiar caption ───── */}
           <div
-            className={`rounded-lg border p-3 ${
+            className={`rounded-xl border p-4 ${
               step2Done
                 ? "border-emerald-500/40 bg-emerald-500/5"
                 : step1Done
@@ -229,16 +231,16 @@ export function UploadHelperDialog({
                   : "border-border bg-muted/10 opacity-60"
             }`}
           >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-                {step2Done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-muted-foreground text-[9px]">
-                    2
-                  </span>
-                )}
-                Paso 2 — Pegar la descripción
+            <div className="mb-3 flex items-center gap-2.5">
+              {step2Done ? (
+                <CheckCircle2 className="h-7 w-7 shrink-0 text-emerald-400" />
+              ) : (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-violet text-sm font-bold text-white">
+                  2
+                </span>
+              )}
+              <span className="text-base font-semibold text-foreground">
+                Pegá la descripción
               </span>
             </div>
 
@@ -246,66 +248,62 @@ export function UploadHelperDialog({
               onClick={copyCaption}
               disabled={busy !== null || !step1Done || !caption}
               variant={step2Done ? "outline" : "default"}
-              className="w-full"
+              className="w-full py-3 text-sm font-medium"
             >
               {busy === "copyCaption" ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
-                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                <Copy className="mr-2 h-5 w-5" />
               )}
               {step2Done ? "Volver a copiar descripción" : "Copiar descripción viral"}
             </Button>
 
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Cuando termine de cargar el video en TikTok, da clic en este botón y pega
-              (<strong>Ctrl+V</strong>) en el campo de descripción.
+            <p className="mt-2.5 text-sm text-muted-foreground">
+              Cuando el video termine de cargar en TikTok, tocá este botón y pegá con
+              <strong> Ctrl+V</strong> en el campo de descripción.
             </p>
             {!caption && (
-              <p className="mt-1 text-[10px] text-amber-400">
-                Este proyecto no tiene descripción — genérala con ✨ en la tarjeta.
+              <p className="mt-1.5 text-sm text-amber-400">
+                Este video todavía no tiene descripción — generala con ✨ en la tarjeta.
               </p>
             )}
           </div>
 
-          {/* ── Instrucciones rápidas siempre visibles ─── */}
-          <div className="rounded-md border border-foreground/10 bg-muted/20 p-3 text-[11px] text-foreground/80">
-            <p className="mb-1 font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-              Cómo arrastrar en 5 segundos
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-tab text-foreground/70">1</span>
-              <FolderOpen className="h-3.5 w-3.5 text-brand-violet" />
-              <span>Explorer abre y el video queda &quot;seleccionado&quot; (resaltado)</span>
+          {/* ── Mini-guía siempre visible ─── */}
+          <div className="space-y-2 rounded-lg border border-foreground/10 bg-muted/20 p-4 text-sm text-foreground/90">
+            <p className="font-semibold text-foreground">Cómo arrastrar, en 3 toques</p>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">1</span>
+              <FolderOpen className="h-5 w-5 shrink-0 text-brand-violet" />
+              <span>Se abre la carpeta y el video queda resaltado (seleccionado).</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-tab text-foreground/70">2</span>
-              <Hand className="h-3.5 w-3.5 text-amber-400" />
-              <span>
-                Clic sostenido sobre el video → arrástralo hacia la pestaña de TikTok
-              </span>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">2</span>
+              <Hand className="h-5 w-5 shrink-0 text-amber-400" />
+              <span>Mantené el clic sobre el video y arrastralo a la pestaña de TikTok.</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-tab text-foreground/70">3</span>
-              <ArrowRight className="h-3.5 w-3.5 text-pink-400" />
-              <span>Suelta el archivo en el área grande de TikTok que dice &quot;Select video&quot;</span>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">3</span>
+              <ArrowRight className="h-5 w-5 shrink-0 text-pink-400" />
+              <span>Soltalo en el recuadro grande de TikTok que dice «Select video».</span>
             </div>
           </div>
 
           {step1Done && step2Done && (
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px] text-emerald-200">
-              ✓ Listo para publicar. Revisa la vista previa en TikTok y dale a
-              &quot;Post&quot; cuando estés conforme.
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm text-emerald-200">
+              ✓ Listo para publicar. Revisá la vista previa en TikTok y tocá «Post»
+              cuando estés conforme.
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 pt-1 text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
             <a
               href="https://www.tiktok.com/upload"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-pink-400"
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-3.5 w-3.5" />
               tiktok.com/upload
             </a>
             <a
@@ -315,7 +313,7 @@ export function UploadHelperDialog({
               className="flex items-center gap-1 hover:text-pink-400"
               title="Versión nueva de Studio (a veces funciona mejor que /upload)"
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-3.5 w-3.5" />
               tiktokstudio/upload
             </a>
           </div>

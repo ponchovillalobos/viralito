@@ -498,8 +498,8 @@ export function ProductionList() {
                 {/* CAPTION VIRAL - destacado */}
                 <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-                      descripción para publicar
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Descripción para publicar
                     </span>
                     <div className="flex items-center gap-1">
                       <div className="group/regen relative">
@@ -571,8 +571,8 @@ export function ProductionList() {
                       Es el flujo manual: copias y pegas en la app de la red. */}
                   {p.caption && (
                     <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1.5">
-                      <span className="font-mono-tab text-[9px] uppercase tracking-wider text-muted-foreground">
-                        copiar para:
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        Copiar texto para:
                       </span>
                       {(["tiktok", "instagram", "linkedin"] as const).map((net) => (
                         <button
@@ -580,7 +580,7 @@ export function ProductionList() {
                           type="button"
                           onClick={() => copyCaptionForNetwork(p, net)}
                           title={`Copiar el texto adaptado a ${net === "tiktok" ? "TikTok" : net === "instagram" ? "Instagram" : "LinkedIn"} (con sus hashtags)`}
-                          className="rounded border border-border bg-card px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-muted-foreground transition hover:border-brand-pink/50 hover:text-brand-pink"
+                          className="rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground/80 transition hover:border-brand-pink/50 hover:text-brand-pink"
                         >
                           {copiedNetwork === `${p.id}:${net}` ? "✓ copiado" : net === "tiktok" ? "TikTok" : net === "instagram" ? "Instagram" : "LinkedIn"}
                         </button>
@@ -596,7 +596,7 @@ export function ProductionList() {
                       href={`/api/videos/${encodeURIComponent(p.id)}/stream?source=render&download=1`}
                       download
                       title="Descargar el MP4 a tu compu"
-                      className="flex items-center gap-1 rounded border border-brand-pink/30 bg-brand-pink/5 px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-brand-pink hover:bg-brand-pink/15"
+                      className="flex items-center gap-1.5 rounded-md border border-brand-pink/30 bg-brand-pink/5 px-2.5 py-1 text-xs font-medium text-brand-pink hover:bg-brand-pink/15"
                     >
                       💾 Guardar video
                     </a>
@@ -604,7 +604,7 @@ export function ProductionList() {
                       type="button"
                       onClick={() => revealRender(p)}
                       title="Abrir la carpeta donde está el archivo del video"
-                      className="flex items-center gap-1 rounded border border-border bg-card px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-muted-foreground hover:border-brand-pink/50 hover:text-brand-pink"
+                      className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground/90 hover:border-brand-pink/50 hover:text-brand-pink"
                     >
                       📂 Abrir carpeta
                     </button>
@@ -612,7 +612,7 @@ export function ProductionList() {
                       type="button"
                       onClick={() => copyPackageAndReveal(p)}
                       title="Copiar la descripción Y abrir la carpeta del archivo: arrastra el video a tu red y pega el texto"
-                      className="flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/5 px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-sky-300 hover:bg-sky-500/15"
+                      className="flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/5 px-2.5 py-1 text-xs font-medium text-sky-300 hover:bg-sky-500/15"
                     >
                       📦 Copiar y abrir
                     </button>
@@ -663,8 +663,8 @@ export function ProductionList() {
                       texto por red + abriendo el archivo — sin OAuth ni apps aprobadas. */}
                   {PUBLISHING_ENABLED && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono-tab text-[9px] uppercase tracking-wider text-muted-foreground">
-                      subir ahora:
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      Subir ahora a:
                     </span>
                     <button
                       type="button"
@@ -679,12 +679,12 @@ export function ProductionList() {
                             ? `Publicar AHORA en Instagram${instagramHandle ? ` (${instagramHandle})` : ""}`
                             : `Publicar en Instagram con un paso extra (te copia el video y abre IG)${instagramHandle ? ` — ${instagramHandle}` : ""}. Conecta IG en Configuración para publicar directo.`
                       }
-                      className="flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/5 px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-amber-300 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {publishingToInstagram === p.id ? (
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Camera className="h-2.5 w-2.5" />
+                        <Camera className="h-3.5 w-3.5" />
                       )}
                       Instagram
                       <ScheduleStatusBadge state={scheduledByProjectId[p.id]?.instagram_bridge} />
@@ -700,12 +700,12 @@ export function ProductionList() {
                             ? "Conecta LinkedIn en Configuración primero"
                             : `Publicar AHORA en LinkedIn${linkedinHandle ? ` (${linkedinHandle})` : ""}`
                       }
-                      className="flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/5 px-1.5 py-0.5 font-mono-tab text-[9px] uppercase tracking-wider text-sky-300 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/5 px-2.5 py-1 text-xs font-medium text-sky-300 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {publishingToLinkedin === p.id ? (
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <ExternalLink className="h-2.5 w-2.5" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       )}
                       LinkedIn
                       <ScheduleStatusBadge state={scheduledByProjectId[p.id]?.linkedin} />
