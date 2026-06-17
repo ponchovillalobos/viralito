@@ -2,6 +2,29 @@
 
 Guía completa para reproducir el proyecto de cero en otra computadora. Todos los pasos están probados en Windows 11 Home + PowerShell.
 
+> 📚 Volvé al **[índice de documentación](./README.md)** cuando quieras · Requisitos
+> y descargas detalladas en **[PREREQUISITES.md](../PREREQUISITES.md)**.
+
+## ⚡ Ruta rápida (resumen)
+
+El camino completo, de un vistazo. Cada paso está explicado en detalle más abajo.
+
+1. **Instalá** Node 24, Python 3.11, Git y Ollama → ver [Prerequisitos](#prerequisitos).
+2. **Cloná** el repo y entrá: `git clone <url> && cd Estrategia_Viral_Poncho`.
+3. **Dependencias:** `npm install` en `frontend/` y en `remotion/`; venv + `requirements.txt` en `python/`.
+4. **ffmpeg:** bajá el portable a tu carpeta de tools (paso [FFmpeg](#descargar-ffmpeg-portable)).
+5. **Arrancá:** `cd frontend && npm run dev` → http://localhost:3000.
+6. **Descargá TODO el contenido de una vez:** en la app, **Mi sistema → «Configurar todo»**
+   (modelo de voz + modelo de IA + música, efectos, iconos, animaciones, ilustraciones).
+   Re-valida lo que ya esté, así que es seguro re-correrlo si algo quedó a medias.
+7. **Verificá** que todo responde → ver [Verificar que todo funciona](#verificar-que-todo-funciona).
+8. **Empezá** a editar → [USAGE.md](./USAGE.md).
+
+> **Carpeta de datos:** todo lo pesado (videos, modelos, assets) vive FUERA del repo, por
+> defecto en **`C:\viral-data\videos`** — el sistema la **detecta y crea sola**. Para usar
+> otra ubicación seteá `VIRAL_DATA_ROOT`. (Instalaciones viejas pueden llamarla
+> `C:\hermes-data`; es el mismo rol, otro nombre.)
+
 ## Prerequisitos
 
 Necesitas instalar 4 cosas ANTES de clonar el repo:
@@ -147,7 +170,14 @@ python -m venv venv
 
 Total: ~2.5 GB. Tarda 5-10 min.
 
-## Descargar pack de SFX (sonidos virales)
+## Descargar assets (música, SFX, iconos, animaciones)
+
+> ✅ **La forma fácil:** abrí la app y tocá **Mi sistema → «Configurar todo»**. Eso baja
+> automáticamente TODAS las bibliotecas (música, efectos, iconos, animaciones,
+> ilustraciones) y los modelos. **Con eso ya está** — los pasos manuales de abajo son solo
+> un fallback por si querés bajar algo puntual a mano.
+
+### (Manual / fallback) Pack de SFX curado
 
 ```powershell
 cd "C:\viral-data\videos\assets\sfx\source"
@@ -266,4 +296,13 @@ Si los 4 responden, todo está listo. Procedé al [USAGE.md](./USAGE.md).
 - Pack SFX: ~50 MB
 - Modelos Ollama: ~1.3 GB (qwen3:1.7b) o ~17 GB (gemma4:26b)
 
-**Total: ~8 GB** sin contar los videos que generes (~100 MB por short, ~3 GB por video largo limpio).
+**Total: ~12-15 GB** sin contar los videos que generes (~100 MB por short, ~3 GB por video largo limpio).
+
+---
+
+### Ver también
+
+- **[USAGE.md](./USAGE.md)** — ya instalado, cómo hacés tu primer video.
+- **[PREREQUISITES.md](../PREREQUISITES.md)** — requisitos mínimos y lista detallada de descargas.
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** — si algo no arranca o falla.
+- **[Índice de documentación](./README.md)** — todo lo demás.

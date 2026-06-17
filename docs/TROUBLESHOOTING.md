@@ -1,5 +1,7 @@
 # Troubleshooting
 
+> 📚 [Índice de documentación](./README.md) · [Setup](./SETUP.md) · [Uso](./USAGE.md)
+
 Errores comunes y cómo solucionarlos. Si encuentras uno nuevo, agregalo acá.
 
 ## El dashboard no arranca

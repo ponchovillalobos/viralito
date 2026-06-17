@@ -1,5 +1,7 @@
 # Prerequisites — Manifest completo
 
+> 📚 [Índice de documentación](./docs/README.md) · Guía paso a paso para PC nueva → [SETUP.md](./docs/SETUP.md)
+
 Lista exhaustiva de TODO lo que necesita el proyecto para funcionar. Si copiás el proyecto a otra máquina, asegurate de tener cada uno de estos items antes de arrancar.
 
 > **🔌 100% portable**: el proyecto NO tiene paths hardcodeados al usuario "Poncho Robles" ni a versión específica de FFmpeg. Todos los paths se derivan automáticamente:

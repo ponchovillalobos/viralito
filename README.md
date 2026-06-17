@@ -246,8 +246,10 @@ bibliotecas (música, efectos, **iconos** Phosphor/Tabler/Material/Lucide, anima
 Lottie, ilustraciones, overlays). Re-valida lo que ya está, así que es seguro re-correrlo
 si una descarga quedó a medias.
 
-Guía completa: [`docs/USAGE.md`](./docs/USAGE.md) · Prerequisitos detallados:
-[`PREREQUISITES.md`](./PREREQUISITES.md) · Efectos: [`docs/EFFECTS.md`](./docs/EFFECTS.md)
+📚 **Toda la documentación, ordenada y conectada → [`docs/README.md`](./docs/README.md)**
+(setup en PC nueva, uso, técnica, lanzamiento e historial). Atajos:
+[Setup de cero](./docs/SETUP.md) · [Prerequisitos](./PREREQUISITES.md) ·
+[Uso](./docs/USAGE.md) · [Estilos](./docs/STYLES.md) · [Problemas comunes](./docs/TROUBLESHOOTING.md)
 
 ### Construir la app de escritorio
 

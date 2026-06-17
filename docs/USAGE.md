@@ -1,5 +1,7 @@
 # Tutorial de uso
 
+> 📚 [Índice de documentación](./README.md) · ¿Sin instalar todavía? → [SETUP.md](./SETUP.md)
+
 Cómo usar el sistema completo paso a paso. Asume que ya hiciste el [SETUP.md](./SETUP.md).
 
 ## Arrancar el dashboard
