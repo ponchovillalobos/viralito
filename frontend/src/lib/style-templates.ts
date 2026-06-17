@@ -721,12 +721,28 @@ export function pickRandomMusicTrack(seed: string, mood?: string): string | null
       }
     }
     if (files.length === 0) return null; // ← sin música, render OK
-    // Filtro por mood: la biblioteca nueva codifica el mood en el filename
-    // (incompetech-epic-..., chosic-calm-...). Sin matches → pool completo.
+    // Filtro por mood: la biblioteca codifica el mood en el filename
+    // (incompetech-epic-..., openlofi-lofi-chill-..., freepd-energetic-..., chosic-calm-...).
+    //
+    // BUG histórico: emotion_director.py emite los moods hype/tension/inspirador/chill/epico,
+    // pero NINGÚN archivo se llama "-hype-", "-inspirador-" ni "-epico-" → el filtro daba 0
+    // matches y caía al pool completo (música random, no acorde al video). El alias mapea
+    // cada mood de la IA a los tokens que SÍ existen en los nombres de archivo.
+    const MOOD_ALIASES: Record<string, string[]> = {
+      hype: ["hype", "energetic", "energizing", "driving", "funky", "funkeriffic", "groovin", "beat", "drop", "city", "circuit", "action"],
+      tension: ["tension", "dark", "dramatic", "suspense", "cold", "honor"],
+      inspirador: ["inspirador", "inspiration", "hopeful", "uplifting", "elevate", "heroic", "horizon", "journey", "adventure", "magic", "lovely"],
+      chill: ["chill", "calm", "lofi", "ambient", "kalimba", "flutey", "maple", "coy", "bonfire"],
+      epico: ["epico", "epic", "heroic", "honor", "kings", "apex", "infinite", "chronos", "final", "limit"],
+    };
     let pool = files;
     if (mood) {
-      const token = `-${mood.toLowerCase()}-`;
-      const filtered = files.filter((f) => f.toLowerCase().includes(token));
+      const key = mood.toLowerCase();
+      const tokens = MOOD_ALIASES[key] ?? [key];
+      const filtered = files.filter((f) => {
+        const lf = f.toLowerCase();
+        return tokens.some((t) => lf.includes(`-${t}-`) || lf.includes(`-${t}.`));
+      });
       if (filtered.length > 0) pool = filtered;
     }
     pool = [...pool].sort(); // orden estable, independiente del orden de readdir

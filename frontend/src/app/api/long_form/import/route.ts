@@ -14,7 +14,11 @@ import { saveUploadedVideo, UploadError } from "@/lib/save-upload";
 export const dynamic = "force-dynamic";
 export const maxDuration = 600; // 10 min para videos largos (pueden ser grandes)
 
-const MAX_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB — un curso/charla largo pesa más que un short
+// Sin límite práctico para cursos/charlas largas (un curso de 1-2h en alta calidad pesa
+// decenas de GB). El único tope real lo pone la RAM: la subida por HTTP bufferea el
+// archivo en memoria, así que para videos enormes conviene «importar por ruta»
+// (/api/long_form/import-path, hardlink/copia, sin pasar por HTTP ni RAM).
+const MAX_BYTES = 64 * 1024 * 1024 * 1024; // 64 GB
 
 export async function POST(req: NextRequest) {
   try {

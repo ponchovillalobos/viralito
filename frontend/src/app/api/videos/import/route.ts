@@ -14,7 +14,7 @@ import { saveUploadedVideo, UploadError } from "@/lib/save-upload";
 export const dynamic = "force-dynamic";
 export const maxDuration = 600; // 10 min para videos grandes
 
-const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+const MAX_BYTES = 16 * 1024 * 1024 * 1024; // 16 GB (antes 2 GB) — sin tope práctico para shorts
 
 export async function POST(req: NextRequest) {
   try {

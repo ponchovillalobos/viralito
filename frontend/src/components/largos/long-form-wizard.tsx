@@ -376,10 +376,11 @@ export function LongFormWizard() {
     });
   }
 
-  // Límite práctico para subir por HTTP. Más que esto, el navegador buffea el archivo en
-  // memoria y la subida se trunca (un curso de 80 min en HEVC pesa ~10 GB). Para esos,
-  // mejor «importar por ruta» (copia/hardlink por filesystem, sin pasar por HTTP).
-  const HTTP_UPLOAD_MAX = 1.5 * 1024 * 1024 * 1024; // 1.5 GB
+  // Tope para subir por HTTP. No es un límite "de producto" sino de RAM: el navegador
+  // buffea el archivo entero en memoria. Lo subimos a 8 GB (cubre la gran mayoría de los
+  // cursos/charlas). Para videos AÚN más grandes (HEVC de 2h+, decenas de GB), el camino
+  // sin tope es «importar por ruta» (copia/hardlink por filesystem, sin pasar por HTTP).
+  const HTTP_UPLOAD_MAX = 8 * 1024 * 1024 * 1024; // 8 GB
 
   // Sube videos largos desde la compu del usuario (multipart) → /api/long_form/import → LF_RAW.
   async function importVideos(files: FileList | File[]) {
