@@ -313,11 +313,18 @@ def _recommend(prof: dict) -> dict:
         video_decoder_hwaccel = "none"
 
     # ollama_model
+    # Con GPU (VRAM) usamos el modelo más grande que entre en la VRAM.
+    # SIN GPU (Ollama corre en CPU) el límite no es la RAM sino la VELOCIDAD: un
+    # modelo grande igual carga, pero genera lento. Aun así, en un CPU fuerte
+    # (muchos núcleos) con RAM holgada, qwen3:8b vale la pena para tareas de
+    # razonamiento como el análisis de clips largos (mejor selección + JSON más
+    # confiable que 4b). Para CPUs chicas seguimos en 4b/1.7b por velocidad.
     if vram_free >= 16000:
         ollama_model = "qwen3:14b"
-    elif vram_free >= 8000:
-        ollama_model = "qwen3:8b"
     elif vram_free >= 5000:
+        ollama_model = "qwen3:8b"
+    elif ram_gb >= 24 and cores_physical >= 8:
+        # CPU-only fuerte (p.ej. i9/Ryzen 9 con 32 GB): 8b es el sweet spot.
         ollama_model = "qwen3:8b"
     elif ram_gb >= 16:
         ollama_model = "qwen3:4b"

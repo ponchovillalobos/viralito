@@ -177,8 +177,10 @@ def _whisper_defaults() -> tuple[str, str, str]:
 
 
 def _ollama_model() -> str:
-    """Modelo de Ollama según la VRAM (hw_profile), con override VIRAL_OLLAMA_MODEL.
+    """Modelo de Ollama autodetectado por hardware (hw_profile), override VIRAL_OLLAMA_MODEL.
 
+    hw_profile.recommend escala el modelo: qwen3:1.7b (RAM baja) → qwen3:4b (≥16 GB) →
+    qwen3:8b (CPU fuerte con ≥24 GB, o GPU con ≥5 GB VRAM) → qwen3:14b (≥16 GB VRAM).
     Default seguro qwen3:1.7b (corre en CPU pura) si detect() falla."""
     override = os.environ.get("VIRAL_OLLAMA_MODEL")
     if override:

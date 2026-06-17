@@ -1117,7 +1117,7 @@ def main() -> int:
         if duration <= 0:
             print("[error] no pude leer la duración del video (¿corrupto?)", file=sys.stderr)
             return 1
-        max_clips = args.max_clips if args.max_clips else 7
+        max_clips = args.max_clips if args.max_clips else 12
         proposals_path = _write_block_proposals(args.video_id, duration, max_clips=max_clips)
         print(f"[fast] {duration / 60:.1f} min → bloques de ~50s", file=sys.stderr)
     else:
@@ -1166,8 +1166,10 @@ def main() -> int:
                 f"\n[ERROR ANALYZE] El modelo '{model_used}' no propuso ningún clip.\n"
                 f"  Causa típica: el modelo es demasiado chico para razonar sobre transcripts largos.\n"
                 f"  Solución: re-ejecutar con un modelo más grande, p.ej.:\n"
-                f"    python long_form_pipeline.py \"{args.video_id}\" --model gemma4:26b --skip-transcribe\n"
-                f"  (Borrá antes long_form/proposals/{args.video_id}.json para forzar regenerar.)",
+                f"    python long_form_pipeline.py \"{args.video_id}\" --model qwen3:8b --skip-transcribe\n"
+                f"  (qwen3:8b es el mejor balance en CPU; gemma4:26b da más calidad pero es\n"
+                f"   bastante más lento sin GPU. Borrá antes long_form/proposals/{args.video_id}.json\n"
+                f"   para forzar regenerar.)",
                 file=sys.stderr,
             )
             return 1

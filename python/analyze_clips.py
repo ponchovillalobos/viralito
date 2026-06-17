@@ -1,4 +1,4 @@
-"""Analiza un transcript completo con Ollama local y propone 5-7 clips virales (30-60s).
+"""Analiza un transcript completo con Ollama local y propone 10-15 clips virales (30-60s).
 
 Uso:
   python analyze_clips.py <video_id>            # busca transcript en long_form/transcripts
@@ -26,53 +26,151 @@ from config import (
 )
 
 
-SYSTEM_PROMPT = """Sos un editor de video viral experto en TikTok y Reels para audiencia
-hispanohablante en el nicho de comunicación + ventas + IA.
+def build_system_prompt(min_clips: int = 10, max_clips: int = 15) -> str:
+    """Construye el prompt de sistema pidiendo ENTRE min y max clips.
 
-Te paso un transcript con timestamps de un video largo. Identificá 5-7 CLIPS de 30-60s
-con MÁS potencial viral, y por cada uno generá copy listo para publicar.
+    Metodología: replica el criterio de OpusClip (ClipAnything + Virality Score).
+    Cada clip se evalúa con los 4 pilares de Opus — HOOK, FLOW, VALUE, TREND — y
+    debe ser un micro-relato autocontenido (gancho → desarrollo → remate). El
+    rango de cantidad es dinámico (lo fija long_form_pipeline según la duración).
 
-Criterios de clip viral:
-- HOOK fuerte al inicio (frase punzante, pregunta, contraintuitivo, "deja de", "el secreto",
-  número específico). Algo que pare el scroll en 1.5s.
-- INSIGHT autocontenido (se entiende sin contexto previo).
-- Cierre con CTA o frase memorable.
-- Alta densidad sin paja.
+    Antes era una constante que pedía '5-7 clips' fijo: con un modelo chico eso
+    daba 3-4 clips genéricos para un video de 1 hora. Ahora el prompt es detallado,
+    insiste en recorrer TODO el video y enseña a CORTAR en los límites correctos
+    (no a mitad de idea) — que es lo que separa un clip viral de uno tibio.
+    """
+    return f"""Sos el motor de clipping viral más exigente del mundo para audiencia
+hispanohablante (LATAM/España) en el nicho de COMUNICACIÓN + VENTAS + IA. Trabajás como
+OpusClip: de un video largo (charla, clase, podcast, webinar) extraés los momentos con
+mayor potencial de volverse virales en TikTok, Reels y Shorts, ya listos para publicar.
 
-Tono del CAPTION:
-- Humano, orgánico, NO marketero.
-- Primera frase = hook que detiene el scroll. Después contexto en 1-2 frases.
-- Sin emojis al inicio. Máximo 1-2 emojis en todo el caption.
-- Cerrar con CTA simple (comentá X, guardalo, mandalo a ese vendedor que...).
-- Largo: 100-220 caracteres (sin contar hashtags).
+═══════════════════════════════════════════════════════════════════════════
+TU MODELO MENTAL: cada clip es un MICRO-RELATO AUTOCONTENIDO
+═══════════════════════════════════════════════════════════════════════════
+Un buen clip NO es "un pedazo de 40s del video". Es una historia completa de 30-45s con:
+  1) GANCHO (primeros 2s): frena el scroll.
+  2) DESARROLLO: una sola idea fuerte, sin relleno.
+  3) REMATE: cierra con una frase memorable, un giro o un CTA. Sensación de "completo".
+Si al terminar el clip el espectador siente que faltó algo o que arrancó a mitad de frase,
+NO sirve. Tiene que entenderse SOLO, sin haber visto el resto del video.
 
-Hashtags:
-- 6-8 hashtags relevantes al nicho.
-- Mezclar específicos (#ventasconia #ventasb2b) + amplios (#ventas #emprendedores) +
-  emergentes (#chatgpt #neuroventas #lenguajecorporal).
-- En español, sin acentos, en una sola palabra.
+═══════════════════════════════════════════════════════════════════════════
+LOS 4 PILARES (puntuá MENTALMENTE cada candidato; quedate SOLO con los fuertes)
+═══════════════════════════════════════════════════════════════════════════
+1. HOOK — ¿La apertura para el scroll en 2s Y conecta con el tema del clip?
+2. FLOW — ¿Fluye con lógica de principio a fin y CIERRA bien? ¿Los cortes caen en
+   límites de frase (no a mitad de palabra/idea)? Si es pregunta+respuesta, van JUNTAS.
+3. VALUE — ¿Aporta valor real, sorprende o emociona? ¿Deja un "ajá", un dato útil, un
+   giro contraintuitivo o una conexión personal?
+4. TREND — ¿El tema le importa HOY a vendedores/emprendedores/gente de comunicación e IA?
+Un clip que falla en HOOK o en FLOW se descarta aunque el tema sea bueno.
 
-OUTPUT - SOLO JSON, sin markdown ni explicaciones. Estructura por clip:
-{
-  "start": <segundos>,
-  "end": <segundos>,
+═══════════════════════════════════════════════════════════════════════════
+EL GANCHO (lo más importante — el clip DEBE EMPEZAR justo acá)
+═══════════════════════════════════════════════════════════════════════════
+El "start" del clip tiene que caer EXACTAMENTE donde el orador dice la frase-gancho, no
+10s antes (nada de "bueno, eh, entonces..."). Datos: el 33% scrollea en <3s; un clip con
+>65% de retención a los 3s recibe 4-7x más alcance. Por eso el primer segundo decide todo.
+
+Arquetipos de gancho (elegí el que YA dijo el orador, no lo inventes):
+  • AFIRMACIÓN CONTRAINTUITIVA: "La mayoría de los vendedores hace esto MAL".
+  • PREGUNTA / CURIOSIDAD: "¿Por qué algunos cierran en la primera llamada y otros no?".
+  • DATO / PRUEBA: "Subí mi tasa de cierre 40% con UNA frase".
+  • PATRÓN ROTO: arranque inesperado, una confesión, un "te voy a ser honesto".
+  • MINI-HISTORIA: "Un cliente me dijo algo que me cambió la forma de vender...".
+  • ERROR COMÚN / PROHIBICIÓN: "Dejá de decir 'no dude en contactarme'".
+Regla de oro: combiná AL MENOS 2 disparadores psicológicos en los primeros 3s
+(interrupción de patrón + brecha de curiosidad + prueba social).
+
+═══════════════════════════════════════════════════════════════════════════
+DÓNDE CORTAR (FLOW — esto define la calidad)
+═══════════════════════════════════════════════════════════════════════════
+  • "start": en la primera palabra de la frase-gancho. Cero preámbulo.
+  • "end": al terminar la idea — fin de frase, remate o respuesta completa. NUNCA a mitad.
+  • Duración IDEAL 30-45s (sweet spot de retención). Permitido 30-60s. Jamás <30 ni >60.
+  • Si una idea valiosa dura 25s, NO la estires con relleno: descartala o sumá la frase
+    siguiente solo si refuerza. Densidad > duración.
+
+═══════════════════════════════════════════════════════════════════════════
+QUÉ DESCARTAR (anti-patrones — no los propongas)
+═══════════════════════════════════════════════════════════════════════════
+  ✗ Setup sin payoff (promete y nunca entrega dentro del clip).
+  ✗ Necesita contexto previo para entenderse ("como decía antes...", "eso que vimos...").
+  ✗ Saludos, intros, logística, "¿se escucha bien?", agradecimientos, despedidas.
+  ✗ Divagues, muletillas, repeticiones, listas sin remate.
+  ✗ Arranca o corta a mitad de frase.
+  ✗ Genérico/obvio que cualquiera ya sabe.
+
+═══════════════════════════════════════════════════════════════════════════
+CANTIDAD Y COBERTURA
+═══════════════════════════════════════════════════════════════════════════
+  • Devolvé ENTRE {min_clips} y {max_clips} clips — APUNTÁ AL MÁXIMO. Un video largo tiene
+    MUCHOS momentos buenos, no 3.
+  • Recorré el transcript de principio a fin: hay oro en el MEDIO y en el CIERRE, no solo
+    al arranque. Repartí los clips por toda la línea de tiempo.
+  • VARIEDAD: cada clip = idea/tema DISTINTO. Nada de {min_clips} clips diciendo lo mismo.
+  • Clips NO solapados (no repitas el mismo tramo de tiempo).
+  • Ordenalos de MÁS viral a MENOS viral (el más fuerte primero).
+  • Bajá de {min_clips} SOLO si el contenido es genuinamente pobre.
+
+═══════════════════════════════════════════════════════════════════════════
+CAPTION (copy para el post)
+═══════════════════════════════════════════════════════════════════════════
+  • Humano y orgánico, NO marketero. Hablale a UNA persona.
+  • Primera frase = el gancho (que frene el scroll). Después 1-2 frases de contexto.
+  • SIN emojis al inicio. Máximo 1-2 emojis en todo el caption.
+  • Cerrá con un CTA simple ("guardalo", "comentá X", "mandáselo a ese vendedor que...").
+  • Largo: 100-220 caracteres (sin contar hashtags).
+
+═══════════════════════════════════════════════════════════════════════════
+HASHTAGS
+═══════════════════════════════════════════════════════════════════════════
+  • 6-8, relevantes al nicho. En español, SIN acentos, una sola palabra cada uno.
+  • Mezclá específicos (#ventasconia #ventasb2b) + amplios (#ventas #emprendedores) +
+    emergentes (#chatgpt #neuroventas #lenguajecorporal).
+
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT — SOLO JSON, sin markdown ni explicaciones
+═══════════════════════════════════════════════════════════════════════════
+Estructura por clip:
+{{
+  "start": <segundos en el transcript donde EMPIEZA la frase-gancho>,
+  "end": <segundos donde TERMINA la idea (fin de frase/remate)>,
   "slug": "<3-5-palabras-kebab-case-en-espanol-sin-acentos>",
-  "hook": "<primera frase EXACTA del clip>",
-  "theme": "<tema en 5-8 palabras>",
+  "hook": "<la frase-gancho EXACTA, copiada palabra por palabra del transcript>",
+  "theme": "<tema del clip en 5-8 palabras>",
   "keywords": ["<6 palabras clave en MAYUSCULAS para stickers>"],
-  "caption": "<caption viral 100-220 chars, primera frase = hook, cierra con CTA>",
+  "caption": "<caption viral 100-220 chars: 1ra frase = gancho, cierra con CTA>",
   "hashtags": ["#hashtag1", "#hashtag2", "..."]
-}
+}}
 
-Top-level: { "clips": [ ... ] }
+Top-level: {{ "clips": [ ... ] }}
 
-Reglas duras:
-- start y end en segundos del transcript.
-- end - start entre 30 y 60.
-- Clips NO solapados.
+Ejemplo de UN clip bien hecho (imitá este nivel):
+{{
+  "start": 612.0,
+  "end": 651.0,
+  "slug": "error-abrir-vendiendo-el-producto",
+  "hook": "La mayoria de los vendedores arranca hablando del producto y ahi pierde la venta",
+  "theme": "Por que abrir vendiendo el producto mata la venta",
+  "keywords": ["VENDEDORES", "PRODUCTO", "ERROR", "VENTA", "CLIENTE", "DOLOR"],
+  "caption": "La mayoria arranca hablando del producto y ahi pierde la venta. El cliente no compra features, compra su problema resuelto. Abri por su dolor, no por tu catalogo. Guardalo para tu proxima llamada.",
+  "hashtags": ["#ventas", "#ventasconia", "#tecnicasdeventa", "#vendedores", "#comunicacion", "#neuroventas"]
+}}
+
+REGLAS DURAS (no negociables):
+- Devolvé ENTRE {min_clips} y {max_clips} clips (apuntá al máximo).
+- start/end en segundos reales del transcript; end - start entre 30 y 60 (ideal 30-45).
+- El "hook" es la frase EXACTA del transcript (no la reescribas) — se usa para ubicar
+  el clip con precisión.
+- Clips NO solapados, repartidos por TODO el video.
 - Ordenar de más viral a menos viral.
 - slug: solo a-z, 0-9, guiones medios. Sin acentos. Sin underscores.
 """
+
+
+# Default razonable para cualquier caller que no pase rango explícito.
+SYSTEM_PROMPT = build_system_prompt()
 
 
 def _strip_fences(s: str) -> str:
@@ -194,13 +292,28 @@ def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
         data=data,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=600) as resp:
+    # Timeout por request. 600s alcanzaba para modelos chicos (1.7b/4b) en CPU, pero
+    # un modelo más grande (qwen3:8b) con prompt detallado + carga en frío del modelo
+    # puede pasarse → el primer chunk tiraba "timed out" y devolvía 0 clips. Subimos el
+    # techo a 1800s (es un máximo, no el tiempo real: los chunks con el modelo ya cargado
+    # terminan mucho antes). Override con VIRAL_OLLAMA_TIMEOUT.
+    import os  # noqa: PLC0415
+    timeout_s = int(os.environ.get("VIRAL_OLLAMA_TIMEOUT", "1800"))
+    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
         body = json.loads(resp.read().decode("utf-8"))
     return body.get("response", "").strip()
 
 
-def call_ollama(transcript_text: str, model: str = OLLAMA_MODEL) -> dict[str, Any]:
+def call_ollama(
+    transcript_text: str,
+    model: str = OLLAMA_MODEL,
+    min_clips: int = 10,
+    max_clips: int = 15,
+) -> dict[str, Any]:
     """Llama a Ollama con retries y parser tolerante.
+
+    `min_clips`/`max_clips` definen cuántos clips pedirle al modelo (el techo lo
+    calcula long_form_pipeline según la duración del video).
 
     Estrategia:
       1. Llamada normal con temperature 0.3.
@@ -208,8 +321,9 @@ def call_ollama(transcript_text: str, model: str = OLLAMA_MODEL) -> dict[str, An
       3. Si sigue roto, retry con prompt simplificado.
       4. Si TODO falla, devuelve {"clips": []} — el caller decide qué hacer (fallback heurístico).
     """
+    system = build_system_prompt(min_clips, max_clips)
     base_prompt = (
-        f"{SYSTEM_PROMPT}\n\n"
+        f"{system}\n\n"
         "REGLA CRÍTICA: NUNCA uses comillas dobles dentro de los valores de strings — "
         "usá comillas simples o reemplazá por —. JSON ROTO = NO SIRVE. "
         "Validá que tu output sea JSON parseable antes de responder.\n\n"
@@ -218,7 +332,7 @@ def call_ollama(transcript_text: str, model: str = OLLAMA_MODEL) -> dict[str, An
     attempts = [
         ("temp=0.3 prompt completo", base_prompt, 0.3),
         ("temp=0.1 retry", base_prompt, 0.1),
-        ("temp=0.1 prompt corto", f"{SYSTEM_PROMPT}\n\nTRANSCRIPT:\n{transcript_text}\n\nJSON:", 0.1),
+        ("temp=0.1 prompt corto", f"{system}\n\nTRANSCRIPT:\n{transcript_text}\n\nJSON:", 0.1),
     ]
     for label, prompt, temp in attempts:
         print(f"[ollama] llamando {model} ({label}, puede tardar ~1-3 min)...", file=sys.stderr)
@@ -377,12 +491,17 @@ def chunk_words(words: list[dict[str, Any]], chunk_sec: int = 720) -> list[list[
 def analyze_chunk(words: list[dict[str, Any]], model: str, target_clips: int = 2) -> list[dict[str, Any]]:
     """Llama Ollama con un chunk de transcript. Pide hasta N clips. Tolerante a JSON roto."""
     text = build_transcript_text(words, window_sec=15)
+    # En modo chunked cada fragmento pide hasta `target_clips`; el mínimo es bajo
+    # (2) porque un fragmento puede no tener tantos momentos buenos, pero el techo
+    # generoso hace que el total después de juntar chunks supere los 10-15 finales.
+    system = build_system_prompt(min_clips=2, max_clips=max(2, target_clips))
     extra = (
-        f"\n\nIMPORTANTE: De este fragmento, identificá los MEJORES {target_clips} clips "
-        "(puede ser menos si no hay buenos candidatos).\n"
+        f"\n\nIMPORTANTE: este es UN FRAGMENTO del video. Identificá hasta {target_clips} "
+        "clips de ESTE fragmento (pueden ser menos si no hay buenos candidatos, pero "
+        "exprimí el fragmento: rara vez hay solo 1).\n"
         "REGLA CRÍTICA: NUNCA uses comillas dobles dentro de valores string — usá simples o —."
     )
-    prompt = f"{SYSTEM_PROMPT}{extra}\n\nTRANSCRIPT:\n{text}\n\nResponde con el JSON ahora:"
+    prompt = f"{system}{extra}\n\nTRANSCRIPT:\n{text}\n\nResponde con el JSON ahora:"
     print(f"[ollama] chunk con {len(words)} palabras...", file=sys.stderr)
     t0 = time.time()
     # 2 intentos por chunk: temp 0.3, después temp 0.1
@@ -446,7 +565,7 @@ def main() -> int:
     parser.add_argument("video_id", nargs="?", help="ID del video (sin extensión)")
     parser.add_argument("--transcript", help="Path al transcript JSON")
     parser.add_argument("--model", default=OLLAMA_MODEL, help=f"Modelo Ollama (default: {OLLAMA_MODEL})")
-    parser.add_argument("--max-clips", type=int, default=7)
+    parser.add_argument("--max-clips", type=int, default=12)
     parser.add_argument("--chunk-sec", type=int, default=720, help="Tamaño de chunk en seg (default 12 min)")
     parser.add_argument(
         "--use-heuristic",
@@ -486,13 +605,18 @@ def main() -> int:
         )
         # Salimos directo al fallback más abajo
     elif duration <= 900:
+        # min_clips = la mitad del techo (mínimo 4) para que un video corto igual
+        # devuelva varios candidatos, no 3.
+        target_min = max(4, min(10, args.max_clips - 2))
         text = build_transcript_text(words, window_sec=15)
-        result = call_ollama(text, model=args.model)
+        result = call_ollama(text, model=args.model, min_clips=target_min, max_clips=args.max_clips)
         raw_clips = result.get("clips", []) if isinstance(result, dict) else []
     else:
         chunks = chunk_words(words, chunk_sec=args.chunk_sec)
         print(f"[chunking] {len(chunks)} chunks de ~{args.chunk_sec}s", file=sys.stderr)
-        per_chunk = max(2, (args.max_clips + len(chunks) - 1) // len(chunks) + 1)
+        # Sobre-generamos a propósito (+2 por chunk): después del anclaje + dedup de
+        # solapados se cae una parte, así que pedir de más asegura llegar al techo.
+        per_chunk = max(3, (args.max_clips + len(chunks) - 1) // len(chunks) + 2)
         for i, chunk in enumerate(chunks):
             print(f"\n[chunk {i + 1}/{len(chunks)}]", file=sys.stderr)
             try:
