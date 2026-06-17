@@ -35,26 +35,28 @@ export async function POST(
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
 
+  // Si el render existe → lo seleccionamos en el explorador. Si NO existe (aún no se
+  // generó, o el id no coincide con el nombre del archivo), NO fallamos: abrimos igual
+  // la carpeta contenedora (que siempre existe) para que "Abrir carpeta" nunca tire
+  // error. Antes devolvía 404 y el usuario veía "no se puede abrir la carpeta".
+  let fileExists = true;
   try {
     await fs.access(resolved);
   } catch {
-    return NextResponse.json(
-      { error: `El video generado ya no existe (${path.basename(resolved)}). Genéralo de nuevo.` },
-      { status: 404 }
-    );
+    fileExists = false;
   }
+  // Asegurar que la carpeta de salida exista (primera vez / data root nuevo).
+  await fs.mkdir(baseResolved, { recursive: true }).catch(() => {});
 
-  // Abrir en el file manager nativo con el archivo seleccionado.
-  // No await — es fire-and-forget; si falla, igual devolvemos OK con el path.
+  // Abrir en el file manager nativo. Fire-and-forget; si falla, igual devolvemos OK.
   if (process.platform === "win32") {
-    // explorer /select,"path" → abre Explorer con el archivo highlighted
-    exec(`explorer /select,"${resolved}"`, () => {});
+    // explorer /select,"file" resalta el archivo; explorer "folder" abre la carpeta.
+    exec(fileExists ? `explorer /select,"${resolved}"` : `explorer "${baseResolved}"`, () => {});
   } else if (process.platform === "darwin") {
-    exec(`open -R "${resolved}"`, () => {});
+    exec(fileExists ? `open -R "${resolved}"` : `open "${baseResolved}"`, () => {});
   } else {
-    // Linux: no hay "reveal in file manager" estándar, abrimos la carpeta contenedora
-    exec(`xdg-open "${path.dirname(resolved)}"`, () => {});
+    exec(`xdg-open "${fileExists ? path.dirname(resolved) : baseResolved}"`, () => {});
   }
 
-  return NextResponse.json({ ok: true, path: resolved });
+  return NextResponse.json({ ok: true, path: fileExists ? resolved : baseResolved, fileExists });
 }
