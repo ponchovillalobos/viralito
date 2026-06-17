@@ -376,31 +376,21 @@ export function LongFormWizard() {
     });
   }
 
-  // Tope para subir por HTTP. No es un límite "de producto" sino de RAM: el navegador
-  // buffea el archivo entero en memoria. Lo subimos a 8 GB (cubre la gran mayoría de los
-  // cursos/charlas). Para videos AÚN más grandes (HEVC de 2h+, decenas de GB), el camino
-  // sin tope es «importar por ruta» (copia/hardlink por filesystem, sin pasar por HTTP).
-  const HTTP_UPLOAD_MAX = 8 * 1024 * 1024 * 1024; // 8 GB
-
-  // Sube videos largos desde la compu del usuario (multipart) → /api/long_form/import → LF_RAW.
+  // Sube videos largos desde la compu del usuario por STREAMING → /api/long_form/import → LF_RAW.
+  // El File se manda como body crudo (no FormData): el server lo vuelca a disco por chunks
+  // (memoria ≈ constante), así un video de varios GB entra por el botón normal sin OOM.
+  // El nombre viaja en el header X-Filename (encodeURIComponent: soporta acentos/espacios).
   async function importVideos(files: FileList | File[]) {
     const arr = Array.from(files);
-    const tooBig = arr.find((f) => f.size > HTTP_UPLOAD_MAX);
-    if (tooBig) {
-      toast.error(
-        `«${tooBig.name}» pesa ${(tooBig.size / 1024 / 1024 / 1024).toFixed(1)} GB — demasiado para subir por el navegador. ` +
-          `Usa «Importar por ruta» abajo y pega la ubicación del archivo.`
-      );
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
     setImporting(true);
     let ok = 0;
     try {
       for (const file of arr) {
-        const form = new FormData();
-        form.append("file", file);
-        const r = await fetch("/api/long_form/import", { method: "POST", body: form });
+        const r = await fetch("/api/long_form/import", {
+          method: "POST",
+          body: file,
+          headers: { "X-Filename": encodeURIComponent(file.name) },
+        });
         if (r.ok) {
           ok++;
         } else {

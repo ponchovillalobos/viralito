@@ -13,8 +13,10 @@
  * Así el archivo que queda en la carpeta SIEMPRE es válido, y el usuario se entera del
  * problema en la subida (no 5 pasos después en el render).
  */
-import { promises as fs } from "node:fs";
+import { promises as fs, createWriteStream } from "node:fs";
 import { spawn } from "node:child_process";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import { FFPROBE_EXE } from "@/lib/paths";
 
@@ -171,6 +173,83 @@ export async function saveUploadedVideo(
     await validateVideo(tmpPath);
 
     // 4) Publicar atómicamente: el nombre final aparece recién aquí, ya validado.
+    await fs.rename(tmpPath, finalPath);
+    return { filename: path.basename(finalPath), sizeBytes: written, path: finalPath };
+  } catch (err) {
+    await fs.rm(tmpPath, { force: true }).catch(() => {});
+    throw err;
+  }
+}
+
+/**
+ * Guarda un upload por STREAMING (sin bufferear en RAM) — para archivos GRANDES (varios GB).
+ *
+ * El cliente manda el File como body crudo (no multipart) + el nombre en el header
+ * `X-Filename`. Acá leemos `req.body` (ReadableStream) y lo volcamos a disco por chunks con
+ * `pipeline` (maneja backpressure y espera el final REAL — no trunca). Un Transform cuenta
+ * bytes y corta si excede `maxBytes` aunque el Content-Length mienta. Memoria ≈ constante,
+ * así que un video de 7-20 GB entra por el botón normal sin reventar el server.
+ */
+export async function saveStreamedVideo(
+  body: ReadableStream<Uint8Array>,
+  rawName: string,
+  destDir: string,
+  declaredSize: number | null,
+  maxBytes: number
+): Promise<{ filename: string; sizeBytes: number; path: string }> {
+  const filename = sanitizeFilename(rawName || "video.mp4");
+  const ext = path.extname(filename).toLowerCase();
+  if (!VALID_EXTS.has(ext)) {
+    throw new UploadError(
+      `extensión no soportada (${ext}). Permitidas: ${[...VALID_EXTS].join(", ")}`,
+      400
+    );
+  }
+  if (declaredSize != null && declaredSize > maxBytes) {
+    throw new UploadError(
+      `archivo muy grande (${(declaredSize / 1024 / 1024 / 1024).toFixed(1)} GB, máx. ${(
+        maxBytes / 1024 / 1024 / 1024
+      ).toFixed(1)} GB)`,
+      400
+    );
+  }
+
+  await fs.mkdir(destDir, { recursive: true });
+  const finalPath = await uniquePath(destDir, filename, ext);
+  const tmpPath = `${finalPath}.part`;
+
+  let written = 0;
+  const meter = new Transform({
+    transform(chunk, _enc, cb) {
+      written += chunk.length;
+      if (written > maxBytes) {
+        cb(
+          new UploadError(
+            `archivo excede el máximo de ${(maxBytes / 1024 / 1024 / 1024).toFixed(1)} GB`,
+            400
+          )
+        );
+        return;
+      }
+      cb(null, chunk);
+    },
+  });
+
+  try {
+    // Readable.fromWeb convierte el ReadableStream web (req.body) a stream de Node.
+    // pipeline ESPERA el final completo y propaga errores → sin truncado silencioso.
+    const src = Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]);
+    await pipeline(src, meter, createWriteStream(tmpPath));
+
+    if (written === 0) throw new UploadError("subida vacía (0 bytes). Intenta de nuevo.");
+    if (declaredSize != null && declaredSize > 0 && written !== declaredSize) {
+      throw new UploadError(
+        `subida incompleta (${written} de ${declaredSize} bytes). Intenta la subida de nuevo.`
+      );
+    }
+
+    // Validar demuxable (atrapa stream cortado: moov atom ausente, etc.).
+    await validateVideo(tmpPath);
     await fs.rename(tmpPath, finalPath);
     return { filename: path.basename(finalPath), sizeBytes: written, path: finalPath };
   } catch (err) {
