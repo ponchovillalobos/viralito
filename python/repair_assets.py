@@ -53,8 +53,14 @@ def _commands(lib: str) -> list[list[str]]:
             ["download_animated_icons.py", "--all"],
         ]
     if lib == "icons":
+        # IMPORTANTE: hay DOS descargadores de iconos y setup_all corre ambos.
+        # download_editorial_icons.py = Phosphor + Tabler (~6.000 svg).
+        # download_more_icons.py      = Material Symbols + Lucide (~5.300 svg).
+        # Antes el repair solo corría el primero → Material/Lucide nunca se
+        # re-descargaban y el set quedaba a medias. Ahora corre los dos (idempotentes).
         return [
             ["download_editorial_icons.py"],
+            ["download_more_icons.py"],
         ]
     raise ValueError(f"librería desconocida: {lib!r} (válidas: {', '.join(LIBS)})")
 

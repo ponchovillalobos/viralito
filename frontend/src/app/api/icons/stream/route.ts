@@ -12,6 +12,7 @@ import { NextRequest } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DATA_ROOT } from "@/lib/paths";
+import { fireRepair } from "@/lib/self-heal-assets";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,10 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
+    // Un icono pedido que no está suele indicar que el set quedó incompleto
+    // (descarga a medias). Disparamos el self-heal en background (idempotente,
+    // con cooldown) y devolvemos 404 para este request.
+    fireRepair("icons");
     return new Response("not found", { status: 404, headers: CORS_HEADERS });
   }
 }

@@ -241,25 +241,34 @@ export async function GET(req: NextRequest) {
   }
 
   const assetsRoot = path.join(DATA_ROOT, "assets");
-  const assetChecks: Array<{ id: string; label: string; dir: string; exts: string[]; recursive: boolean }> = [
+  // `min` = umbral REAL del set completo (no solo > 0): así detectamos descargas
+  // que quedaron A MEDIAS (p.ej. iconos con solo Phosphor/Tabler y sin Material/
+  // Lucide) y «Mi sistema» muestra que falta terminar, en vez de decir "ok".
+  const assetChecks: Array<{ id: string; label: string; dir: string; exts: string[]; recursive: boolean; min: number }> = [
     // música: *.mp3 bajo assets/music (recursivo, incluye subcarpeta github)
-    { id: "assets-music", label: "Biblioteca de música", dir: path.join(assetsRoot, "music"), exts: [".mp3"], recursive: true },
+    { id: "assets-music", label: "Biblioteca de música", dir: path.join(assetsRoot, "music"), exts: [".mp3"], recursive: true, min: 40 },
     // sfx: archivos de audio bajo assets/sfx (recursivo)
-    { id: "assets-sfx", label: "Biblioteca de efectos de sonido", dir: path.join(assetsRoot, "sfx"), exts: [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"], recursive: true },
+    { id: "assets-sfx", label: "Biblioteca de efectos de sonido", dir: path.join(assetsRoot, "sfx"), exts: [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"], recursive: true, min: 150 },
     // lottie: *.json bajo assets/lottie/noto
-    { id: "assets-lottie", label: "Biblioteca de animaciones (Lottie)", dir: path.join(assetsRoot, "lottie", "noto"), exts: [".json"], recursive: false },
-    // icons: *.svg bajo assets/icons (recursivo)
-    { id: "assets-icons", label: "Biblioteca de iconos", dir: path.join(assetsRoot, "icons"), exts: [".svg"], recursive: true },
+    { id: "assets-lottie", label: "Biblioteca de animaciones (Lottie)", dir: path.join(assetsRoot, "lottie", "noto"), exts: [".json"], recursive: false, min: 25 },
+    // icons: *.svg bajo assets/icons (recursivo). Set completo ≈ 11.000
+    // (Phosphor + Tabler + Material + Lucide); < 9.000 = quedó a medias.
+    { id: "assets-icons", label: "Biblioteca de iconos", dir: path.join(assetsRoot, "icons"), exts: [".svg"], recursive: true, min: 9000 },
   ];
   for (const a of assetChecks) {
     const count = countFiles(a.dir, a.exts, a.recursive);
+    const complete = count >= a.min;
     checks.push({
       id: a.id,
       label: a.label,
-      ok: count > 0,
+      ok: complete,
       critical: false,
-      detail: `${count} archivos`,
-      fix: count > 0 ? undefined : "Toca «Configurar todo» en Mi sistema para descargarlos.",
+      detail: complete
+        ? `${count} archivos`
+        : count > 0
+          ? `${count} archivos — descarga incompleta (faltan, esperaba ≥ ${a.min})`
+          : "0 archivos",
+      fix: complete ? undefined : "Toca «Configurar todo» en Mi sistema para terminar de descargarlos.",
     });
   }
 

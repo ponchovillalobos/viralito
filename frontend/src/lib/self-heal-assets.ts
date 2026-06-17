@@ -11,7 +11,7 @@ import { promises as fs } from "node:fs";
 import { PYTHON_EXE, PYTHON_DIR } from "@/lib/paths";
 import { runProcess } from "@/lib/run-process";
 
-export type RepairLib = "music" | "sfx" | "lottie";
+export type RepairLib = "music" | "sfx" | "lottie" | "icons";
 
 /** Cuenta archivos (no carpetas) bajo `dir`, opcionalmente recursivo. */
 export async function countFiles(dir: string, recursive: boolean): Promise<number> {

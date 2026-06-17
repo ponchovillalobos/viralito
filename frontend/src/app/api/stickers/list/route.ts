@@ -12,12 +12,20 @@
  */
 import { NextResponse } from "next/server";
 import { getStickerIndex } from "@/lib/sticker-index";
+import { fireRepair } from "@/lib/self-heal-assets";
 
 export const dynamic = "force-dynamic";
+
+// Set completo de iconos ≈ 11.000 (Phosphor + Tabler + Material + Lucide). Si hay
+// MENOS, la descarga quedó a medias (típicamente faltan Material/Lucide, que el
+// repair viejo no re-bajaba). Disparamos el self-heal en background — el picker
+// igual muestra lo que haya y completa en la próxima apertura.
+const ICONS_MIN_EXPECTED = 9000;
 
 export async function GET() {
   try {
     const idx = await getStickerIndex();
+    if (idx.counts.icons < ICONS_MIN_EXPECTED) fireRepair("icons");
     // Categorías únicas (en español) para los chips de filtro, ordenadas alfabéticamente.
     const categories = [...new Set(idx.stickers.map((s) => s.category))].sort((a, b) =>
       a.localeCompare(b, "es")
