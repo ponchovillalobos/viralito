@@ -52,6 +52,9 @@ const THEMES = [
   { id: "mincho", font: "lora", background: "cream", theme: "mincho", accent: "#b3342c" },
   { id: "brutal", font: "lora", background: "cream", theme: "brutal", accent: "#ff4d00" },
   { id: "docu", font: "lora", background: "cream", theme: "docu", accent: "#e3120b" },
+  { id: "art_deco", font: "playfair", background: "cream", theme: "art_deco", accent: "#bd9a4e" },
+  { id: "blueprint", font: "dmserif", background: "ink", theme: "blueprint", accent: "#34c6d8" },
+  { id: "noir", font: "playfair", background: "dark", theme: "noir", accent: "#d8d2c4" },
 ];
 
 // Mismo default de accent que el wizard cuando el tema no trae el suyo.
