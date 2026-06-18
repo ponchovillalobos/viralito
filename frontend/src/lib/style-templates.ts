@@ -8,33 +8,14 @@
 
 import { pickEmojis } from "./viral-emojis";
 
-export type StyleId =
-  | "silent"
-  | "punch"
-  | "hype"
-  | "hype_max"
-  | "hype_max_sfx"
-  | "supreme"
-  | "cinematic_pro"
-  | "broll_full"
-  | "broll_pip"
-  // A3 — Estilo NUEVO: texto detrás del sujeto (bake con mediapipe + ffmpeg).
-  | "text_behind"
-  // POP REELS 2026 — caption nativo de TikTok: caja negra semi-opaca + contorno
-  // grueso + palabra-por-palabra (kinetic "pop_reels"), fuente TikTok Sans.
-  | "pop_reels"
-  // Modo Gráficos & Motion en shorts: gráficas animadas + titulares poderosos,
-  // COMBINADO con la edición dinámica (zooms, transiciones, y en _max jump cuts).
-  | "graphics_pro"
-  | "graphics_max"
-  // MOTION PRO — animación pura estilo motion design: limpio, SIN emojis ni
-  // stickers; fondos animados (audio-reactivos), charts y subtítulos minimal.
-  | "motion_pro"
-  | "motion_beat"
-  | "motion_grid"
-  // EDITORIAL — split-screen documental: video en panel lateral + tarjetas
-  // tipográficas serif gigantes + ilustraciones line-art doradas animadas.
-  | "editorial";
+// `StyleId` y la metadata de estilos viven ahora en el registro central
+// (style-registry.ts + style-registry.data.json). Lo importamos para uso local
+// (las firmas de buildProjectForStyle, etc.) y lo re-exportamos para que todos
+// los consumidores que ya importan `StyleId` de este archivo no cambien de path.
+// Agregar un estilo = editar el JSON + la tupla STYLE_IDS, y cualquier lugar que
+// falte se vuelve un error de tsc.
+import type { StyleId } from "./style-registry";
+export type { StyleId };
 
 export interface BuildContext {
   videoId: string;
@@ -1162,69 +1143,10 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
   return base;
 }
 
-export const STYLE_INFO: Record<StyleId, { name: string; tagline: string; emoji: string }> = {
-  silent: { name: "Silent", tagline: "Limpio, sin distracciones", emoji: "🤍" },
-  punch: { name: "Punch", tagline: "Impacto en momentos clave", emoji: "🥊" },
-  hype: { name: "Hype", tagline: "Estilo MrBeast viral", emoji: "🔥" },
-  hype_max: { name: "Hype Max", tagline: "Hype + jump cuts + reaction zooms", emoji: "⚡" },
-  hype_max_sfx: { name: "Hype Max SFX", tagline: "Premium con sonidos", emoji: "🎵" },
-  supreme: { name: "Supreme", tagline: "Full stack premium (default largos)", emoji: "👑" },
-  cinematic_pro: {
-    name: "Cinematic Pro",
-    tagline: "Imágenes fullscreen + SFX/música Pixabay + camera moves auto",
-    emoji: "🎬",
-  },
-  broll_full: {
-    name: "B-roll Full",
-    tagline: "Videos de Pexels a pantalla completa, auto por transcripción",
-    emoji: "🎞️",
-  },
-  broll_pip: {
-    name: "B-roll PIP",
-    tagline: "Videos de Pexels pequeñitos sobre tu video, auto por transcripción",
-    emoji: "🖼️",
-  },
-  text_behind: {
-    name: "Texto detrás de ti",
-    tagline: "El efecto CapCut clásico: la palabra clave queda detrás del sujeto",
-    emoji: "🧍",
-  },
-  pop_reels: {
-    name: "Pop Reels 2026",
-    tagline: "Caption nativo de TikTok: caja negra + contorno + palabra por palabra",
-    emoji: "💬",
-  },
-  graphics_pro: {
-    name: "Gráficos & Motion",
-    tagline: "Gráficas animadas + titulares poderosos + zooms y transiciones",
-    emoji: "📊",
-  },
-  motion_pro: {
-    name: "Motion Pro",
-    tagline: "Animación pura y limpia: fondo aurora que pulsa con la música, sin emojis",
-    emoji: "✨",
-  },
-  motion_beat: {
-    name: "Motion Beat",
-    tagline: "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat",
-    emoji: "🎧",
-  },
-  motion_grid: {
-    name: "Motion Grid",
-    tagline: "Look retro-tech: cuadrícula en perspectiva + gráficas, limpio y futurista",
-    emoji: "🌐",
-  },
-  editorial: {
-    name: "Editorial",
-    tagline: "Estilo documental: tu video en panel + titulares serif gigantes + ilustraciones doradas",
-    emoji: "📰",
-  },
-  graphics_max: {
-    name: "Gráficos Max",
-    tagline: "Gráficos & Motion al máximo: cortes rápidos, zooms de reacción y stutter",
-    emoji: "📈",
-  },
-};
+// STYLE_INFO se DERIVA ahora del registro central (mismos valores que antes,
+// una sola fuente). Se re-exporta con el MISMO nombre y desde el MISMO archivo
+// para que ningún consumidor cambie su import.
+export { STYLE_INFO_FROM_REGISTRY as STYLE_INFO } from "./style-registry";
 
 export const PALETTE: { name: string; value: string; mood: string }[] = [
   { name: "rosa coral", value: "#fb7185", mood: "urgencia" },

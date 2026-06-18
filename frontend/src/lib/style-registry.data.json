@@ -1,0 +1,172 @@
+[
+  {
+    "id": "silent",
+    "name": "Silent",
+    "tagline": "Limpio, sin distracciones",
+    "emoji": "🤍",
+    "shortLabel": "Limpio",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": false
+  },
+  {
+    "id": "punch",
+    "name": "Punch",
+    "tagline": "Impacto en momentos clave",
+    "emoji": "🥊",
+    "shortLabel": "Punch",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": false
+  },
+  {
+    "id": "hype",
+    "name": "Hype",
+    "tagline": "Estilo MrBeast viral",
+    "emoji": "🔥",
+    "shortLabel": "Viral",
+    "families": ["hype"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "hype_max",
+    "name": "Hype Max",
+    "tagline": "Hype + jump cuts + reaction zooms",
+    "emoji": "⚡",
+    "shortLabel": "ViralMax",
+    "families": ["hype"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "hype_max_sfx",
+    "name": "Hype Max SFX",
+    "tagline": "Premium con sonidos",
+    "emoji": "🎵",
+    "shortLabel": "ViralSFX",
+    "families": ["hype"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "supreme",
+    "name": "Supreme",
+    "tagline": "Full stack premium (default largos)",
+    "emoji": "👑",
+    "shortLabel": "Premium",
+    "families": ["hype"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "cinematic_pro",
+    "name": "Cinematic Pro",
+    "tagline": "Imágenes fullscreen + SFX/música Pixabay + camera moves auto",
+    "emoji": "🎬",
+    "shortLabel": "Cine",
+    "families": [],
+    "longForm": false,
+    "hasGraphics": false
+  },
+  {
+    "id": "broll_full",
+    "name": "B-roll Full",
+    "tagline": "Videos de Pexels a pantalla completa, auto por transcripción",
+    "emoji": "🎞️",
+    "shortLabel": "Broll",
+    "families": ["music"],
+    "longForm": false,
+    "hasGraphics": false
+  },
+  {
+    "id": "broll_pip",
+    "name": "B-roll PIP",
+    "tagline": "Videos de Pexels pequeñitos sobre tu video, auto por transcripción",
+    "emoji": "🖼️",
+    "shortLabel": "BrollPIP",
+    "families": ["music"],
+    "longForm": false,
+    "hasGraphics": false
+  },
+  {
+    "id": "text_behind",
+    "name": "Texto detrás de ti",
+    "tagline": "El efecto CapCut clásico: la palabra clave queda detrás del sujeto",
+    "emoji": "🧍",
+    "shortLabel": "TextoDetras",
+    "families": [],
+    "longForm": false,
+    "hasGraphics": false
+  },
+  {
+    "id": "pop_reels",
+    "name": "Pop Reels 2026",
+    "tagline": "Caption nativo de TikTok: caja negra + contorno + palabra por palabra",
+    "emoji": "💬",
+    "shortLabel": "PopReels",
+    "families": [],
+    "longForm": false,
+    "hasGraphics": false
+  },
+  {
+    "id": "graphics_pro",
+    "name": "Gráficos & Motion",
+    "tagline": "Gráficas animadas + titulares poderosos + zooms y transiciones",
+    "emoji": "📊",
+    "shortLabel": "Graficos",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "motion_pro",
+    "name": "Motion Pro",
+    "tagline": "Animación pura y limpia: fondo aurora que pulsa con la música, sin emojis",
+    "emoji": "✨",
+    "shortLabel": "MotionPro",
+    "families": ["motion", "music"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "motion_beat",
+    "name": "Motion Beat",
+    "tagline": "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat",
+    "emoji": "🎧",
+    "shortLabel": "MotionBeat",
+    "families": ["motion", "music"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "motion_grid",
+    "name": "Motion Grid",
+    "tagline": "Look retro-tech: cuadrícula en perspectiva + gráficas, limpio y futurista",
+    "emoji": "🌐",
+    "shortLabel": "MotionGrid",
+    "families": ["motion", "music"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "editorial",
+    "name": "Editorial",
+    "tagline": "Estilo documental: tu video en panel + titulares serif gigantes + ilustraciones doradas",
+    "emoji": "📰",
+    "shortLabel": "Editorial",
+    "families": ["music"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "graphics_max",
+    "name": "Gráficos Max",
+    "tagline": "Gráficos & Motion al máximo: cortes rápidos, zooms de reacción y stutter",
+    "emoji": "📈",
+    "shortLabel": "GraficosMax",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": true
+  }
+]

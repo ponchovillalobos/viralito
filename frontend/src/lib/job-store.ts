@@ -15,24 +15,11 @@ import { pushNotification, type NotificationType } from "@/lib/notifications-sto
 
 const PERSIST_FILE = "editor-jobs.json";
 
-export type StyleId =
-  | "silent"
-  | "punch"
-  | "hype"
-  | "hype_max"
-  | "hype_max_sfx"
-  | "supreme"
-  | "cinematic_pro"
-  | "broll_full"
-  | "broll_pip"
-  | "text_behind"
-  | "pop_reels"
-  | "graphics_pro"
-  | "graphics_max"
-  | "motion_pro"
-  | "motion_beat"
-  | "motion_grid"
-  | "editorial";
+// `StyleId` ya no se duplica aquí: viene del registro central vía
+// style-templates.ts. Lo importamos para uso local (Job, JobStep, firmas) y lo
+// re-exportamos para no cambiar paths de import de los consumidores existentes.
+import type { StyleId } from "@/lib/style-templates";
+export type { StyleId };
 
 export interface JobStep {
   styleId: StyleId;

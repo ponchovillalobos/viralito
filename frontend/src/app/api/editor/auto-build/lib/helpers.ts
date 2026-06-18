@@ -6,29 +6,14 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PROJECTS_DIR, RAW_DIR } from "@/lib/paths";
-import type { StyleId } from "@/lib/style-templates";
 import type { AutoBuildRequest } from "./types";
 
-/** Etiqueta corta y legible del estilo, usada en el nombre del archivo de salida. */
-export const STYLE_SHORT_LABEL: Record<StyleId, string> = {
-  silent: "Limpio",
-  punch: "Punch",
-  hype: "Viral",
-  hype_max: "ViralMax",
-  hype_max_sfx: "ViralSFX",
-  supreme: "Premium",
-  cinematic_pro: "Cine",
-  broll_full: "Broll",
-  broll_pip: "BrollPIP",
-  text_behind: "TextoDetras",
-  pop_reels: "PopReels",
-  graphics_pro: "Graficos",
-  graphics_max: "GraficosMax",
-  motion_pro: "MotionPro",
-  motion_beat: "MotionBeat",
-  motion_grid: "MotionGrid",
-  editorial: "Editorial",
-};
+/**
+ * Etiqueta corta y legible del estilo, usada en el nombre del archivo de salida.
+ * Se DERIVA del registro central (mismos valores que antes) y se re-exporta con
+ * el MISMO nombre para no tocar a quien lo importa.
+ */
+export { STYLE_SHORT_LABEL_FROM_REGISTRY as STYLE_SHORT_LABEL } from "@/lib/style-registry";
 
 /** Resuelve aspect ratio → dimensiones de output en píxeles. */
 export function dimensionsFromAspect(
