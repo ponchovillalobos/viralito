@@ -848,5 +848,93 @@ export function buildProjectForStyle(ctx, styleId) {
     );
   }
 
+  // ─── kinetic_type (paridad con shorts): TIPOGRAFÍA CINÉTICA — captions gigantes
+  //     palabra-por-palabra (pop_reels) sobre fondo mesh que late, sin emojis. ───
+  if (styleId === "kinetic_type") {
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "anton",
+        vignette: true,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.18,
+        zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.5, scale: 1.08 })),
+        animatedBackground: {
+          kind: "mesh",
+          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          opacity: 0.5,
+          audioReactive: true,
+        },
+      },
+      ctx,
+      {
+        lut: "kodak_warm.cube",
+        kinetic: "pop_reels",
+        endScreen: true,
+        progressBar: true,
+      }
+    );
+  }
+
+  // ─── lottie_pop (paridad con shorts): ANIMADO CON STICKERS — stickers animados
+  //     (Lottie) + icon stickers + fondo aurora + karaoke. Juguetón y enérgico. ───
+  if (styleId === "lottie_pop") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton",
+        vignette: true,
+        captionBounce: true,
+        wordStickers: buildStickers(ctx, 4),
+        floatingEmojis: buildFloatingEmojis(ctx, 3),
+        zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.6, scale: 1.12 })),
+        animatedBackground: {
+          kind: "aurora",
+          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          opacity: 0.48,
+          audioReactive: true,
+        },
+      },
+      ctx,
+      {
+        lut: "teal_orange.cube",
+        kinetic: "karaoke",
+        lottieStickers: true,
+        iconStickers: true,
+        endScreen: true,
+        progressBar: true,
+      }
+    );
+  }
+
+  // ─── paper_cut (paridad con shorts): PAPEL RECORTADO — collage editorial como
+  //     estilo propio. Reusa editorialLayout (applyEditorialCutout lo enriquece). ───
+  if (styleId === "paper_cut") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton",
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "left",
+          panelWidth: ctx.width > ctx.height ? 0.34 : 0.46,
+          accent: ctx.accentColor,
+          theme: "riso",
+          texture: "paper",
+          fps12: true,
+          cohesion: true,
+        },
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   return base;
 }

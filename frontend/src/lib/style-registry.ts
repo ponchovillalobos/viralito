@@ -56,6 +56,9 @@ export const STYLE_IDS = [
   "motion_grid",
   "editorial",
   "graphics_max",
+  "kinetic_type",
+  "lottie_pop",
+  "paper_cut",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];

@@ -103,7 +103,8 @@ type StyleId =
   | "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme"
   | "graphics_pro" | "graphics_max"
   | "motion_pro" | "motion_beat" | "motion_grid"
-  | "editorial";
+  | "editorial"
+  | "kinetic_type" | "lottie_pop" | "paper_cut";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -204,6 +205,9 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = 
   { id: "motion_beat", name: "Motion Beat", tagline: "El fondo late con la música", emoji: "🎧" },
   { id: "motion_grid", name: "Motion Grid", tagline: "Retro-tech: cuadrícula + gráficas", emoji: "🌐" },
   { id: "editorial", name: "Editorial", tagline: "Documental: panel + titulares serif + line-art dorado", emoji: "📰" },
+  { id: "kinetic_type", name: "Tipografía cinética", tagline: "Subtítulos gigantes + fondo que late, sin emojis", emoji: "⌨️" },
+  { id: "lottie_pop", name: "Animado con stickers", tagline: "Stickers animados + íconos + fondo aurora", emoji: "✨" },
+  { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: panel de papel + titulares serif", emoji: "✂️" },
 ];
 
 const PALETTE = [

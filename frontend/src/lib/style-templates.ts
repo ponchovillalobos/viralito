@@ -1140,6 +1140,100 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     );
   }
 
+  // ─── kinetic_type: TIPOGRAFÍA CINÉTICA. El protagonismo es del texto — captions
+  // gigantes palabra-por-palabra (pop_reels) sobre un fondo mesh que late con la
+  // música. Limpio: SIN stickers/emojis, solo micro punch-ins sutiles. ───
+  if (styleId === "kinetic_type") {
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "anton" as const,
+        vignette: true,
+        captionBounce: false,
+        // SIN wordStickers / floatingEmojis — el texto cinético es el efecto.
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.18,
+        // Micro punch-ins suaves en keywords (acompañan el ritmo del texto).
+        zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.5, scale: 1.08 })),
+        animatedBackground: {
+          kind: "mesh" as const,
+          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          opacity: 0.5,
+          audioReactive: true,
+        },
+      },
+      ctx,
+      {
+        lut: "kodak_warm.cube",
+        kinetic: "pop_reels",
+        endScreen: true,
+        progressBar: true,
+      }
+    );
+  }
+
+  // ─── lottie_pop: ANIMADO CON STICKERS. Lleno de vida — stickers animados (Lottie)
+  // + icon stickers + fondo aurora + karaoke. Para contenido juguetón y enérgico. ───
+  if (styleId === "lottie_pop") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton" as const,
+        vignette: true,
+        captionBounce: true,
+        wordStickers: buildStickers(ctx, 4),
+        floatingEmojis: buildFloatingEmojis(ctx, 3),
+        zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.6, scale: 1.12 })),
+        animatedBackground: {
+          kind: "aurora" as const,
+          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          opacity: 0.48,
+          audioReactive: true,
+        },
+      },
+      ctx,
+      {
+        lut: "teal_orange.cube",
+        kinetic: "karaoke",
+        lottieStickers: true,
+        iconStickers: true,
+        endScreen: true,
+        progressBar: true,
+      }
+    );
+  }
+
+  // ─── paper_cut: PAPEL RECORTADO. El collage editorial promovido a estilo propio:
+  // tu video en un panel de papel recortado + titulares serif. Reusa editorialLayout
+  // (auto-build corre applyEditorialCutout para cualquier proyecto con editorialLayout). ───
+  if (styleId === "paper_cut") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true, // genera editorialCards (+charts que paper_cut curará)
+        subtitleStyle: "anton" as const,
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "left" as const,
+          // 16:9 → panel angosto; 9:16 → casi media pantalla (igual que editorial).
+          panelWidth: (ctx.width ?? 1080) > (ctx.height ?? 1920) ? 0.34 : 0.46,
+          accent: ctx.accentColor,
+          // Tema collage + papel procedural: el motor de look del editorial-layer.
+          theme: "riso" as const,
+          texture: "paper" as const,
+          fps12: true,
+          cohesion: true,
+        },
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   return base;
 }
 

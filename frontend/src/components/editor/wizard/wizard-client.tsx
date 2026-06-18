@@ -57,7 +57,7 @@ const FONT_PREVIEW: Record<string, string> = {
   righteous: _right.style.fontFamily,
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial";
+type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "kinetic_type" | "lottie_pop" | "paper_cut";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -111,6 +111,9 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "motion_beat", name: "Motion Beat", tagline: "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat. Limpio y con energía.", emoji: "🎧" },
   { id: "motion_grid", name: "Motion Grid", tagline: "Look retro-tech futurista: cuadrícula en perspectiva + gráficas. Sin emojis.", emoji: "🌐" },
   { id: "editorial", name: "Editorial", tagline: "Estilo documental premium: tu video en un panel + titulares serif gigantes + ilustraciones doradas animadas. Sin subtítulos.", emoji: "📰" },
+  { id: "kinetic_type", name: "Tipografía cinética", tagline: "Subtítulos gigantes palabra-por-palabra sobre un fondo que late con la música. Sin emojis.", emoji: "⌨️" },
+  { id: "lottie_pop", name: "Animado con stickers", tagline: "Lleno de vida: stickers animados, íconos y fondo aurora. Juguetón y enérgico.", emoji: "✨" },
+  { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: tu video en un panel de papel recortado + titulares serif.", emoji: "✂️" },
 ];
 
 // Tarjetas-preset del paso 2: 5 familias con variantes (selección ÚNICA y simple).
@@ -160,6 +163,8 @@ const PRESETS: PresetDef[] = [
       { id: "motion_pro", label: "Aurora" },
       { id: "motion_beat", label: "Al ritmo de la música" },
       { id: "motion_grid", label: "Retro futurista" },
+      { id: "kinetic_type", label: "Tipografía cinética" },
+      { id: "lottie_pop", label: "Con stickers ✨" },
     ],
   },
   {
@@ -167,7 +172,10 @@ const PRESETS: PresetDef[] = [
     name: "Revista",
     emoji: "📰",
     description: "Estilo documental premium: tu video en un panel con titulares serif gigantes. Elige el tema aquí abajo.",
-    variants: [{ id: "editorial", label: "Editorial" }],
+    variants: [
+      { id: "editorial", label: "Editorial" },
+      { id: "paper_cut", label: "Papel recortado ✂️" },
+    ],
   },
   {
     id: "clips",
@@ -199,7 +207,7 @@ const SUBTITLE_FONTS: { id: string; name: string }[] = [
 // Familias de estilos con submenú propio (patrón "tema editorial"): el submenú
 // solo aparece si hay un estilo de la familia seleccionado, y el default ("auto"/
 // "normal") deja el render EXACTAMENTE como siempre — elegir nada = perfecto.
-const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid"];
+const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid", "kinetic_type", "lottie_pop"];
 const HYPE_STYLES: StyleId[] = ["hype", "hype_max", "hype_max_sfx", "supreme"];
 
 // Estilos que LLEVAN música de fondo (los que setean musicTrack en
@@ -212,6 +220,9 @@ const MUSIC_STYLES: StyleId[] = [
   "motion_beat",
   "motion_grid",
   "editorial",
+  "kinetic_type",
+  "lottie_pop",
+  "paper_cut",
 ];
 
 // Elección de música del wizard. "auto" = el sistema elige y rota (lo de siempre).

@@ -188,6 +188,51 @@ export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: st
                 <div className="absolute bottom-2 left-2 h-3 w-3 rounded-full border" style={{ borderColor: "#f0b429", animation: "smd-pop 2s ease-in-out infinite" }} />
               </Screen>
             );
+          case "kinetic_type":
+            return (
+              <Screen bg="#0c0a1d">
+                {/* fondo mesh que late */}
+                <div className="absolute left-1 top-1 h-7 w-7 rounded-full blur-[8px]" style={{ background: accent, animation: "smd-mesh 0.9s ease-in-out infinite" }} />
+                <div className="absolute bottom-5 right-0 h-8 w-8 rounded-full blur-[8px] bg-violet-500/80" style={{ animation: "smd-mesh 1.1s ease-in-out infinite reverse" }} />
+                {/* caption GIGANTE palabra-por-palabra */}
+                <div
+                  className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] font-black tracking-tight text-white"
+                  style={{ animation: "smd-pop 0.9s ease-in-out infinite" }}
+                >
+                  AB
+                </div>
+              </Screen>
+            );
+          case "lottie_pop":
+            return (
+              <Screen bg="#0c0a1d">
+                {/* aurora */}
+                <div
+                  className="absolute left-[-20%] top-1 h-4 w-[140%] rounded-full blur-[6px]"
+                  style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, animation: "smd-aurora 2.4s ease-in-out infinite" }}
+                />
+                {/* stickers animados (Lottie) */}
+                <span className="absolute right-0.5 top-0.5 text-[9px]" style={{ animation: "smd-pop 1s ease-in-out infinite" }}>✨</span>
+                <span className="absolute left-0.5 top-5 text-[8px]" style={{ animation: "smd-pop 1.3s ease-in-out infinite" }}>⭐</span>
+                <Caption color={accent} anim="smd-pop" />
+              </Screen>
+            );
+          case "paper_cut":
+            return (
+              <Screen bg="#f1ece0">
+                {/* panel de papel recortado a la izquierda */}
+                <div className="absolute left-1 top-2 h-16 w-4 overflow-hidden rounded-sm border border-black/15 bg-zinc-400/70 shadow-[2px_2px_0_rgba(0,0,0,0.25)]">
+                  <div className="absolute left-1/2 top-2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-zinc-600" />
+                  <div className="absolute left-1/2 top-4 h-2 w-2.5 -translate-x-1/2 rounded-t-full bg-zinc-700" />
+                </div>
+                {/* titulares serif a la derecha */}
+                <div className="absolute right-1 top-4 space-y-1 text-right">
+                  <div className="ml-auto h-1.5 w-6 rounded-sm bg-zinc-900/90" style={{ animation: "smd-slide 2.6s ease-in-out infinite" }} />
+                  <div className="ml-auto h-1.5 w-5 rounded-sm" style={{ background: "#FF48B0", animation: "smd-slide 2.6s ease-in-out infinite", animationDelay: "0.15s" }} />
+                  <div className="ml-auto h-0.5 w-4 bg-zinc-500" />
+                </div>
+              </Screen>
+            );
           default:
             return <Screen><Caption color={accent} /></Screen>;
         }

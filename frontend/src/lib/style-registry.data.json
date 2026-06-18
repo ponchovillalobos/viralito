@@ -168,5 +168,35 @@
     "families": [],
     "longForm": true,
     "hasGraphics": true
+  },
+  {
+    "id": "kinetic_type",
+    "name": "Tipografía cinética",
+    "tagline": "Subtítulos gigantes que rebotan + fondo mesh que late con la música, sin emojis",
+    "emoji": "⌨️",
+    "shortLabel": "Cinetica",
+    "families": ["motion", "music"],
+    "longForm": true,
+    "hasGraphics": false
+  },
+  {
+    "id": "lottie_pop",
+    "name": "Animado con stickers",
+    "tagline": "Lleno de vida: stickers animados (Lottie) + íconos + fondo aurora + karaoke",
+    "emoji": "✨",
+    "shortLabel": "LottiePop",
+    "families": ["motion", "music"],
+    "longForm": true,
+    "hasGraphics": true
+  },
+  {
+    "id": "paper_cut",
+    "name": "Papel recortado",
+    "tagline": "Collage editorial: tu video en un panel de papel recortado + titulares serif",
+    "emoji": "✂️",
+    "shortLabel": "PapelCut",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": false
   }
 ]
