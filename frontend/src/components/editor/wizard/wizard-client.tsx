@@ -304,14 +304,21 @@ const PALETTE = [
   { name: "violeta claro", value: "#c084fc", mood: "elegancia" },
 ];
 
-export function WizardClient() {
+export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [rawDir, setRawDir] = useState<string>("");
   const [step, setStep] = useState(1);
   // Multi-select: el wizard procesa N videos a la vez (todos con la misma config).
   // Si seleccionas 3 videos × 2 estilos, se encolan 3 jobs (cola serial: 1 a la vez).
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set());
-  const [selectedStyles, setSelectedStyles] = useState<StyleId[]>(["hype"]);
+  // Estilo inicial: si la home llega con ?style=<id> (p.ej. tarjeta
+  // "Cinematográfico"), arranca con ese estilo PRE-seleccionado; si no, "hype".
+  // Se valida contra STYLES para no aceptar un id basura de la URL.
+  const [selectedStyles, setSelectedStyles] = useState<StyleId[]>(
+    initialStyle && STYLES.some((s) => s.id === initialStyle)
+      ? [initialStyle as StyleId]
+      : ["hype"]
+  );
   const [accent, setAccent] = useState<string>("#fb7185");
   const [subtitleFont, setSubtitleFont] = useState<string>("auto");
   // Color del TEXTO de los subtítulos ("auto" = el del estilo, normalmente blanco).

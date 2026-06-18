@@ -1,6 +1,13 @@
 import { WizardClient } from "@/components/editor/wizard/wizard-client";
 
-export default function WizardPage() {
+export default async function WizardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ style?: string }>;
+}) {
+  // La home puede enlazar /editor/wizard?style=cinematic_pro (tarjeta
+  // "Cinematográfico") para que el wizard arranque con ese estilo elegido.
+  const { style } = await searchParams;
   return (
     <div className="space-y-6">
       <header className="space-y-2">
@@ -14,7 +21,7 @@ export default function WizardPage() {
         </p>
       </header>
 
-      <WizardClient />
+      <WizardClient initialStyle={style} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, FolderKanban, ArrowRight, Upload, Wand2, Sparkles, Send, Telescope, Film } from "lucide-react";
+import { Scissors, FolderKanban, ArrowRight, Upload, Wand2, Sparkles, Send, Telescope, Film, Clapperboard } from "lucide-react";
 import { GettingStarted } from "@/components/home/getting-started";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
@@ -18,6 +18,13 @@ const ACTIONS = [
     title: "Cortar un video largo",
     desc: "Sube un curso o charla y la IA extrae los mejores clips virales.",
     icon: Film,
+    primary: false,
+  },
+  {
+    href: "/editor/wizard?style=cinematic_pro",
+    title: "Video cinematográfico",
+    desc: "Sube tu video (y opcionalmente imágenes) — la IA lo edita con look de cine: grano, color y movimientos de cámara.",
+    icon: Clapperboard,
     primary: false,
   },
   {
