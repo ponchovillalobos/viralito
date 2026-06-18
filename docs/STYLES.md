@@ -1,7 +1,11 @@
 ﻿# Estilos visuales (base)
 
 > **Actualizado:** este doc detalla los estilos base y su configuración JSON. El sistema
-> hoy tiene **más estilos** (`cinematic_pro`, `broll_full`, `broll_pip`) y un set de efectos
+> hoy tiene **22 estilos** en total (`frontend/src/lib/style-registry.data.json` es la
+> fuente de verdad del catálogo). Además de los base de aquí, incluye `cinematic_pro`,
+> `broll_full`, `broll_pip`, `text_behind`, `pop_reels`, `graphics_pro`, `graphics_max`,
+> `motion_pro`, `motion_beat`, `motion_grid`, `editorial`, `editorial_broll`,
+> `kinetic_type`, `lottie_pop`, `paper_cut` y `cine_clasico`, más un set de efectos
 > "nivel CapCut" (LUTs de color, light leaks, transiciones pro, tipografía cinética,
 > beat-sync, motion tracking, quitar fondo con IA) que se aplican a **todos** los estilos vía
 > `applyCapcutFx()`. Para el panorama completo y los estilos nuevos, ver
@@ -168,7 +172,117 @@ Combina Punch + Hype Max + SFX. Es el estilo automático que aplica el orquestad
 
 No requiere configuración manual — `build-clip-supreme.mjs` lo arma desde la propuesta de Ollama.
 
-## 14 SFX disponibles
+## 6. Tipografía cinética — `kinetic_type`
+
+**Tagline**: Subtítulos gigantes que rebotan + fondo mesh que late con la música, sin emojis.
+
+**Cuándo usar**: cuando querés un look limpio y rítmico centrado en la palabra, sin stickers ni floating emojis. Ideal para frases punchy y contenido de autoridad.
+
+**Elementos**:
+- Subtítulos gigantes con bounce (spring overshoot) palabra por palabra
+- Fondo mesh animado que pulsa al beat de la música (familia `motion` + `music`)
+- **Sin emojis, sin stickers, sin floating emojis** — la tipografía es la protagonista
+- Mono-color por video
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "kinetic_type",
+  "captionBounce": true,
+  "wordStickers": [],
+  "floatingEmojis": []
+}
+```
+
+## 7. Animado con stickers — `lottie_pop`
+
+**Tagline**: Lleno de vida: stickers animados (Lottie) + íconos + fondo aurora + karaoke.
+
+**Cuándo usar**: contenido juvenil y enérgico donde querés máxima vida en pantalla con animaciones reales (no estáticas).
+
+**Elementos**:
+- **Stickers animados Lottie** + íconos line-art elegidos según lo que decís (`illustrations: true`)
+- Fondo aurora animado (familia `motion` + `music`)
+- Subtítulos karaoke
+- Mono-color por video
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "lottie_pop"
+}
+```
+
+## 8. Papel recortado — `paper_cut`
+
+**Tagline**: Collage editorial: tu video en un panel de papel recortado + titulares serif.
+
+**Cuándo usar**: estética editorial artesanal tipo collage/zine, con tu video enmarcado en un panel de papel recortado y titulares serif.
+
+**Elementos**:
+- Tu video en un panel de papel recortado (look collage)
+- Titulares serif gigantes
+- Estilo de largos (`longForm: true`), sin gráficas automáticas
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "paper_cut"
+}
+```
+
+## 9. Editorial con archivo — `editorial_broll`
+
+**Tagline**: Editorial documental + videos de archivo (Pexels) que ilustran lo que dices.
+
+**Cuándo usar**: documental premium con material de apoyo. Es el estilo `editorial`
+(panel lateral + titulares serif gigantes + ilustraciones doradas) **más** videos de
+archivo de Pexels que ilustran lo que decís, montados en cortinillas sobre el lienzo.
+
+**Elementos**: igual que `editorial` +
+- **Videos de archivo (Pexels)** elegidos por transcripción que ilustran el tema
+- Se montan en **cortinillas** sobre el lienzo editorial (no a pantalla completa)
+- Requiere API key gratis de Pexels (opcional) para el material de archivo
+- `illustrations: true` — sigue usando las ilustraciones line-art doradas del editorial
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "editorial_broll"
+}
+```
+
+## 10. Cine clásico — `cine_clasico` 🎞️🎙️
+
+**Tagline**: Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro.
+
+**Cuándo usar**: relatos con carga emocional donde querés un giro cinematográfico de
+época en los picos. Fuera de los picos es cine elegante; en los picos del **director
+emocional** entra el drama de cine antiguo.
+
+**Elementos**:
+- **Look base** (siempre): subtítulos cine, film grain, LUT cálido desaturado (`kodak_warm`),
+  viñeta y música baja — lo hornea `buildProjectForStyle`.
+- **En los picos del director emocional** (enriquecedor por-pico, opt-in, best-effort):
+  - **Voz** → suena a radio/teléfono antiguo: band-limit (highpass 400 + lowpass 3000)
+    **gateado por ventana** (telefónico solo dentro del pico, full-range afuera).
+  - **Imagen** → **blanco y negro** + grano solo dentro de cada ventana de pico
+    (`project.bwWindows`).
+  - **SFX** → cine antiguo: `typewriter.wav` y `film_reel.wav` (máquina de escribir +
+    carrete de proyector) alternados al inicio de cada ventana de pico.
+- **Best-effort**: si no se obtienen picos, el estilo renderiza igual como cine elegante base.
+- Todo gateado a `styleId === "cine_clasico"` (ver `frontend/src/app/api/editor/auto-build/lib/cine-clasico.ts`).
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "cine_clasico"
+}
+```
+El drama por-pico se arma automáticamente desde el director emocional; no requiere
+configuración manual.
+
+## 16 SFX disponibles
 
 Curados en `C:\viral-data\videos\assets\sfx\curated\`:
 
@@ -188,6 +302,26 @@ Curados en `C:\viral-data\videos\assets\sfx\curated\`:
 | `ding_bell.ogg` | Campana ligera | Momentos AHA |
 | `notification.ogg` | Notification beep | CTA fuerte |
 | `thud.wav` | Thud grave | Impactos negativos ("error", "no") |
+| `typewriter.wav` | Máquina de escribir | Picos dramáticos de `cine_clasico` |
+| `film_reel.wav` | Carrete de proyector | Picos dramáticos de `cine_clasico` |
+
+> `typewriter.wav` y `film_reel.wav` se sintetizan localmente con
+> `python/synth_sfx.py curated-wav` (para el estilo `cine_clasico`).
+
+## Temas editoriales
+
+El estilo `editorial` (y `editorial_broll`) tiene **17 sub-temas** de fuente/fondo con
+identidad propia (cada uno con su miniatura en `frontend/public/theme-thumbs/`). La
+fuente de verdad son `EDITORIAL_THEMES` en el wizard. Los más recientes:
+
+| Tema | `theme` id | Look |
+|---|---|---|
+| Art Déco | `art_deco` | Lujo 1920, crema y dorado |
+| Blueprint | `blueprint` | Plano de ingeniería, azul y cian |
+| Noir | `noir` | Cine negro, blanco y negro |
+
+(además de Clásico, FT salmón, Vogue noir, Zine riso, Stripe press, Prensa 1900,
+Japón mincho, Brutalista, Docu rojo, etc.)
 
 ## Paletas de color recomendadas
 

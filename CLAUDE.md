@@ -55,9 +55,9 @@ Ver `docs/AUTOSTART.md` para configuración del autostart.
 
 Solo caracteres `[a-zA-Z0-9_-]`. NO espacios, NO acentos.
 
-### 16 estilos visuales disponibles (silent, punch, hype, hype_max, hype_max_sfx, supreme, cinematic_pro, broll_full, broll_pip, text_behind, graphics_pro, graphics_max, motion_pro, motion_beat, motion_grid, editorial)
+### 22 estilos visuales disponibles (silent, punch, hype, hype_max, hype_max_sfx, supreme, cinematic_pro, broll_full, broll_pip, text_behind, pop_reels, graphics_pro, graphics_max, motion_pro, motion_beat, motion_grid, editorial, editorial_broll, kinetic_type, lottie_pop, paper_cut, cine_clasico)
 
-`silent`, `punch`, `hype`, `hype_max`, `hype_max_sfx` (+ `supreme` para clips de long_form). Ver `docs/STYLES.md`.
+`silent`, `punch`, `hype`, `hype_max`, `hype_max_sfx` (+ `supreme` para clips de long_form). Ver `docs/STYLES.md`. Fuente de verdad del catálogo: `frontend/src/lib/style-registry.data.json`.
 
 Para un short nuevo, default = `hype_max_sfx`.
 
@@ -153,10 +153,12 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 Documentado en `README.md`. Resumen:
 
 - ✅ Dashboard funcional con 8 rutas
-- ✅ 16 estilos visuales implementados (15 en el selector + cinematic_pro opt-in)
+- ✅ 22 estilos visuales implementados (los del selector + `supreme` automático para clips + `cinematic_pro` opt-in)
+  - Nuevos: `cine_clasico` (cine antiguo: voz a radio vieja + B&W + máquina de escribir/proyector en los picos del director emocional), `editorial_broll` (Editorial + B-roll Pexels en cortinillas), `kinetic_type`, `lottie_pop`, `paper_cut`
+  - El estilo `editorial` tiene 17 temas editoriales (nuevos: `art_deco`, `blueprint`, `noir`)
 - ✅ Pipeline shorts: transcribe + cuts + render
 - ✅ Pipeline long form: transcribe + cuts + analyze + extract + render
-- ✅ 14 SFX CC0 curados
+- ✅ 16 SFX CC0 curados (incluye `typewriter.wav` y `film_reel.wav` para `cine_clasico`)
 - ✅ Pexels integrado
 - ✅ 17 videos renderizados (D01-D12 + clips de D13)
 - ⏳ Pendiente opcional: skills `.claude` para invocar pipeline desde Claude Code
@@ -177,5 +179,5 @@ Es el archivo más delicado del proyecto. Reglas:
 - `docs/SETUP.md` — instalación
 - `docs/USAGE.md` — tutorial
 - `docs/ARCHITECTURE.md` — técnica
-- `docs/STYLES.md` — los estilos (16 en total)
+- `docs/STYLES.md` — los estilos (22 en total)
 - `docs/TROUBLESHOOTING.md` — errores comunes

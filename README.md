@@ -157,10 +157,11 @@ el oficial.
 - **🧠 Director emocional** *(único en el mercado)*: analiza CÓMO hablás — la música
   baja cuando hablás y respira en tus pausas (auto-ducking), los zooms caen en tus
   picos emocionales, los efectos se intensifican con tu voz.
-- **15 estilos de edición** con mini-demos animadas: del MrBeast intenso al
+- **22 estilos de edición** con mini-demos animadas: del MrBeast intenso al
   **📰 Editorial documental** (panel lateral + titulares serif gigantes + ilustraciones
-  line-art doradas, con 4 temas de fuente/fondo) y los **Motion** con fondos que
-  laten al ritmo de la música.
+  line-art doradas, con 17 temas de fuente/fondo), el **🎞️🎙️ Cine clásico** (en los picos
+  la voz suena a radio vieja y la imagen se vuelve blanco y negro) y los **Motion** con
+  fondos que laten al ritmo de la música.
 - **Miles de ilustraciones animadas**: 609 del catálogo Noto de Google (dinero
   volando, relojes, cohetes…) + 1,500+ íconos Lucide animados como line-art +
   18 ilustraciones premium dibujadas a mano — elegidas solas según lo que decís.
@@ -172,7 +173,7 @@ el oficial.
   previa real (foto o 3s en movimiento) antes de renderizar.
 - **App de escritorio** (Tauri): ventana nativa, portable — descargá, descomprimí y listo.
 
-## 🎨 Los 15 estilos
+## 🎨 Los 22 estilos
 
 | | Estilo | Qué hace |
 |---|---|---|
@@ -180,9 +181,15 @@ el oficial.
 | ⚡ | **Viral intenso** | + jump cuts, reaction zooms, espejos |
 | 🎵 | **Viral con sonidos** | + SFX coordinados con lo que decís |
 | 👑 | **Premium (Supreme)** | Todo activado |
-| 📰 | **Editorial** | Documental: panel + serif gigante + line-art (4 temas × 10 colores) |
+| 📰 | **Editorial** | Documental: panel + serif gigante + line-art (17 temas × 10 colores) |
+| 🎞️ | **Editorial con archivo** | Editorial + videos de archivo (Pexels) que ilustran lo que decís, en cortinillas |
+| ✂️ | **Papel recortado** | Collage editorial: tu video en un panel de papel recortado + titulares serif |
 | ✨🎧🌐 | **Motion Pro / Beat / Grid** | Animación pura sin emojis; el fondo late con la música |
+| ⌨️ | **Tipografía cinética** | Subtítulos gigantes que rebotan + fondo mesh al ritmo, sin emojis |
+| ✨ | **Animado con stickers** | Stickers animados (Lottie) + íconos + fondo aurora |
 | 📊📈 | **Gráficos & Motion / Max** | Charts + íconos de concepto al máximo |
+| 🎬 | **Cinematográfico** | Look de cine: film grain, teal&orange, viñeta y movimientos de cámara |
+| 🎞️🎙️ | **Cine clásico** | En los picos: voz a radio vieja + blanco y negro + máquina de escribir/proyector |
 | 🎞️🖼️ | **B-roll full / PIP** | Videos de archivo de Pexels (API key gratis opcional) |
 | 🧍 | **Texto detrás** | La palabra clave queda detrás tuyo (IA de segmentación) |
 | 🥊🤍 | **Impacto / Limpio** | Énfasis puntual / sobrio profesional |
