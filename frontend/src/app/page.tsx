@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, FolderKanban, Share2, ArrowRight, Upload, Wand2, Sparkles, Send, Telescope, Film } from "lucide-react";
+import { Scissors, FolderKanban, ArrowRight, Upload, Wand2, Sparkles, Send, Telescope, Film } from "lucide-react";
 import { GettingStarted } from "@/components/home/getting-started";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
@@ -37,7 +37,6 @@ const FLOW = [
 ] as const;
 
 const SECONDARY = [
-  { href: "/metricas", label: "Mis resultados (anota cómo le fue a cada video)", icon: Share2 },
   { href: "/research", label: "Buscar inspiración (analizar virales ajenos)", icon: Telescope },
 ] as const;
 
