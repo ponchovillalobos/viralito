@@ -12,6 +12,14 @@
 
 *Windows 10/11 x64 · 8 GB RAM · ~6 GB libres en disco · no requiere instalar nada más*
 
+<br/>
+
+### ☕ ¿Te sirve Viralito? Invítanos un café
+
+[![Invítanos un café](https://img.shields.io/badge/Inv%C3%ADtanos%20un%20caf%C3%A9-Donar%20%E2%98%95-FA3C8D?style=for-the-badge&logo=buymeacoffee&logoColor=white)](https://buy.stripe.com/aFadRb2R3ghu0CF1JCgnK04)
+
+*Es gratis y open-source. Si te ahorra horas de edición, un cafecito ayuda a seguir mejorándolo* 💛
+
 </div>
 
 ### 🚀 Instalar en 2 pasos (con instalador)
@@ -262,3 +270,21 @@ powershell -File desktop/bundle.ps1    # arma payload/ autocontenido + SHA256
 El paquete final es la carpeta `release\` (exe + `payload\` con node, python,
 ffmpeg y todo adentro): se copia a cualquier Windows y funciona sin instalar
 nada. Checklist completo para publicar una versión: [`docs/RELEASE.md`](./docs/RELEASE.md)
+
+---
+
+<div align="center">
+
+## ☕ Apoya el proyecto
+
+Viralito es **gratis y open-source**. Mantenerlo y mejorarlo (nuevos estilos,
+modelos, correcciones) lleva tiempo. Si te ahorra horas de edición, **invítanos
+un café** — cualquier monto ayuda y se agradece un montón. 💛
+
+[![Invítanos un café](https://img.shields.io/badge/Inv%C3%ADtanos%20un%20caf%C3%A9-Donar%20%E2%98%95-FA3C8D?style=for-the-badge&logo=buymeacoffee&logoColor=white)](https://buy.stripe.com/aFadRb2R3ghu0CF1JCgnK04)
+
+**Pago seguro vía Stripe** · [buy.stripe.com](https://buy.stripe.com/aFadRb2R3ghu0CF1JCgnK04)
+
+*(También aparece el botón **Sponsor** ☝️ arriba del repo, configurado en `.github/FUNDING.yml`.)*
+
+</div>
