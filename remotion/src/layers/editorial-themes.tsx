@@ -1,4 +1,5 @@
 import { AbsoluteFill } from "remotion";
+import { drawProps } from "./line-art-icons";
 
 /**
  * EDITORIAL — 12 SUB-TEMAS de clase mundial (Ola 3 del plan EDITORIAL-SUPREMO).
@@ -28,6 +29,10 @@ import { loadFont as loadShippori } from "@remotion/google-fonts/ShipporiMincho"
 import { loadFont as loadZenKaku } from "@remotion/google-fonts/ZenKakuGothicNew";
 import { loadFont as loadLibreFranklin } from "@remotion/google-fonts/LibreFranklin";
 import { loadFont as loadSpectral } from "@remotion/google-fonts/Spectral";
+import { loadFont as loadCinzel } from "@remotion/google-fonts/Cinzel";
+import { loadFont as loadJetBrainsMono } from "@remotion/google-fonts/JetBrainsMono";
+import { loadFont as loadPlayfairDisplay } from "@remotion/google-fonts/PlayfairDisplay";
+import { loadFont as loadSpecialElite } from "@remotion/google-fonts/SpecialElite";
 
 const { fontFamily: OLDSTD } = loadOldStandard("normal", { weights: ["400", "700"], subsets: ["latin"] });
 const { fontFamily: OLDSTD_IT } = loadOldStandard("italic", { weights: ["400"], subsets: ["latin"] });
@@ -51,10 +56,16 @@ const { fontFamily: FRANKLIN } = loadLibreFranklin("normal", { weights: ["400", 
 const { fontFamily: FRANKLIN_IT } = loadLibreFranklin("italic", { weights: ["400", "700"], subsets: ["latin"] });
 const { fontFamily: SPECTRAL } = loadSpectral("normal", { weights: ["400", "700"], subsets: ["latin"] });
 const { fontFamily: SPECTRAL_IT } = loadSpectral("italic", { weights: ["400", "700"], subsets: ["latin"] });
+const { fontFamily: CINZEL } = loadCinzel("normal", { weights: ["400", "700"], subsets: ["latin"] });
+const { fontFamily: JETBRAINS } = loadJetBrainsMono("normal", { weights: ["400", "700"], subsets: ["latin"] });
+const { fontFamily: PLAYFAIR_D } = loadPlayfairDisplay("normal", { weights: ["400", "700", "900"], subsets: ["latin"] });
+const { fontFamily: PLAYFAIR_D_IT } = loadPlayfairDisplay("italic", { weights: ["400", "700"], subsets: ["latin"] });
+const { fontFamily: SPECIAL_ELITE } = loadSpecialElite("normal", { weights: ["400"], subsets: ["latin"] });
 
 export type MotifId =
   | "none" | "prensa" | "vogue" | "kinfolk" | "riso" | "grabado"
-  | "constructivista" | "bauhaus" | "swiss" | "brutal" | "mincho" | "stripe" | "docu";
+  | "constructivista" | "bauhaus" | "swiss" | "brutal" | "mincho" | "stripe" | "docu"
+  | "art_deco" | "blueprint" | "noir";
 
 export interface EditorialThemeDef {
   id: string;
@@ -175,6 +186,27 @@ export const EDITORIAL_THEME_DEFS: Record<string, EditorialThemeDef> = {
     canvas: { bg: "#fff1e5", text: "#33302e", muted: "#8c8273" },
     fontTitle: [FRANKLIN, FRANKLIN_IT], fontBody: SPECTRAL, fontKicker: PLEX_MONO,
     accent: "#0d7680", motif: "docu", duotone: 0, texture: "none",
+  },
+  art_deco: {
+    id: "art_deco", name: "Art Déco",
+    canvas: { bg: "#f3ead6", text: "#16130d", muted: "#8a7c5c" },
+    fontTitle: [CINZEL, CINZEL], fontBody: CORMORANT, fontKicker: KARLA,
+    accent: "#bd9a4e", motif: "art_deco", duotone: 0, texture: "paper",
+    titleTransform: "uppercase", minimalAmbient: true,
+  },
+  blueprint: {
+    id: "blueprint", name: "Blueprint",
+    canvas: { bg: "#0b2138", text: "#dbe9f4", muted: "#5f7f9c" },
+    fontTitle: [JETBRAINS, JETBRAINS], fontBody: PLEX_MONO, fontKicker: JETBRAINS,
+    accent: "#34c6d8", motif: "blueprint", duotone: 0, texture: "none",
+    minimalAmbient: true,
+  },
+  noir: {
+    id: "noir", name: "Noir",
+    canvas: { bg: "#0a0a0a", text: "#f2f2f0", muted: "#7d7d79" },
+    fontTitle: [PLAYFAIR_D, PLAYFAIR_D_IT], fontBody: CORMORANT, fontKicker: SPECIAL_ELITE,
+    accent: "#d8d2c4", motif: "noir", duotone: 1, texture: "none",
+    minimalAmbient: true,
   },
 };
 
@@ -510,6 +542,132 @@ export const MotifLayer: React.FC<{
     return (
       <AbsoluteFill style={{ pointerEvents: "none" }}>
         <div style={{ position: "absolute", top: 0, left: W * 0.06, width: W * 0.085, height: H * 0.012 * p, background: accent }} />
+      </AbsoluteFill>
+    );
+  }
+
+  if (motif === "art_deco") {
+    // Marco de esquina déco: abanico de rayos + galón escalonado que se DIBUJAN
+    // (strokeDashoffset vía drawProps), asentándose en ~1.2s, con shimmer dorado.
+    // Cartel de lujo 1920. Cada path es un trazo geométrico reflejado 4×.
+    const m = Math.min(W, H) * 0.04;
+    const R = Math.min(W, H) * 0.13; // radio del abanico de rayos
+    // Brillo sutil que recorre el dorado tras dibujarse.
+    const shimmer = 0.78 + 0.22 * Math.sin(t * 1.6);
+    const settle = clamp01((t - 1.2) / 0.6);
+    // Galón escalonado (chevrons) — un path único de longitud ~ chevLen.
+    const chev = `M0 ${R * 1.18} L${R * 0.32} ${R * 0.86} L0 ${R * 0.54} M0 ${R * 0.9} L${R * 0.24} ${R * 0.64} L0 ${R * 0.38}`;
+    const corner = (cx: number, cy: number, sx: number, sy: number, idx: number) => (
+      <g key={idx} transform={`translate(${cx} ${cy}) scale(${sx} ${sy})`}>
+        {/* abanico de rayos déco (sunburst) — se dibujan escalonados */}
+        {Array.from({ length: 6 }).map((_, i) => {
+          const a = (i / 5) * (Math.PI / 2);
+          const x2 = Math.cos(a) * R;
+          const y2 = Math.sin(a) * R;
+          const len = R;
+          return (
+            <line
+              key={i}
+              x1={0} y1={0} x2={x2} y2={y2}
+              stroke={accent} strokeWidth={i % 2 === 0 ? 2.4 : 1.2} strokeLinecap="round"
+              {...drawProps(len, t, 0.1 + i * 0.07, 0.5)}
+            />
+          );
+        })}
+        {/* arco que cierra el abanico */}
+        <path
+          d={`M${R} 0 A ${R} ${R} 0 0 1 0 ${R}`}
+          fill="none" stroke={accent} strokeWidth={1.4}
+          {...drawProps(R * 1.6, t, 0.5, 0.6)}
+        />
+        {/* galón escalonado a la altura del marco */}
+        <path
+          d={chev}
+          fill="none" stroke={ink} strokeWidth={2.2}
+          {...drawProps(R * 2.2, t, 0.35, 0.7)}
+        />
+      </g>
+    );
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", opacity: clamp01(t / 0.3) }}>
+        <svg width={W} height={H} style={{ position: "absolute", inset: 0, filter: `drop-shadow(0 0 ${4 + settle * 5}px ${accent}${settle > 0 ? "55" : "00"})`, opacity: shimmer }}>
+          {corner(m, m, 1, 1, 0)}
+          {corner(W - m, m, -1, 1, 1)}
+          {corner(m, H - m, 1, -1, 2)}
+          {corner(W - m, H - m, -1, -1, 3)}
+        </svg>
+      </AbsoluteFill>
+    );
+  }
+
+  if (motif === "blueprint") {
+    // Esquema de ingeniería: retícula cian tenue + líneas de cota animadas y un
+    // crosshair que "mide" el panel. Las líneas se extienden por longitud
+    // interpolada (clamp01 del tiempo); ticks de cota en los extremos.
+    const grid = Math.round(Math.min(W, H) * 0.045);
+    const ext = clamp01((t - 0.2) / 0.8); // las cotas se extienden 0.2→1.0s
+    const cx = W / 2, cy = H / 2;
+    const halfX = W * 0.34 * ext;
+    const halfY = H * 0.30 * ext;
+    const tick = Math.min(W, H) * 0.012;
+    const blink = 0.55 + 0.45 * Math.abs(Math.sin(t * 2.2)); // crosshair "vivo"
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", opacity: clamp01(t / 0.4) }}>
+        {/* retícula de medición tenue */}
+        <AbsoluteFill
+          style={{
+            backgroundImage:
+              `linear-gradient(${accent}22 1px, transparent 1px), linear-gradient(90deg, ${accent}22 1px, transparent 1px)`,
+            backgroundSize: `${grid}px ${grid}px`,
+            opacity: 0.5,
+          }}
+        />
+        <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+          {/* cota horizontal con ticks en los extremos */}
+          <line x1={cx - halfX} y1={cy} x2={cx + halfX} y2={cy} stroke={accent} strokeWidth={1.2} />
+          <line x1={cx - halfX} y1={cy - tick} x2={cx - halfX} y2={cy + tick} stroke={accent} strokeWidth={1.2} opacity={ext} />
+          <line x1={cx + halfX} y1={cy - tick} x2={cx + halfX} y2={cy + tick} stroke={accent} strokeWidth={1.2} opacity={ext} />
+          {/* cota vertical con ticks */}
+          <line x1={cx} y1={cy - halfY} x2={cx} y2={cy + halfY} stroke={accent} strokeWidth={1.2} />
+          <line x1={cx - tick} y1={cy - halfY} x2={cx + tick} y2={cy - halfY} stroke={accent} strokeWidth={1.2} opacity={ext} />
+          <line x1={cx - tick} y1={cy + halfY} x2={cx + tick} y2={cy + halfY} stroke={accent} strokeWidth={1.2} opacity={ext} />
+          {/* crosshair central que "mide" */}
+          <circle cx={cx} cy={cy} r={Math.min(W, H) * 0.018} fill="none" stroke={accent} strokeWidth={1.4} opacity={blink} />
+          <line x1={cx - tick * 1.6} y1={cy} x2={cx + tick * 1.6} y2={cy} stroke={accent} strokeWidth={1} opacity={blink} />
+          <line x1={cx} y1={cy - tick * 1.6} x2={cx} y2={cy + tick * 1.6} stroke={accent} strokeWidth={1} opacity={blink} />
+        </svg>
+        {/* etiqueta de cota tipo plano */}
+        <div style={{ position: "absolute", top: H * 0.04, left: W * 0.06, fontFamily: "Consolas, monospace", fontSize: H * 0.011, letterSpacing: "0.18em", color: muted }}>
+          {`SCALE 1:1 · REV ${String(Math.floor(t / 6) % 9 + 1).padStart(2, "0")}`}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  if (motif === "noir") {
+    // Barra de luz que barre el tercio inferior (sin/cos) + contador de fotograma
+    // tipo title-card de cine detectivesco. La barra se desplaza con un ciclo lento.
+    const sweep = (Math.sin(t * 0.5 - Math.PI / 2) + 1) / 2; // 0→1→0 lento
+    const barW = W * 0.22;
+    const barX = -barW + sweep * (W + barW);
+    const lower = H * 0.78;
+    const frame = Math.floor(t * 24) % 10000; // contador de fotograma a 24 fps
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", opacity: clamp01(t / 0.5) }}>
+        {/* tercio inferior: línea hairline de acento */}
+        <div style={{ position: "absolute", top: lower, left: W * 0.06, right: W * 0.06, borderTop: `1px solid ${muted}55` }} />
+        {/* barra de luz que barre sobre el tercio inferior */}
+        <div
+          style={{
+            position: "absolute", top: lower - H * 0.02, left: barX, width: barW, height: H * 0.04,
+            background: `linear-gradient(90deg, transparent, ${accent}aa, transparent)`,
+            mixBlendMode: "screen", filter: "blur(2px)",
+          }}
+        />
+        {/* contador de fotograma title-card */}
+        <div style={{ position: "absolute", bottom: H * 0.05, right: W * 0.07, fontFamily: "Consolas, monospace", fontSize: H * 0.012, letterSpacing: "0.2em", color: muted }}>
+          {`FRAME ${String(frame).padStart(4, "0")}`}
+        </div>
       </AbsoluteFill>
     );
   }

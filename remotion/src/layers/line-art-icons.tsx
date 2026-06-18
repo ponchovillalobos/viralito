@@ -94,7 +94,7 @@ export const LineArtLucide: React.FC<{
   );
 };
 
-function drawProps(len: number, elapsed: number, delay = 0, drawIn = 1.1) {
+export function drawProps(len: number, elapsed: number, delay = 0, drawIn = 1.1) {
   const p = clamp01((elapsed - delay) / drawIn);
   return { strokeDasharray: len, strokeDashoffset: len * (1 - p), opacity: p > 0 ? 1 : 0 };
 }

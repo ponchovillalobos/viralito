@@ -246,6 +246,9 @@ const EDITORIAL_THEMES = [
   { id: "stripe", name: "Stripe press", theme: "stripe", accent: "#635bff", font: "newsreader", background: "ink", bg: "#0a2540", text: "#f6f9fc", demoFont: "Georgia, serif" },
   { id: "docu", name: "Docu rojo", theme: "docu", accent: "#e3120b", font: "lora", background: "cream", bg: "#f9f7f1", text: "#121212", demoFont: "'Franklin Gothic Medium', sans-serif" },
   { id: "ft", name: "FT salmón", theme: "ft", accent: "#0d7680", font: "lora", background: "cream", bg: "#fff1e5", text: "#33302e", demoFont: "'Franklin Gothic Medium', sans-serif" },
+  { id: "art_deco", name: "Art Déco", theme: "art_deco", accent: "#bd9a4e", font: "playfair", background: "cream", bg: "#f3ead6", text: "#16130d", demoFont: "'Cinzel', serif" },
+  { id: "blueprint", name: "Blueprint", theme: "blueprint", accent: "#34c6d8", font: "dmserif", background: "ink", bg: "#0b2138", text: "#dbe9f4", demoFont: "'Consolas', monospace" },
+  { id: "noir", name: "Noir", theme: "noir", accent: "#d8d2c4", font: "playfair", background: "dark", bg: "#0a0a0a", text: "#f2f2f0", demoFont: "'Playfair Display', serif" },
 ] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

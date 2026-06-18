@@ -311,6 +311,9 @@ export function WizardClient() {
     { id: "mincho", name: "Japón mincho", hint: "Papel claro y sello rojo, calma", theme: "mincho", accent: "#b3342c", font: "lora", background: "cream", bg: "#f5f3ed", text: "#26241f", demoFont: "'MS Mincho', serif" },
     { id: "brutal", name: "Brutalista", hint: "Crudo y directo", theme: "brutal", accent: "#ff4d00", font: "lora", background: "cream", bg: "#efefea", text: "#000000", demoFont: "'Consolas', monospace" },
     { id: "docu", name: "Docu rojo", hint: "Documental de denuncia", theme: "docu", accent: "#e3120b", font: "lora", background: "cream", bg: "#f9f7f1", text: "#121212", demoFont: "'Franklin Gothic Medium', sans-serif" },
+    { id: "art_deco", name: "Art Déco", hint: "Lujo 1920, crema y dorado", theme: "art_deco", accent: "#bd9a4e", font: "playfair", background: "cream", bg: "#f3ead6", text: "#16130d", demoFont: "'Cinzel', serif" },
+    { id: "blueprint", name: "Blueprint", hint: "Plano de ingeniería, azul y cian", theme: "blueprint", accent: "#34c6d8", font: "dmserif", background: "ink", bg: "#0b2138", text: "#dbe9f4", demoFont: "'Consolas', monospace" },
+    { id: "noir", name: "Noir", hint: "Cine negro, blanco y negro", theme: "noir", accent: "#d8d2c4", font: "playfair", background: "dark", bg: "#0a0a0a", text: "#f2f2f0", demoFont: "'Playfair Display', serif" },
   ] as const;
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
