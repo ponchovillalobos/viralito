@@ -1068,6 +1068,40 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     );
   }
 
+  // ─── EDITORIAL CON ARCHIVO: el look editorial (panel + titulares serif + line-art)
+  // COMBINADO con b-roll de archivo (Pexels) que ilustra lo que se dice. El sujeto
+  // vive en el panel editorial; el lado oscuro muestra las tarjetas serif; y los clips
+  // de archivo aparecen como cortinillas PIP (cuadrito con borde de acento, sobre el
+  // lienzo) — así la elegancia editorial se mantiene y el archivo añade contexto visual.
+  // auto-build llena `project.bRoll` con autoMatchBroll() de Pexels (cae a CC0 sin key).
+  // Misma receta editorial + bRollMode "pip". editorialLayout y bRoll/pip coexisten en
+  // ViralVideo sin tocar el render (el PIP flota sobre el panel/lienzo editorial). ───
+  if (styleId === "editorial_broll") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true, // genera editorialCards (+charts que editorial no usa)
+        subtitleStyle: "anton" as const,
+        bRollMode: "pip" as const,
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "right" as const,
+          panelWidth: (ctx.width ?? 1080) > (ctx.height ?? 1920) ? 0.34 : 0.46,
+          accent: ctx.accentColor,
+          texture: "paper" as const,
+          fps12: true,
+          cohesion: true,
+        },
+        // bRoll lo puebla auto-build (Pexels por keyword). Default [] del commonBase.
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   // ─── MOTION PRO: animación pura, limpia, SIN emojis/stickers. El protagonismo
   // es del motion design: fondo animado audio-reactivo + charts + karaoke minimal.
   if (styleId === "motion_pro" || styleId === "motion_beat" || styleId === "motion_grid") {

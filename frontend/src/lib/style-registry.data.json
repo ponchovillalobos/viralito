@@ -161,6 +161,17 @@
     "illustrations": true
   },
   {
+    "id": "editorial_broll",
+    "name": "Editorial con archivo",
+    "tagline": "Editorial documental: panel + titulares serif gigantes + videos de archivo (Pexels) que ilustran lo que dices",
+    "emoji": "🎞️",
+    "shortLabel": "EditorialBroll",
+    "families": ["music"],
+    "longForm": true,
+    "hasGraphics": true,
+    "illustrations": true
+  },
+  {
     "id": "graphics_max",
     "name": "Gráficos Max",
     "tagline": "Gráficos & Motion al máximo: cortes rápidos, zooms de reacción y stutter",

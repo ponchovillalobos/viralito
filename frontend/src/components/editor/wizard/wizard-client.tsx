@@ -57,7 +57,7 @@ const FONT_PREVIEW: Record<string, string> = {
   righteous: _right.style.fontFamily,
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "kinetic_type" | "lottie_pop" | "paper_cut";
+type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -112,6 +112,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "motion_beat", name: "Motion Beat", tagline: "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat. Limpio y con energía.", emoji: "🎧" },
   { id: "motion_grid", name: "Motion Grid", tagline: "Look retro-tech futurista: cuadrícula en perspectiva + gráficas. Sin emojis.", emoji: "🌐" },
   { id: "editorial", name: "Editorial", tagline: "Estilo documental premium: tu video en un panel + titulares serif gigantes + ilustraciones doradas animadas. Sin subtítulos.", emoji: "📰" },
+  { id: "editorial_broll", name: "Editorial con archivo", tagline: "El estilo Editorial + videos de archivo (Pexels) que ilustran lo que dices, en cortinillas sobre el lienzo. Documental premium con material de apoyo.", emoji: "🎞️" },
   { id: "kinetic_type", name: "Tipografía cinética", tagline: "Subtítulos gigantes palabra-por-palabra sobre un fondo que late con la música. Sin emojis.", emoji: "⌨️" },
   { id: "lottie_pop", name: "Animado con stickers", tagline: "Lleno de vida: stickers animados, íconos y fondo aurora. Juguetón y enérgico.", emoji: "✨" },
   { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: tu video en un panel de papel recortado + titulares serif.", emoji: "✂️" },
@@ -175,6 +176,7 @@ const PRESETS: PresetDef[] = [
     description: "Estilo documental premium: tu video en un panel con titulares serif gigantes. Elige el tema aquí abajo.",
     variants: [
       { id: "editorial", label: "Editorial" },
+      { id: "editorial_broll", label: "Con archivo 🎞️" },
       { id: "paper_cut", label: "Papel recortado ✂️" },
     ],
   },
@@ -230,6 +232,7 @@ const MUSIC_STYLES: StyleId[] = [
   "motion_beat",
   "motion_grid",
   "editorial",
+  "editorial_broll",
   "kinetic_type",
   "lottie_pop",
   "paper_cut",
@@ -474,10 +477,13 @@ export function WizardClient() {
   const selectedVideoList = videos.filter((v) => selectedVideos.has(v.id));
   const firstSelected = selectedVideoList[0];
 
-  // Editorial no lleva subtítulos: su tipografía y colores vienen del TEMA elegido en el
-  // paso 2. Si es el ÚNICO estilo, los selectores de texto no aplican y se ocultan.
-  const hasEditorial = selectedStyles.includes("editorial");
-  const editorialOnly = hasEditorial && selectedStyles.every((s) => s === "editorial");
+  // Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía y colores
+  // vienen del TEMA elegido en el paso 2. Si solo hay estilos editoriales, los
+  // selectores de texto no aplican y se ocultan.
+  const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll"];
+  const hasEditorial = selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
+  const editorialOnly =
+    hasEditorial && selectedStyles.every((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
 
   // 🎬 Cinematográfico es ahora un ESTILO de primera clase (tarjeta del menú).
   // Cuando se elige, el modo cinematográfico se enciende solo con defaults sensatos
@@ -1771,7 +1777,7 @@ export function WizardClient() {
 
           {/* Submenús de cada estilo elegido: tema editorial / fondo motion /
               intensidad de FX / música aparecen según los estilos seleccionados abajo. */}
-          {selectedStyles.includes("editorial") && editorialThemePanel}
+          {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
           {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
           {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
           {/* 🎬 Cinematográfico: picker de overlays + toggles cine, inline. */}

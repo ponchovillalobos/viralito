@@ -237,11 +237,16 @@ async function processJob(job: Job, body: AutoBuildRequest) {
         body.projectIdSuffix ?? ""
       );
 
-      // Auto B-roll desde Pexels por transcripción — SOLO estilos broll_*.
-      // broll_full → fullscreen, broll_pip → pequeñito sobre el video. Si Pexels
-      // falla o no hay key, queda [] y el render sale sin b-roll (no rompe).
+      // Auto B-roll desde Pexels por transcripción — estilos broll_* + editorial_broll.
+      // broll_full → fullscreen, broll_pip → pequeñito sobre el video, editorial_broll →
+      // cortinillas PIP sobre el lienzo editorial. Si Pexels falla o no hay key, queda []
+      // y el render sale sin b-roll (no rompe; editorial_broll cae a editorial puro).
       let autoBroll: BrollClip[] = [];
-      if (styleId === "broll_full" || styleId === "broll_pip") {
+      if (
+        styleId === "broll_full" ||
+        styleId === "broll_pip" ||
+        styleId === "editorial_broll"
+      ) {
         try {
           // Escalar la cantidad de clips con la DURACIÓN del video: ~1 clip cada 16s,
           // mínimo 5, máximo 40 (cada clip = 1 request a Pexels; 40 respeta el rate limit).

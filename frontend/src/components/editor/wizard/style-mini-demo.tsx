@@ -230,6 +230,30 @@ export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: st
                 <div className="absolute bottom-2 left-2 h-3 w-3 rounded-full border" style={{ borderColor: "#f0b429", animation: "smd-pop 2s ease-in-out infinite" }} />
               </Screen>
             );
+          case "editorial_broll":
+            return (
+              <Screen bg="#0a0908">
+                {/* panel de video a la derecha (el sujeto) */}
+                <div className="absolute right-1 top-2 h-16 w-4 overflow-hidden rounded-sm border border-white/15 bg-zinc-700/70">
+                  <div className="absolute left-1/2 top-2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-zinc-400" />
+                  <div className="absolute left-1/2 top-4 h-2 w-2.5 -translate-x-1/2 rounded-t-full bg-zinc-500" />
+                </div>
+                {/* titulares serif a la izquierda */}
+                <div className="absolute left-1 top-3 space-y-1">
+                  <div className="h-0.5 w-3 bg-zinc-500" />
+                  <div className="h-1.5 w-6 rounded-sm bg-white/90" style={{ animation: "smd-slide 2.6s ease-in-out infinite" }} />
+                  <div className="h-1.5 w-5 rounded-sm" style={{ background: "#f0b429", animation: "smd-slide 2.6s ease-in-out infinite", animationDelay: "0.15s" }} />
+                </div>
+                {/* cortinilla de ARCHIVO (b-roll) que entra/sale sobre el lienzo */}
+                <div
+                  className="absolute bottom-2 left-1/2 h-6 w-8 -translate-x-1/2 overflow-hidden rounded-sm border bg-sky-700/70"
+                  style={{ borderColor: accent, animation: "smd-pop 2.4s ease-in-out infinite" }}
+                >
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(120deg, #0b2733, #2a6f88 60%, #0b2733)", animation: "smd-aurora 2s ease-in-out infinite" }} />
+                  <span className="absolute right-0.5 top-0 text-[7px]">🎞️</span>
+                </div>
+              </Screen>
+            );
           case "kinetic_type":
             return (
               <Screen bg="#0c0a1d">

@@ -780,6 +780,34 @@ export function buildProjectForStyle(ctx, styleId) {
     );
   }
 
+  // ─── EDITORIAL CON ARCHIVO (paridad con shorts): look editorial + b-roll de archivo
+  //     (Pexels) en cortinillas PIP. En largos el b-roll automático NO está cableado,
+  //     pero el editorialLayout renderiza idéntico; el bloque existe para la paridad. ───
+  if (styleId === "editorial_broll") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton",
+        bRollMode: "pip",
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "right",
+          panelWidth: ctx.width > ctx.height ? 0.34 : 0.46,
+          accent: ctx.accentColor,
+          texture: "paper",
+          fps12: true,
+          cohesion: true,
+        },
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   // ─── MOTION PRO (paridad con shorts): animación pura, limpia, SIN emojis. ───
   if (styleId === "motion_pro" || styleId === "motion_beat" || styleId === "motion_grid") {
     const bgKind =
