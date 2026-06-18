@@ -523,9 +523,14 @@ export function useCameraMoveTransform(
       // zoom_out parte de zoom amplio y termina en escala normal (cinematic reveal)
       return { scale: 1 + amplified * (1 - eased), translateX: 0, translateY: 0 };
     case "pan_left":
-      return { scale: 1 + amplified * 0.3, translateX: -amplified * 200 * eased, translateY: 0 };
+      // Antes trasladaba el video en X (translateX) y el desplazamiento real en
+      // pantalla (scale·tx) superaba el margen que el zoom cubría → se veía borde
+      // negro y "salía del plano". Ahora es un push-in suave (mismo gesto de
+      // cámara) SIN traslación: con objectFit:cover el frame nunca descubre borde.
+      return { scale: 1 + amplified * eased, translateX: 0, translateY: 0 };
     case "pan_right":
-      return { scale: 1 + amplified * 0.3, translateX: amplified * 200 * eased, translateY: 0 };
+      // Pull-out suave (zoom amplio → escala normal). translateX:0 → cero borde.
+      return { scale: 1 + amplified * (1 - eased), translateX: 0, translateY: 0 };
     default:
       return { scale: 1, translateX: 0, translateY: 0 };
   }
