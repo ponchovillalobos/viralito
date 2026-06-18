@@ -44,6 +44,10 @@ def _commands(lib: str) -> list[list[str]]:
     if lib == "sfx":
         return [
             ["download_sfx_library.py", "download", "--out-dir", str(ASSETS_SFX / "github")],
+            # SFX sintéticos curados (typewriter.wav / film_reel.wav): síntesis local,
+            # van a curated/. Idempotente: synth_sfx salta los que ya existen. Sin esto
+            # el repair de sfx nunca repondría estos .wav (ningún downloader los baja).
+            ["synth_sfx.py", "curated-wav", "--out-dir", str(ASSETS_SFX / "curated")],
         ]
     if lib == "lottie":
         # Dos modos NO acumulativos: sin --all = set curado por concepto; con --all

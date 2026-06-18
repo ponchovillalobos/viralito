@@ -460,6 +460,119 @@ def gen_reveal_chime(out: Path) -> None:
     convert_to_mp3(wav_path, out)
 
 
+def _typewriter_key_into(buf: list[float], start_n: int, *, pitch: float = 1400.0, gain: float = 1.0) -> None:
+    """Mezcla UN golpe de tecla (mismo timbre que gen_typewriter_key) dentro de
+    `buf` a partir de la muestra `start_n`. Click de ruido + tono metálico que
+    decaen rápido. Aditivo sobre el buffer (no lo pisa)."""
+    key_n = int(0.15 * SAMPLE_RATE)
+    n = len(buf)
+    for j in range(key_n):
+        i = start_n + j
+        if i >= n:
+            break
+        t = j / SAMPLE_RATE
+        noise = random.uniform(-1, 1) * math.exp(-t * 80)
+        tone = math.sin(2 * math.pi * pitch * t) * math.exp(-t * 30) * 0.3
+        buf[i] += (noise + tone) * 0.5 * gain
+
+
+def gen_typewriter(out: Path) -> None:
+    """Máquina de escribir antigua COMPLETA (~2.4s): una ráfaga de teclas con
+    espaciado irregular (ritmo de tecleo humano) + una campanilla 'ding' al final
+    de línea + el golpe grave del retorno del carro. Reusa el mismo timbre de tecla
+    que gen_typewriter_key; cada tecla varía levemente el pitch para que no suene
+    robótica."""
+    duration = 2.4
+    n = int(duration * SAMPLE_RATE)
+    samples = [0.0] * n
+    # Ráfaga de ~16 teclas hasta t≈1.7s, con gaps irregulares (60-160 ms).
+    t_cursor = 0.05
+    while t_cursor < 1.7:
+        start = int(t_cursor * SAMPLE_RATE)
+        pitch = random.uniform(1250.0, 1650.0)
+        gain = random.uniform(0.8, 1.0)
+        _typewriter_key_into(samples, start, pitch=pitch, gain=gain)
+        t_cursor += random.uniform(0.06, 0.16)
+    # Campanilla de fin de línea (margin bell) en t≈1.85s: tono claro con decay.
+    bell_start = int(1.85 * SAMPLE_RATE)
+    for j in range(int(0.5 * SAMPLE_RATE)):
+        i = bell_start + j
+        if i >= n:
+            break
+        t = j / SAMPLE_RATE
+        bell = math.sin(2 * math.pi * 2100 * t) + math.sin(2 * math.pi * 3150 * t) * 0.4
+        samples[i] += bell * math.exp(-t * 9) * 0.28
+    # Retorno del carro en t≈2.0s: golpe mecánico grave + ruido de fricción corto.
+    carriage_start = int(2.0 * SAMPLE_RATE)
+    for j in range(int(0.35 * SAMPLE_RATE)):
+        i = carriage_start + j
+        if i >= n:
+            break
+        t = j / SAMPLE_RATE
+        thunk = math.sin(2 * math.pi * 180 * t) * math.exp(-t * 14) * 0.5
+        friction = random.uniform(-1, 1) * math.exp(-t * 20) * 0.25
+        samples[i] += thunk + friction
+    write_wav(samples, out.with_suffix(".wav"))
+
+
+def gen_film_reel(out: Path) -> None:
+    """Proyector de cine antiguo (~2.5s, loopeable): traqueteo rítmico del engranaje
+    a 24 fps (un click mecánico por fotograma) + zumbido grave del motor + leve
+    ruido de fricción de la película pasando por el portillo. Síntesis pura: cada
+    click es un transitorio de ruido filtrado con un pequeño tono; el motor es una
+    sinusoide grave con su 2º armónico modulada por la frecuencia de fotograma.
+
+    Loopeable: la duración es múltiplo entero del periodo de fotograma y el motor
+    arranca/termina en fase, así que se puede encadenar sin pop audible."""
+    fps = 24.0
+    period = 1.0 / fps  # 24 clicks por segundo
+    frames = 60          # 60 fotogramas = 2.5 s exactos (múltiplo del periodo → loop)
+    duration = frames * period
+    n = int(round(duration * SAMPLE_RATE))
+    samples = [0.0] * n
+
+    # 1) Zumbido del motor: fundamental grave + 2º armónico, fase entera al final.
+    motor_hz = 60.0  # zumbido eléctrico tipo motor de proyector
+    for i in range(n):
+        t = i / SAMPLE_RATE
+        motor = (
+            math.sin(2 * math.pi * motor_hz * t) * 0.10
+            + math.sin(2 * math.pi * motor_hz * 2 * t) * 0.04
+        )
+        samples[i] += motor
+
+    # 2) Ruido de fricción continuo de la película (banda baja-media), suave.
+    friction = [random.uniform(-1, 1) for _ in range(n)]
+    friction = low_pass(friction, 2200)
+    for i in range(n):
+        samples[i] += friction[i] * 0.06
+
+    # 3) Click del engranaje en CADA fotograma: transitorio de ruido + tic metálico
+    #    que decae en ~18 ms. Pequeñas variaciones de gain/pitch para que no suene
+    #    perfectamente mecánico.
+    click_n = int(0.018 * SAMPLE_RATE)
+    for f in range(frames):
+        start = int(round(f * period * SAMPLE_RATE))
+        pitch = random.uniform(900.0, 1200.0)
+        gain = random.uniform(0.7, 1.0)
+        for j in range(click_n):
+            i = start + j
+            if i >= n:
+                break
+            t = j / SAMPLE_RATE
+            burst = random.uniform(-1, 1) * math.exp(-t * 180)
+            tic = math.sin(2 * math.pi * pitch * t) * math.exp(-t * 140) * 0.4
+            samples[i] += (burst + tic) * 0.5 * gain
+
+    # Normalización suave para que el mix de motor+fricción+clicks no clippee.
+    peak = max((abs(s) for s in samples), default=1.0) or 1.0
+    if peak > 0.9:
+        scale = 0.9 / peak
+        samples = [s * scale for s in samples]
+
+    write_wav(samples, out.with_suffix(".wav"))
+
+
 def gen_breath_in(out: Path) -> None:
     """Inhalación cortita filtrada — íntimo/dramático antes de revelación."""
     duration = 0.6
@@ -518,7 +631,65 @@ CATALOG: dict[str, tuple[str, callable]] = {  # type: ignore[valid-type]
 }
 
 
+# ─── SFX curados (WAV directo, NO mp3) ─────────────────────────────────────────
+# Estos NO van al CATALOG (que produce .mp3 + manifest.json): se escriben como .wav
+# crudo donde el render los busca por basename. Hoy los consume el estilo
+# `cine_clasico` (frontend/.../auto-build/lib/cine-clasico.ts → sfxMarks). Sin esta
+# síntesis, un clone fresco no tendría typewriter.wav / film_reel.wav (eran copias
+# a mano). El generador deja el .wav final (write_wav NO borra ni convierte a mp3).
+CURATED_WAV: dict[str, callable] = {  # type: ignore[valid-type]
+    # basename.wav -> generador (recibe el Path destino; write_wav usa with_suffix)
+    "typewriter.wav": gen_typewriter,
+    "film_reel.wav": gen_film_reel,
+}
+
+
+def _synth_curated_wav(out_dir: Path, force: bool) -> dict:
+    """Genera SOLO los CURATED_WAV como .wav en out_dir (típicamente .../sfx/curated).
+    Aditivo: no toca otros archivos ni escribe manifest.json. Idempotente: salta los
+    que ya existen salvo --force."""
+    import json
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+    for filename, gen in CURATED_WAV.items():
+        out_path = out_dir / filename
+        if out_path.exists() and not force:
+            skipped += 1
+            continue
+        try:
+            random.seed(hash(filename))  # determinismo (mismo patrón que main)
+            gen(out_path)  # write_wav deja el .wav final, sin convert_to_mp3
+            print(f"  + curated/{filename}", file=sys.stderr)
+            created += 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ! ERROR {filename}: {exc}", file=sys.stderr)
+            errors.append(f"{filename}: {exc}")
+    res = {
+        "ok": not errors,
+        "out_dir": str(out_dir),
+        "created": created,
+        "skipped": skipped,
+        "errors": errors,
+    }
+    print(json.dumps(res, ensure_ascii=False))
+    return res
+
+
 def main() -> int:
+    # argparse con subcomando OPCIONAL: sin subcomando = comportamiento legacy
+    # (CATALOG → .mp3 + manifest.json, requiere --out-dir). Subcomando `curated-wav`
+    # = solo los CURATED_WAV como .wav (para .../sfx/curated). No rompe llamadas viejas.
+    if len(sys.argv) >= 2 and sys.argv[1] == "curated-wav":
+        sub = argparse.ArgumentParser(prog="synth_sfx.py curated-wav")
+        sub.add_argument("--out-dir", required=True, help="Directorio destino (.../assets/sfx/curated)")
+        sub.add_argument("--force", action="store_true", help="Regenerar aunque ya existan")
+        a = sub.parse_args(sys.argv[2:])
+        res = _synth_curated_wav(Path(a.out_dir), a.force)
+        return 0 if res["ok"] else 1
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", required=True, help="Directorio donde guardar los .mp3")
     parser.add_argument("--force", action="store_true", help="Regenerar aunque ya existan")

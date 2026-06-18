@@ -76,6 +76,8 @@ TIMEOUTS = {
     "ilustraciones": 300,
     "overlays": 120,
     "sfx_extra": 900,
+    # SFX sintéticos curados (typewriter.wav / film_reel.wav). Síntesis local, rápida.
+    "sfx_synth_curated": 120,
 }
 DEFAULT_TIMEOUT = 300
 
@@ -181,6 +183,9 @@ _VALIDATIONS: dict[str, tuple[Path, tuple[str, ...], int]] = {
     # 4 packs Kenney nuevos (flat en github/) + curated-viral/. github ya trae 200+
     # del paso 'sfx'; con los packs extra sube bastante.
     "sfx_extra": (ASSETS_SFX / "github", (".ogg", ".mp3", ".wav"), 250),
+    # SFX sintéticos en curated/ (typewriter.wav + film_reel.wav). Mín 2: los .wav
+    # que el estilo cine_clasico referencia y que NO baja ningún downloader.
+    "sfx_synth_curated": (ASSETS_SFX / "curated", (".wav",), 2),
 }
 
 
@@ -588,6 +593,15 @@ def main() -> int:
         "sfx_extra",
         "SFX extra + set viral curado",
         ["download_more_sfx.py", "all", "--out-dir", str(ASSETS_SFX / "github")],
+        state,
+    )
+    # SFX sintéticos curados: typewriter.wav + film_reel.wav (síntesis local, sin red).
+    # Los referencia el estilo cine_clasico; ningún downloader los provisiona. Van a
+    # curated/ como .wav (lo que /api/sfx/stream resuelve por basename).
+    _step(
+        "sfx_synth_curated",
+        "SFX sintéticos curados (typewriter + film_reel)",
+        ["synth_sfx.py", "curated-wav", "--out-dir", str(ASSETS_SFX / "curated")],
         state,
     )
 
