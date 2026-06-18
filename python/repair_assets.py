@@ -8,7 +8,7 @@ librería llamando internamente al download_*_library.py correspondiente con los
 MISMOS args que usa setup_all.py (idempotente: los downloaders saltan lo que ya
 existe).
 
-Uso:  python repair_assets.py music|sfx|lottie|icons
+Uso:  python repair_assets.py music|sfx|lottie|icons|illustrations
 
 Idempotencia: antes de empezar crea un lockfile en
 {DATA_ROOT}/cache/repair-<lib>.lock. Si ya hay uno reciente (<15 min) asume que
@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 PY = sys.executable
 ASSETS_SFX = DATA_ROOT / "assets" / "sfx"
 
-LIBS = ("music", "sfx", "lottie", "icons")
+LIBS = ("music", "sfx", "lottie", "icons", "illustrations")
 
 # Cuánto vale un lock antes de considerarlo "viejo" (corrida abandonada/colgada).
 LOCK_TTL_SECONDS = 15 * 60
@@ -61,6 +61,12 @@ def _commands(lib: str) -> list[list[str]]:
         return [
             ["download_editorial_icons.py"],
             ["download_more_icons.py"],
+        ]
+    if lib == "illustrations":
+        # Ilustraciones de personas CC0 (Open Doodles + Open Peeps). Idempotente:
+        # el downloader salta los sets que ya están completos.
+        return [
+            ["download_illustrations.py"],
         ]
     raise ValueError(f"librería desconocida: {lib!r} (válidas: {', '.join(LIBS)})")
 
