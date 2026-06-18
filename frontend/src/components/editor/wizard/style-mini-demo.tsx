@@ -20,6 +20,9 @@ const KEYFRAMES = `
 @keyframes smd-behind { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
 @keyframes smd-grain { 0%,100% { opacity: .18; } 50% { opacity: .34; } }
 @keyframes smd-cine-zoom { 0%,100% { transform: scale(1.05); } 50% { transform: scale(1.18) translateX(2px); } }
+@keyframes smd-bw { 0%,40%,100% { opacity: 0; } 55%,85% { opacity: 1; } }
+@keyframes smd-onair { 0%,40%,100% { opacity: .25; } 55%,85% { opacity: 1; box-shadow: 0 0 5px rgba(255,60,60,0.9); } }
+@keyframes smd-reel { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 `;
 
 function Screen({ children, bg }: { children?: React.ReactNode; bg?: string }) {
@@ -297,6 +300,61 @@ export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: st
                   <div className="ml-auto h-1.5 w-5 rounded-sm" style={{ background: "#FF48B0", animation: "smd-slide 2.6s ease-in-out infinite", animationDelay: "0.15s" }} />
                   <div className="ml-auto h-0.5 w-4 bg-zinc-500" />
                 </div>
+              </Screen>
+            );
+          case "cine_clasico":
+            return (
+              <Screen bg="#0c0a08">
+                {/* escena cálida desaturada (cine antiguo) + lento zoom de cámara */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 50% 40%, rgba(214,188,150,0.45), transparent 55%), linear-gradient(160deg, #1a160f, #0c0a08 70%)",
+                    animation: "smd-cine-zoom 4s ease-in-out infinite",
+                  }}
+                >
+                  <div className="absolute left-1/2 top-4 h-4 w-4 -translate-x-1/2 rounded-full bg-amber-100/60" />
+                  <div className="absolute left-1/2 top-8 h-5 w-7 -translate-x-1/2 rounded-t-full bg-amber-200/40" />
+                </div>
+                {/* CAPA B&N que parpadea en el "momento dramático" (desatura la escena) */}
+                <div
+                  className="absolute inset-0 bg-zinc-300 mix-blend-saturation"
+                  style={{ animation: "smd-bw 3.2s ease-in-out infinite" }}
+                />
+                {/* film grain titilando */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage:
+                      "repeating-radial-gradient(rgba(255,255,255,0.5) 0 0.4px, transparent 0.4px 1.4px)",
+                    backgroundSize: "3px 3px",
+                    animation: "smd-grain 0.25s steps(2) infinite",
+                  }}
+                />
+                {/* barras letterbox cine */}
+                <div className="absolute inset-x-0 top-0 h-2 bg-black" />
+                <div className="absolute inset-x-0 bottom-0 h-2 bg-black" />
+                {/* "ON AIR" — el glifo de radio vieja que se enciende en la drama */}
+                <div
+                  className="absolute right-0.5 top-2.5 rounded-sm bg-red-600/90 px-0.5 text-[5px] font-bold leading-tight text-white"
+                  style={{ animation: "smd-onair 3.2s ease-in-out infinite" }}
+                >
+                  ON AIR
+                </div>
+                {/* carrete de película que gira (proyector) */}
+                <div
+                  className="absolute left-0.5 top-2.5 h-2.5 w-2.5 rounded-full border border-amber-200/70"
+                  style={{ animation: "smd-reel 1.4s linear infinite" }}
+                >
+                  <div className="absolute left-1/2 top-1/2 h-0.5 w-2 -translate-x-1/2 -translate-y-1/2 bg-amber-200/70" />
+                  <div className="absolute left-1/2 top-1/2 h-2 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-amber-200/70" />
+                </div>
+                {/* subtítulo cine serif: barra fina con glow */}
+                <div
+                  className="absolute bottom-3.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-sm bg-white/95"
+                  style={{ boxShadow: "0 0 6px rgba(255,255,255,0.7)", animation: "smd-slide 2.8s ease-in-out infinite" }}
+                />
               </Screen>
             );
           default:

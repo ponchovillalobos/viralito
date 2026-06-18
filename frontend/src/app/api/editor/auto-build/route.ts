@@ -64,6 +64,7 @@ import {
   applyEmotionDirector,
 } from "./lib/fx-enrichments";
 import { styleHasIllustrations } from "@/lib/style-registry";
+import { applyCineClasico } from "./lib/cine-clasico";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
@@ -357,6 +358,22 @@ async function processJob(job: Job, body: AutoBuildRequest) {
       // F1 — Director emocional: ducking de música + zooms en picos + SFX por arousal.
       await applyEmotionDirector(project, videoId);
 
+      // CINE CLÁSICO — drama por-pico (B&W de la imagen + SFX de cine antiguo +
+      // voz "a radio vieja" gateada). Best-effort: si no hay picos, el estilo
+      // renderiza igual como cine elegante (look base de buildProjectForStyle).
+      // Va DESPUÉS del director emocional para reusar su emotion/{videoId}.json.
+      if (styleId === "cine_clasico") {
+        try {
+          const windows = await applyCineClasico(project, videoId, transcript.duration);
+          console.log(
+            `[auto-build] cine_clasico: ${windows.length} ventanas de drama (B&W + radio vieja + SFX) · ` +
+              `-af pre=${project.audioFilterPre ? "sí" : "no"}`
+          );
+        } catch (err) {
+          console.warn("[auto-build] cine_clasico falló (render seguirá como cine elegante):", err);
+        }
+      }
+
       // Intensidad de FX elegida en el wizard (estilos hype*/supreme) — helper
       // compartido con style-preview. Va DESPUÉS de los enriquecedores para
       // recortar/acentuar también los FX que ellos agregaron (mismo orden de siempre).
@@ -511,14 +528,25 @@ async function processJob(job: Job, body: AutoBuildRequest) {
         try {
           const masteredPath = outPath.replace(/\.mp4$/, "_mastered.mp4");
           const loudness = "loudnorm=I=-14:TP=-1.5:LRA=11";
-          const audioFilter =
-            styleId === "cinematic_pro"
-              ? "acompressor=threshold=-18dB:ratio=3:attack=20:release=200," +
-                "highpass=f=80," +
-                "equalizer=f=3000:t=q:w=1:g=2," +
-                "alimiter=level_in=1:level_out=0.95:limit=0.95," +
-                loudness
-              : "alimiter=level_in=1:level_out=0.95:limit=0.95," + loudness;
+          // Cadena RICA de cine (acompressor + highpass 80 + EQ claridad), igual
+          // que cinematic_pro. cine_clasico usa la MISMA base + el band-limit
+          // telefónico GATEADO a las ventanas de pico (project.audioFilterPre),
+          // antepuesto para que la voz suene a radio vieja SOLO en los picos.
+          const cinematicChain =
+            "acompressor=threshold=-18dB:ratio=3:attack=20:release=200," +
+            "highpass=f=80," +
+            "equalizer=f=3000:t=q:w=1:g=2," +
+            "alimiter=level_in=1:level_out=0.95:limit=0.95," +
+            loudness;
+          let audioFilter: string;
+          if (styleId === "cine_clasico") {
+            const pre = project.audioFilterPre;
+            audioFilter = pre ? `${pre},${cinematicChain}` : cinematicChain;
+          } else if (styleId === "cinematic_pro") {
+            audioFilter = cinematicChain;
+          } else {
+            audioFilter = "alimiter=level_in=1:level_out=0.95:limit=0.95," + loudness;
+          }
           // FFMPEG_EXE (no "ffmpeg" literal): en máquinas de usuarios finales
           // ffmpeg NO está en el PATH del sistema — solo en tools/ del paquete.
           const masterRun = await runProcess(

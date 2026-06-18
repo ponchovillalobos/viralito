@@ -66,6 +66,7 @@ export const STYLE_IDS = [
   "kinetic_type",
   "lottie_pop",
   "paper_cut",
+  "cine_clasico",
 ] as const;
 
 export type StyleId = (typeof STYLE_IDS)[number];

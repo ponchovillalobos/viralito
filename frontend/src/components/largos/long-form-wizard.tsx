@@ -105,7 +105,8 @@ type StyleId =
   | "graphics_pro" | "graphics_max"
   | "motion_pro" | "motion_beat" | "motion_grid"
   | "editorial" | "editorial_broll"
-  | "kinetic_type" | "lottie_pop" | "paper_cut";
+  | "kinetic_type" | "lottie_pop" | "paper_cut"
+  | "cine_clasico";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -211,6 +212,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = 
   { id: "kinetic_type", name: "Tipografía cinética", tagline: "Subtítulos gigantes + fondo que late, sin emojis", emoji: "⌨️" },
   { id: "lottie_pop", name: "Animado con stickers", tagline: "Stickers animados + íconos + fondo aurora", emoji: "✨" },
   { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: panel de papel + titulares serif", emoji: "✂️" },
+  { id: "cine_clasico", name: "Cine clásico", tagline: "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve B&N", emoji: "🎞️" },
 ];
 
 const PALETTE = [

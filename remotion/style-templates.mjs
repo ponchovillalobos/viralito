@@ -971,5 +971,33 @@ export function buildProjectForStyle(ctx, styleId) {
     );
   }
 
+  // ─── CINE CLÁSICO (paridad con shorts): cine antiguo editorial. Base elegante —
+  //     subtítulos cine, film grain, LUT desaturado/cálido, viñeta, música baja.
+  //     La drama por-pico (B&W + SFX + voz a radio vieja) la computa auto-build a
+  //     partir de los picos del director emocional; en largos NO está cableada, pero
+  //     el look base renderiza idéntico y el bloque existe para la paridad. ───
+  if (styleId === "cine_clasico") {
+    const cineDensity = ctx.cinematicDensity ?? "medium";
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "cinematic",
+        bRollMode: "fullscreen",
+        vignette: true,
+        filmGrain: true,
+        cinematicDensity: cineDensity,
+        cameraMoves:
+          base.cameraMoves.length > 0
+            ? base.cameraMoves
+            : generateCameraMoves(ctx.duration, cineDensity),
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.1,
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none" }
+    );
+  }
+
   return base;
 }

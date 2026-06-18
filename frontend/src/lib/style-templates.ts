@@ -1281,6 +1281,37 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     );
   }
 
+  // ─── CINE CLÁSICO: cine antiguo editorial. Base ELEGANTE: subtítulos cine
+  // (serif limpio), film grain ON, LUT desaturado/cálido (kodak_warm), viñeta,
+  // música baja. La DRAMA por-pico (imagen B&W + grano, SFX de máquina de
+  // escribir/proyector y la voz "a radio vieja") la computa auto-build a partir
+  // de los picos del director emocional (emotion_director.py): emite bwWindows +
+  // sfxMarks en cada ventana de pico y construye el -af telefónico gateado por
+  // ventana. Si ese paso falla, este estilo renderiza igual como cine elegante. ───
+  if (styleId === "cine_clasico") {
+    const cineDensity = ctx.cinematicDensity ?? "medium";
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "cinematic" as const,
+        bRollMode: "fullscreen" as const,
+        vignette: true,
+        filmGrain: true,
+        cinematicDensity: cineDensity,
+        // Vaivén de cámara cinematográfico suave (lo pisa autoCameraMoves si hay overlays).
+        cameraMoves:
+          base.cameraMoves.length > 0
+            ? base.cameraMoves
+            : generateCameraMoves(ctx.duration, cineDensity),
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.1,
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none" }
+    );
+  }
+
   return base;
 }
 

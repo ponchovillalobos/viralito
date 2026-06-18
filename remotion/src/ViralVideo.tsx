@@ -231,6 +231,10 @@ export const viralVideoSchema = z.object({
   imageOverlays: z.array(imageOverlaySchema).default([]),
   cameraMoves: z.array(cameraMoveSchema).default([]),
   filmGrain: z.boolean().default(false),
+  // CINE CLÁSICO — ventanas de DRAMA donde la imagen del video base se vuelve
+  // blanco y negro (cine antiguo) y luego revierte. Cada ventana {at, duration}.
+  // Vacío = sin B&W (render idéntico al histórico para todos los demás estilos).
+  bwWindows: z.array(z.object({ at: z.number(), duration: z.number().default(2.5) })).default([]),
   // F3 SUPREME — densidad cinematográfica para mood-aware color grading.
   // low=KODAK warm, medium=FUJI cool, high=BLEACH thriller.
   cinematicDensity: z.enum(["low", "medium", "high"]).default("medium"),
@@ -329,6 +333,7 @@ export const defaultProps: ViralVideoProps = {
   imageOverlays: [],
   cameraMoves: [],
   filmGrain: false,
+  bwWindows: [],
   cinematicDensity: "medium",
   sceneFx: [],
   proTransitions: [],
@@ -392,6 +397,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   imageOverlays,
   cameraMoves,
   filmGrain,
+  bwWindows,
   cinematicDensity,
   sceneFx,
   proTransitions,
@@ -599,9 +605,35 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
     }
   }
 
+  // CINE CLÁSICO — BLANCO Y NEGRO durante los momentos dramáticos. Cada ventana
+  // {at, duration} desatura el video base a B&W con contraste alto (look 35mm
+  // antiguo) y revierte al salir. Fade de 0.4s en cada borde para que no "salte".
+  // Fuera de ventanas k=0 → sin filtro (render idéntico). Vacío = nunca aplica.
+  let bwFilter: string | null = null;
+  if (bwWindows && bwWindows.length > 0) {
+    let k = 0;
+    for (const w of bwWindows) {
+      const dur = w.duration ?? 2.5;
+      if (currentTime < w.at || currentTime > w.at + dur) continue;
+      const fade = Math.min(0.4, dur / 2);
+      const inK = Math.min(1, (currentTime - w.at) / fade);
+      const outK = Math.min(1, (w.at + dur - currentTime) / fade);
+      k = Math.max(k, Math.max(0, Math.min(inK, outK)));
+    }
+    if (k > 0.001) {
+      // Mezcla: grayscale(k) + contraste/sepia/brillo escalados por k para que el
+      // cruce sea continuo (k=1 → cine antiguo pleno; k=0 → color normal).
+      const gray = k.toFixed(3);
+      const contrast = (1 + 0.25 * k).toFixed(3);
+      const sepia = (0.18 * k).toFixed(3);
+      const bright = (1 - 0.06 * k).toFixed(3);
+      bwFilter = `grayscale(${gray}) contrast(${contrast}) sepia(${sepia}) brightness(${bright})`;
+    }
+  }
+
   // F3 — blur de movimiento de las transiciones se suma al grade (si lo hay).
   const videoFilter =
-    [gradeFilter, colorPulse, trBlur > 0.5 ? `blur(${trBlur.toFixed(1)}px)` : null]
+    [gradeFilter, colorPulse, bwFilter, trBlur > 0.5 ? `blur(${trBlur.toFixed(1)}px)` : null]
       .filter(Boolean)
       .join(" ") || undefined;
 

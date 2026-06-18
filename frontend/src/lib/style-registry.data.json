@@ -211,5 +211,15 @@
     "families": [],
     "longForm": true,
     "hasGraphics": false
+  },
+  {
+    "id": "cine_clasico",
+    "name": "Cine clásico",
+    "tagline": "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro",
+    "emoji": "🎞️🎙️",
+    "shortLabel": "CineClasico",
+    "families": ["music"],
+    "longForm": true,
+    "hasGraphics": false
   }
 ]

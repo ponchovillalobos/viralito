@@ -101,6 +101,16 @@ export interface ResolvedProject {
   musicVolumeCurve?: { t: number; v: number }[];
   mood?: string;
   sfxMarks?: unknown[];
+  // CINE CLÁSICO — look base + drama por-pico (B&W de la imagen + voz a radio vieja).
+  filmGrain?: boolean;
+  cinematicDensity?: "low" | "medium" | "high";
+  imageOverlays?: unknown[];
+  cameraMoves?: unknown[];
+  /** Ventanas de blanco y negro en los picos dramáticos (las computa auto-build). */
+  bwWindows?: { at: number; duration: number }[];
+  /** Cadena -af extra que el mastering de audio antepone al mastering base
+   *  (cine_clasico: band-limit telefónico gateado a las ventanas de pico). */
+  audioFilterPre?: string;
   // F3 — Partículas procedurales (chispas en el pico emocional, confeti, etc.).
   particleBursts?: { at: number; duration: number; kind: string; count?: number }[];
   // FX que los estilos hype*/supreme ya generan (los lee el override fxIntensity).
