@@ -530,12 +530,19 @@ export function buildProjectForStyle(ctx, styleId) {
   const base = commonBase(ctx, styleId);
 
   if (styleId === "cinematic_pro") {
+    const cineDensity = ctx.cinematicDensity ?? "medium";
     return applyCapcutFx(
       {
         ...base,
         subtitleStyle: "cinematic",
         bRollMode: "fullscreen",
         vignette: true,
+        filmGrain: true,
+        cinematicDensity: cineDensity,
+        cameraMoves:
+          base.cameraMoves.length > 0
+            ? base.cameraMoves
+            : generateCameraMoves(ctx.duration, cineDensity),
         captionBounce: false,
         musicTrack: pickRandomMusicTrack(ctx.videoId),
         musicVolume: 0.1,

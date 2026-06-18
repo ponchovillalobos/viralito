@@ -57,7 +57,7 @@ const FONT_PREVIEW: Record<string, string> = {
   righteous: _right.style.fontFamily,
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "kinetic_type" | "lottie_pop" | "paper_cut";
+type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "kinetic_type" | "lottie_pop" | "paper_cut";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -101,6 +101,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "hype_max", name: "Viral intenso", tagline: "Suma cortes rápidos y zooms de reacción. Más energía.", emoji: "⚡" },
   { id: "hype_max_sfx", name: "Viral con sonidos", tagline: "Lo más llamativo: agrega efectos de sonido en los momentos clave.", emoji: "🎵" },
   { id: "supreme", name: "Premium", tagline: "Todo activado, la máxima calidad. Tarda un poco más.", emoji: "👑" },
+  { id: "cinematic_pro", name: "Cinematográfico", tagline: "Look de cine: film grain, color teal&orange, viñeta y movimientos de cámara suaves. Opcional: sube imágenes para superponerlas.", emoji: "🎬" },
   { id: "silent", name: "Limpio", tagline: "Solo subtítulos, sin efectos. Sobrio y profesional.", emoji: "🤍" },
   { id: "broll_full", name: "Con videos de apoyo", tagline: "Agrega clips de archivo a pantalla completa según lo que dices.", emoji: "🎞️" },
   { id: "broll_pip", name: "Videos de apoyo (chico)", tagline: "Muestra clips de archivo en pequeño sobre tu video.", emoji: "🖼️" },
@@ -121,7 +122,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
 // los mismos de siempre y la variante default de cada familia va primero.
 // "text_behind" no entra en ninguna familia: vive solo en el modo avanzado.
 type PresetDef = {
-  id: "viral" | "limpio" | "animado" | "revista" | "clips";
+  id: "viral" | "limpio" | "animado" | "revista" | "cine" | "clips";
   name: string;
   emoji: string;
   description: string;
@@ -178,6 +179,15 @@ const PRESETS: PresetDef[] = [
     ],
   },
   {
+    id: "cine",
+    name: "Cinematográfico",
+    emoji: "🎬",
+    description: "Look de película: film grain, color teal&orange, viñeta y movimientos de cámara suaves. Puedes subir imágenes para superponerlas.",
+    variants: [
+      { id: "cinematic_pro", label: "Cine 🎬" },
+    ],
+  },
+  {
     id: "clips",
     name: "Clips de apoyo",
     emoji: "🎞️",
@@ -211,8 +221,8 @@ const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid", "k
 const HYPE_STYLES: StyleId[] = ["hype", "hype_max", "hype_max_sfx", "supreme"];
 
 // Estilos que LLEVAN música de fondo (los que setean musicTrack en
-// style-templates.ts: broll_*, motion_* y editorial — cinematic_pro también,
-// pero no vive en este wizard). Para ellos aparece el submenú "🎵 Música".
+// style-templates.ts: broll_*, motion_*, editorial y cinematic_pro). Para ellos
+// aparece el submenú "🎵 Música".
 const MUSIC_STYLES: StyleId[] = [
   "broll_full",
   "broll_pip",
@@ -223,6 +233,7 @@ const MUSIC_STYLES: StyleId[] = [
   "kinetic_type",
   "lottie_pop",
   "paper_cut",
+  "cinematic_pro",
 ];
 
 // Elección de música del wizard. "auto" = el sistema elige y rota (lo de siempre).
@@ -467,6 +478,34 @@ export function WizardClient() {
   // paso 2. Si es el ÚNICO estilo, los selectores de texto no aplican y se ocultan.
   const hasEditorial = selectedStyles.includes("editorial");
   const editorialOnly = hasEditorial && selectedStyles.every((s) => s === "editorial");
+
+  // 🎬 Cinematográfico es ahora un ESTILO de primera clase (tarjeta del menú).
+  // Cuando se elige, el modo cinematográfico se enciende solo con defaults sensatos
+  // (film grain + vignette + subtítulos cine) para que enrichCinematic corra los
+  // camera-moves/SFX y el panel inline de overlays aparezca en el paso 2.
+  const hasCinematic = selectedStyles.includes("cinematic_pro");
+  // Sincroniza cinematicConfig.enabled con la selección del estilo cinematic_pro,
+  // SIN pisar los toggles/overlays que el user haya ajustado a mano (solo togglea
+  // `enabled` y aplica defaults la PRIMERA vez que se enciende).
+  useEffect(() => {
+    setCinematicConfig((prev) => {
+      if (hasCinematic && !prev.enabled) {
+        // Al activar el estilo: encender con defaults cine (no toca overlays ya subidos).
+        return {
+          ...prev,
+          enabled: true,
+          filmGrain: true,
+          vignette: true,
+          subtitleStyleCinematic: true,
+        };
+      }
+      if (!hasCinematic && prev.enabled) {
+        // Al quitar el estilo del set: apagar (conserva overlayIds por si vuelve a elegirlo).
+        return { ...prev, enabled: false };
+      }
+      return prev;
+    });
+  }, [hasCinematic]);
 
   // Mapeo inverso preset ← selectedStyles (DERIVADO, sin estado extra): con
   // EXACTAMENTE 1 estilo que pertenece a una familia, esa tarjeta+chip se
@@ -1397,6 +1436,26 @@ export function WizardClient() {
     </div>
   );
 
+  // 🎬 Panel cinematográfico (estilo cinematic_pro): aparece INLINE en el paso 2
+  // —igual que el tema editorial— cuando el estilo está elegido. Trae el picker de
+  // overlays (opcional) + toggles de film grain/vignette/subtítulos cine. El estilo
+  // ya produce un look de cine válido sin subir nada; esto es para personalizar.
+  const cinematicPanel = firstSelected ? (
+    <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
+      <CinematicStep
+        videoId={firstSelected.id}
+        transcriptPath={
+          firstSelected.status.transcribed
+            ? `${rawDir.replace(/[/\\]raw[/\\]?$/, "")}/transcripts/${firstSelected.id}.json`
+            : null
+        }
+        videoDurationSec={firstSelected.durationSec ?? undefined}
+        value={cinematicConfig}
+        onChange={setCinematicConfig}
+      />
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6">
       {/* UN solo <audio> compartido para las muestras de música del paso 2:
@@ -1715,6 +1774,8 @@ export function WizardClient() {
           {selectedStyles.includes("editorial") && editorialThemePanel}
           {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
           {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
+          {/* 🎬 Cinematográfico: picker de overlays + toggles cine, inline. */}
+          {hasCinematic && cinematicPanel}
           {/* 🎵 Música: si hay algún estilo con música elegido. */}
           {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) && musicPanel}
 
@@ -2029,28 +2090,9 @@ export function WizardClient() {
               lista junto al video en "Mis videos". No se muestra acá: el menú de
               editar/regenerar confundía al usuario. (Sigue en el payload + /produccion.) */}
 
-          {/* Modo cinematográfico = opción avanzada. Plegada por defecto para no abrumar
-              a un principiante; quien la necesita la despliega. */}
-          {firstSelected && (
-            <details className="mt-6 rounded-md border border-border bg-muted/20">
-              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-                Opciones avanzadas (opcional) — modo cinematográfico
-              </summary>
-              <div className="border-t border-border p-4">
-                <CinematicStep
-                  videoId={firstSelected.id}
-                  transcriptPath={
-                    firstSelected.status.transcribed
-                      ? `${rawDir.replace(/[/\\]raw[/\\]?$/, "")}/transcripts/${firstSelected.id}.json`
-                      : null
-                  }
-                  videoDurationSec={firstSelected.durationSec ?? undefined}
-                  value={cinematicConfig}
-                  onChange={setCinematicConfig}
-                />
-              </div>
-            </details>
-          )}
+          {/* El modo cinematográfico dejó de ser una opción enterrada en este paso:
+              ahora es la tarjeta de estilo "Cinematográfico" (cinematic_pro) del paso 2,
+              con su picker de overlays inline. El resumen de abajo reporta si está activo. */}
 
           <div className="mt-6 rounded-md border border-border bg-muted/30 p-4 text-sm">
             <p className="mb-2 font-medium">Resumen</p>

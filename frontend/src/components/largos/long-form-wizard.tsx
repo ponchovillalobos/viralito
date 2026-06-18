@@ -101,6 +101,7 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 
 type StyleId =
   | "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme"
+  | "cinematic_pro"
   | "graphics_pro" | "graphics_max"
   | "motion_pro" | "motion_beat" | "motion_grid"
   | "editorial"
@@ -194,6 +195,7 @@ interface ProposalsResponse {
 
 const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = [
   { id: "supreme", name: "Premium", tagline: "Todo activado, la máxima calidad. El mejor para largos.", emoji: "👑" },
+  { id: "cinematic_pro", name: "Cinematográfico", tagline: "Look de cine: film grain, color teal&orange, viñeta y camera moves suaves.", emoji: "🎬" },
   { id: "silent", name: "Limpio", tagline: "Solo subtítulos, sin efectos. Sobrio y profesional.", emoji: "🤍" },
   { id: "punch", name: "Impacto", tagline: "Resalta las frases clave en los momentos importantes.", emoji: "🥊" },
   { id: "hype", name: "Viral", tagline: "Subtítulos grandes y dinámicos, estilo videos de YouTube.", emoji: "🔥" },

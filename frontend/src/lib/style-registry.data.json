@@ -61,12 +61,12 @@
   },
   {
     "id": "cinematic_pro",
-    "name": "Cinematic Pro",
-    "tagline": "Imágenes fullscreen + SFX/música Pixabay + camera moves auto",
+    "name": "Cinematográfico",
+    "tagline": "Look de cine: film grain, LUT teal&orange, vignette, camera moves auto + subtítulos cine",
     "emoji": "🎬",
     "shortLabel": "Cine",
-    "families": [],
-    "longForm": false,
+    "families": ["music"],
+    "longForm": true,
     "hasGraphics": false
   },
   {

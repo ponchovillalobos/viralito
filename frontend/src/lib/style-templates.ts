@@ -774,16 +774,29 @@ export function pickRandomMusicTrack(seed: string, mood?: string): string | null
 export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
   const base = commonBase(ctx, styleId);
 
-  // ─── cinematic_pro: imágenes fullscreen + autos del matcher. Ahora también
-  // recibe las recetas CapCut (LUT + scene-fx) PERO conserva sus subtítulos cine
-  // (kinetic="none"). ───
+  // ─── cinematic_pro: look de cine de PRIMERA CLASE. Hornea el look completo
+  // SIN depender de overlays subidos: film grain ON, LUT teal&orange, vignette,
+  // camera moves auto-distribuidos (zoom/pan suaves) + subtítulos cine. Si además
+  // el user sube imágenes (overlays + asamblea IA), commonBase ya inyecta SFX/
+  // jump-cuts/overlays — este bloque solo garantiza un cine válido por defecto.
+  // Conserva subtítulos cine (kinetic="none"). ───
   if (styleId === "cinematic_pro") {
+    const cineDensity = ctx.cinematicDensity ?? "medium";
     return applyCapcutFx(
       {
         ...base,
         subtitleStyle: "cinematic" as const,
         bRollMode: "fullscreen" as const,
         vignette: true,
+        filmGrain: true,
+        cinematicDensity: cineDensity,
+        // Camera moves horneados aunque no haya overlays: el matcher (auto-build)
+        // los pisa con autoCameraMoves cuando hay imágenes; si no, este default
+        // da el vaivén de cámara cinematográfico igual.
+        cameraMoves:
+          base.cameraMoves.length > 0
+            ? base.cameraMoves
+            : generateCameraMoves(ctx.duration, cineDensity),
         captionBounce: false,
         musicTrack: pickRandomMusicTrack(ctx.videoId),
         musicVolume: 0.1,

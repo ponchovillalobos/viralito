@@ -18,6 +18,8 @@ const KEYFRAMES = `
 @keyframes smd-slide { 0% { transform: translateY(10px); opacity: 0; } 30%,70% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-6px); opacity: 0; } }
 @keyframes smd-flash { 0%,88%,100% { opacity: 0; } 92% { opacity: .85; } }
 @keyframes smd-behind { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+@keyframes smd-grain { 0%,100% { opacity: .18; } 50% { opacity: .34; } }
+@keyframes smd-cine-zoom { 0%,100% { transform: scale(1.05); } 50% { transform: scale(1.18) translateX(2px); } }
 `;
 
 function Screen({ children, bg }: { children?: React.ReactNode; bg?: string }) {
@@ -87,6 +89,46 @@ export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: st
                 <Caption color={accent} />
                 <span className="absolute left-1/2 top-0.5 -translate-x-1/2 text-[9px]" style={{ animation: "smd-pop 1.6s ease-in-out infinite" }}>👑</span>
                 <div className="absolute bottom-0 left-0 h-0.5 w-2/3 rounded-r" style={{ background: accent }} />
+              </Screen>
+            );
+          case "cinematic_pro":
+            return (
+              <Screen bg="#0c0a08">
+                {/* "escena" con grade cálido teal&orange + lento zoom de cámara */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 50% 38%, rgba(255,170,90,0.5), transparent 55%), linear-gradient(160deg, #0b2733, #0c0a08 70%)",
+                    animation: "smd-cine-zoom 4s ease-in-out infinite",
+                  }}
+                >
+                  <div className="absolute left-1/2 top-4 h-4 w-4 -translate-x-1/2 rounded-full bg-amber-200/70" />
+                  <div className="absolute left-1/2 top-8 h-5 w-7 -translate-x-1/2 rounded-t-full bg-orange-300/40" />
+                </div>
+                {/* viñeta: bordes oscuros */}
+                <div
+                  className="absolute inset-0"
+                  style={{ boxShadow: "inset 0 0 14px 6px rgba(0,0,0,0.85)" }}
+                />
+                {/* film grain titilando */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage:
+                      "repeating-radial-gradient(rgba(255,255,255,0.5) 0 0.4px, transparent 0.4px 1.4px)",
+                    backgroundSize: "3px 3px",
+                    animation: "smd-grain 0.25s steps(2) infinite",
+                  }}
+                />
+                {/* barras letterbox cine arriba/abajo */}
+                <div className="absolute inset-x-0 top-0 h-2 bg-black" />
+                <div className="absolute inset-x-0 bottom-0 h-2 bg-black" />
+                {/* subtítulo cine: barra fina con glow */}
+                <div
+                  className="absolute bottom-3.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-sm bg-white/95"
+                  style={{ boxShadow: "0 0 6px rgba(255,255,255,0.7)", animation: "smd-slide 2.8s ease-in-out infinite" }}
+                />
               </Screen>
             );
           case "broll_full":
