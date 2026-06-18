@@ -2025,53 +2025,9 @@ export function WizardClient() {
       {step === 4 && (
         <Card className="border-border bg-card p-6">
           <h2 className="mb-4 text-lg font-medium">4. Revisa y crea tu video</h2>
-          <div className="space-y-4">
-            {/* La descripción se genera SOLA en segundo plano (no aporta verla acá:
-                en Producción están los copys por red listos). Queda plegada por si
-                alguien quiere leerla o retocarla a mano. */}
-            <div className="flex items-center gap-2 rounded-md border border-brand-pink/25 bg-brand-pink/5 px-3 py-2 text-sm text-muted-foreground">
-              {generatingCaption ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-pink" />
-              ) : (
-                <Sparkles className="h-4 w-4 shrink-0 text-brand-pink" />
-              )}
-              <span>
-                ✨ La descripción para tus redes <strong>se genera sola</strong> — la vas a
-                encontrar lista junto al video en <strong>Mis videos</strong>.
-              </span>
-            </div>
-            <details className="rounded-md border border-border/60 px-3 py-2">
-              <summary className="cursor-pointer text-xs text-muted-foreground">
-                ✍️ Ver o editar la descripción (opcional)
-              </summary>
-              <div className="mt-2 space-y-1.5">
-                <textarea
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-md border border-border bg-muted/30 p-2 text-sm"
-                  placeholder="Generando la descripción con IA a partir de tu video…"
-                />
-                <div className="flex items-center justify-between">
-                  {captionMeta?._provider ? (
-                    <p className="font-mono-tab text-[10px] text-muted-foreground">
-                      generado por {captionMeta._provider}
-                      {captionMeta._model ? ` · ${captionMeta._model}` : ""}
-                    </p>
-                  ) : <span />}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={generateCaptionAI}
-                    disabled={generatingCaption || selectedVideos.size === 0}
-                  >
-                    {generatingCaption ? "Generando…" : "↻ Otra versión"}
-                  </Button>
-                </div>
-              </div>
-            </details>
-          </div>
+          {/* La descripción para cada red se genera SOLA en segundo plano y aparece
+              lista junto al video en "Mis videos". No se muestra acá: el menú de
+              editar/regenerar confundía al usuario. (Sigue en el payload + /produccion.) */}
 
           {/* Modo cinematográfico = opción avanzada. Plegada por defecto para no abrumar
               a un principiante; quien la necesita la despliega. */}
