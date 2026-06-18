@@ -31,6 +31,12 @@ export interface StyleRegistryEntry {
   families: StyleFamily[];
   longForm: boolean;
   hasGraphics: boolean;
+  /**
+   * Phase 4 — opt-in a las ilustraciones CC0 (personas/escenas multicolor).
+   * Cuando true, auto-build corre applyIllustrations para ese estilo. Ausente/
+   * false → el estilo NO recibe ilustraciones (render idéntico al histórico).
+   */
+  illustrations?: boolean;
 }
 
 /**
@@ -89,3 +95,17 @@ export const STYLE_INFO_FROM_REGISTRY = Object.fromEntries(
 export const STYLE_SHORT_LABEL_FROM_REGISTRY = Object.fromEntries(
   STYLE_IDS.map((id) => [id, BY_ID.get(id)!.shortLabel])
 ) as Record<StyleId, string>;
+
+/**
+ * Phase 4 — derivado: ¿este estilo opta por ilustraciones CC0? Gating del
+ * enriquecedor applyIllustrations, SIN tocar los style builders ni la paridad.
+ * Solo los estilos con "illustrations": true en el JSON quedan en true.
+ */
+export const STYLE_HAS_ILLUSTRATIONS = Object.fromEntries(
+  STYLE_IDS.map((id) => [id, BY_ID.get(id)!.illustrations === true])
+) as Record<StyleId, boolean>;
+
+/** Helper O(1): ¿el estilo `id` recibe ilustraciones CC0 (Phase 4)? */
+export function styleHasIllustrations(id: StyleId): boolean {
+  return STYLE_HAS_ILLUSTRATIONS[id] === true;
+}

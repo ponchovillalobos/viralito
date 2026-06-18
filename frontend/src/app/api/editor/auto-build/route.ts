@@ -59,9 +59,11 @@ import {
   applyTextBehind,
   applyTranslate,
   applyGraphics,
+  applyIllustrations,
   applyEditorialCutout,
   applyEmotionDirector,
 } from "./lib/fx-enrichments";
+import { styleHasIllustrations } from "@/lib/style-registry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
@@ -341,6 +343,10 @@ async function processJob(job: Job, body: AutoBuildRequest) {
 
       await applyTranslate(project);
       await applyGraphics(project, videoId);
+      // ILUSTRACIONES CC0 (Phase 4) — opt-in vía el REGISTRO (no flag de proyecto):
+      // solo los estilos con illustrations:true en style-registry.data.json las
+      // reciben. Los demás → render idéntico al histórico.
+      if (styleHasIllustrations(styleId)) await applyIllustrations(project, videoId);
       // EDITORIAL Ola 6 — recorte de sujeto (rembg) para la tarjeta de collage.
       await applyEditorialCutout(project, videoId);
       // F1 — Director emocional: ducking de música + zooms en picos + SFX por arousal.

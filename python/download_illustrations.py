@@ -108,6 +108,50 @@ OPEN_PEEPS_LICENSE = (
     "License text: https://creativecommons.org/publicdomain/zero/1.0/\n"
 )
 
+# --- Croodles: doodles a mano alzada vía DiceBear (sin key, sin login) ---------
+# Estilo "croodles" de DiceBear: caras/personajes dibujados a mano, look sketch.
+# Arte CC0 (vbenjs/croodles), embebido en los metadatos de cada SVG. Multicolor.
+CROODLES_URL = "https://api.dicebear.com/9.x/croodles/svg?seed={seed}"
+CROODLES_SEEDS = [
+    "Felix", "Aneka", "Mateo", "Sofia", "Liam", "Valentina", "Diego", "Camila",
+    "Hugo", "Lucia", "Mateo2", "Regina", "Bruno", "Renata", "Emiliano", "Ximena",
+    "Santiago", "Paloma", "Andres", "Frida", "Pablo", "Daniela", "Tomas", "Gabriela",
+    "Nicolas", "Mariana", "Joaquin", "Antonia", "Sebastian", "Isabella", "Maximo",
+    "Catalina", "Ignacio", "Victoria", "Rodrigo", "Julieta", "Benjamin", "Florencia",
+    "Alejandro", "Carolina",
+]
+CROODLES_LICENSE = (
+    "Croodles — CC0 1.0 Universal (Public Domain Dedication).\n"
+    "Source style: https://www.dicebear.com/styles/croodles/  (vbenjs/croodles).\n"
+    "These SVGs are deterministic doodles generated via DiceBear (keyless, no\n"
+    "login): https://www.dicebear.com/styles/croodles/ — each file embeds its\n"
+    'license in <metadata> (CC0 1.0). The DiceBear library code is MIT; the\n'
+    "underlying artwork is CC0. Multicolor (no currentColor).\n"
+    "License text: https://creativecommons.org/publicdomain/zero/1.0/\n"
+)
+
+# --- Notionists: personas estilo "Notion" vía DiceBear (sin key, sin login) ----
+# Estilo "notionists" de DiceBear: avatares de medio cuerpo, look ilustrado plano.
+# Arte CC0 (Notionists de Zoish vía DiceBear), embebido en cada SVG. Multicolor.
+NOTIONISTS_URL = "https://api.dicebear.com/9.x/notionists/svg?seed={seed}"
+NOTIONISTS_SEEDS = [
+    "Felix", "Aneka", "Mateo", "Sofia", "Liam", "Valentina", "Diego", "Camila",
+    "Hugo", "Lucia", "Mateo2", "Regina", "Bruno", "Renata", "Emiliano", "Ximena",
+    "Santiago", "Paloma", "Andres", "Frida", "Pablo", "Daniela", "Tomas", "Gabriela",
+    "Nicolas", "Mariana", "Joaquin", "Antonia", "Sebastian", "Isabella", "Maximo",
+    "Catalina", "Ignacio", "Victoria", "Rodrigo", "Julieta", "Benjamin", "Florencia",
+    "Alejandro", "Carolina",
+]
+NOTIONISTS_LICENSE = (
+    "Notionists — CC0 1.0 Universal (Public Domain Dedication).\n"
+    "Source style: https://www.dicebear.com/styles/notionists/  (Notionists by Zoish).\n"
+    "These SVGs are deterministic avatars generated via DiceBear (keyless, no\n"
+    "login): https://www.dicebear.com/styles/notionists/ — each file embeds its\n"
+    'license in <metadata> (CC0 1.0). The DiceBear library code is MIT; the\n'
+    "underlying artwork is CC0. Multicolor (no currentColor).\n"
+    "License text: https://creativecommons.org/publicdomain/zero/1.0/\n"
+)
+
 
 def _fetch(url: str, retries: int = 4, timeout: int = 60) -> bytes:
     """GET con reintentos (backoff). Lanza la última excepción si todo falla."""
@@ -227,6 +271,59 @@ def download_open_peeps(limit: int | None = None) -> int:
     return n
 
 
+def _download_dicebear_set(
+    set_name: str, url_tmpl: str, seeds: list[str], file_prefix: str,
+    license_text: str, label: str, limit: int | None = None,
+) -> int:
+    """Baja un set DiceBear (un SVG por semilla) a assets/illustrations/<set_name>.
+    Igual que open-peeps: keyless, idempotente; si ya hay >= esperados, se salta."""
+    dest = ILLUSTRATIONS_DIR / set_name
+    use_seeds = seeds if limit is None else seeds[:limit]
+    existing = len(list(dest.glob("*.svg"))) if dest.exists() else 0
+    if existing >= len(use_seeds):
+        print(f"ya existe: {set_name} ({existing} SVG) — salto")
+        return existing
+    dest.mkdir(parents=True, exist_ok=True)
+    print(f"bajando {set_name} ({len(use_seeds)} {label}) …", flush=True)
+    n = 0
+    for seed in use_seeds:
+        out = dest / f"{file_prefix}_{_snake(seed)}.svg"
+        if out.exists() and out.stat().st_size > 0:
+            n += 1
+            continue
+        url = url_tmpl.format(seed=urllib.request.quote(seed))
+        try:
+            data = _fetch(url)
+        except Exception as e:  # noqa: BLE001
+            print(f"  ERROR {seed}: {e}", file=sys.stderr)
+            continue
+        text = data.decode("utf-8", errors="replace")
+        if "<svg" not in text:
+            print(f"  ADVERTENCIA: respuesta no-SVG para {seed}", file=sys.stderr)
+            continue
+        out.write_bytes(data)
+        n += 1
+    (dest / "LICENSE.txt").write_text(license_text, encoding="utf-8")
+    print(f"  listos: {n} SVG en {dest}")
+    return n
+
+
+def download_croodles(limit: int | None = None) -> int:
+    """Doodles a mano alzada vía DiceBear (CC0, sin key)."""
+    return _download_dicebear_set(
+        "croodles", CROODLES_URL, CROODLES_SEEDS, "crood",
+        CROODLES_LICENSE, "doodles", limit,
+    )
+
+
+def download_notionists(limit: int | None = None) -> int:
+    """Personas estilo Notion vía DiceBear (CC0, sin key)."""
+    return _download_dicebear_set(
+        "notionists", NOTIONISTS_URL, NOTIONISTS_SEEDS, "notion",
+        NOTIONISTS_LICENSE, "personas", limit,
+    )
+
+
 def _snake(name: str) -> str:
     """CamelCase / mixto -> snake_case ascii para nombres de archivo estables."""
     s = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
@@ -279,6 +376,8 @@ def main(argv: list[str]) -> int:
     for fn, name, expect in (
         (download_open_doodles, "open-doodles", len(OPEN_DOODLES_NAMES)),
         (download_open_peeps, "open-peeps", len(OPEN_PEEPS_SEEDS)),
+        (download_croodles, "croodles", len(CROODLES_SEEDS)),
+        (download_notionists, "notionists", len(NOTIONISTS_SEEDS)),
     ):
         try:
             n = fn(limit)

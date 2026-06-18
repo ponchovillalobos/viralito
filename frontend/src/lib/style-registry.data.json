@@ -157,7 +157,8 @@
     "shortLabel": "Editorial",
     "families": ["music"],
     "longForm": true,
-    "hasGraphics": true
+    "hasGraphics": true,
+    "illustrations": true
   },
   {
     "id": "graphics_max",
@@ -187,7 +188,8 @@
     "shortLabel": "LottiePop",
     "families": ["motion", "music"],
     "longForm": true,
-    "hasGraphics": true
+    "hasGraphics": true,
+    "illustrations": true
   },
   {
     "id": "paper_cut",

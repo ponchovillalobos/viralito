@@ -99,6 +99,57 @@ export async function applyGraphics(
 }
 
 /**
+ * ILUSTRACIONES CC0 (Phase 4) — personas/escenas multicolor por concepto.
+ * Spawnea generate_graphics.py --illustrations, lee illustrationStickers del JSON
+ * y los SUMA a project.illustrationStickers. Opt-in vía el REGISTRO de estilos
+ * (styleHasIllustrations), NO vía flag del proyecto. Best-effort: si falla, el
+ * render sale sin ilustraciones (igual que los demás enriquecedores).
+ */
+export async function applyIllustrations(
+  project: ResolvedProject,
+  videoId: string
+): Promise<void> {
+  try {
+    const transcriptPath = path.join(TRANSCRIPTS_DIR, `${videoId}.json`);
+    const hasTranscript = await fs.access(transcriptPath).then(() => true).catch(() => false);
+    if (!hasTranscript) return;
+
+    const outDir = path.join(DATA_ROOT, "graphics");
+    await fs.mkdir(outDir, { recursive: true });
+    const outPath = path.join(outDir, `${videoId}_illustrations.json`);
+
+    const run = await runProcess(
+      PYTHON_EXE,
+      [
+        path.join(PYTHON_DIR, "generate_graphics.py"),
+        "--transcript", transcriptPath,
+        "--out", outPath,
+        "--illustrations",
+      ],
+      PYTHON_DIR,
+      undefined,
+      120_000
+    );
+    if (!run.ok) return;
+
+    const raw = await fs.readFile(outPath, "utf-8").catch(() => null);
+    if (!raw) return;
+    const g = JSON.parse(raw) as { illustrationStickers?: unknown[] };
+    if (Array.isArray(g.illustrationStickers) && g.illustrationStickers.length) {
+      project.illustrationStickers = [
+        ...(project.illustrationStickers ?? []),
+        ...g.illustrationStickers,
+      ];
+      console.log(
+        `[auto-build] ilustraciones CC0: ${g.illustrationStickers.length} stickers`
+      );
+    }
+  } catch (err) {
+    console.warn("[auto-build] ilustraciones falló:", err);
+  }
+}
+
+/**
  * EDITORIAL Ola 6 — Tarjeta de COLLAGE: recorta al sujeto de un frame del
  * clímax (~58% del video) con rembg local (cutout_subject.py) y lo deja en
  * project.editorialCutout. El render lo muestra como papel recortado con

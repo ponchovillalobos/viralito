@@ -218,6 +218,152 @@ def concept_icons(words: list[dict], duration: float, target: int) -> list[dict]
     return out
 
 
+# ─── ILUSTRACIONES CC0 (personas + escenas) por concepto ──────────────────────
+# A diferencia de los íconos line-art (currentColor), estas ilustraciones son
+# MULTICOLOR y viven en assets/illustrations/<set>/*.svg (open-peeps, croodles,
+# notionists = personas; open-doodles = escenas de acción con nombres literales:
+# reading.svg, coffee.svg, running.svg…). Las baja download_illustrations.py.
+
+_ILLUSTRATIONS_DIR = Path(DATA_ROOT) / "assets" / "illustrations"
+# Sets de PERSONAS (figura humana) → para conceptos de gente/equipo/comunidad.
+_PERSON_SETS = ("open-peeps", "croodles", "notionists")
+# Set de ESCENAS de acción (open-doodles, filenames literales en inglés).
+_SCENE_SET = "open-doodles"
+
+# Concepto del CONCEPT_ICONS → qué clase de ilustración prefiere. "person" busca
+# en los sets de personas; "action" busca una escena de open-doodles cuyo nombre
+# coincida con el token; lo demás cae a la rotación determinista del pool.
+_CONCEPT_KIND = {
+    "people": "person", "heart": "person", "crown": "person",
+    "message": "person", "award": "person",
+    "rocket": "action", "trending": "action", "target": "action",
+}
+# Token de concepto → nombre de escena open-doodles (filenames literales en disco).
+_CONCEPT_TO_DOODLE = {
+    "rocket": "levitate", "trending": "jumping", "target": "meditating",
+    "money": "unboxing", "brain": "reading", "lightbulb": "reading",
+    "fire": "dancing", "music": "moshing", "film": "selfie", "eye": "sitting",
+    "star": "groovy", "zap": "sprinting",
+}
+
+
+def _illustration_set_files(set_name: str) -> list[str]:
+    """Lista (ordenada) de SVGs en assets/illustrations/<set>. [] si no existe."""
+    d = _ILLUSTRATIONS_DIR / set_name
+    if not d.exists():
+        return []
+    return sorted(p.name for p in d.glob("*.svg"))
+
+
+def _illustration_url(set_name: str, file_name: str) -> str:
+    """URL de stream de una ilustración (mismo host que las animaciones Lottie)."""
+    return f"{_API_HOST}/api/illustrations/stream?file={set_name}/{file_name}"
+
+
+def _illustration_for_concept(icon: str, rotation_idx: int) -> tuple[str, str] | None:
+    """Resuelve un concepto a (set, file) de una ilustración en disco.
+
+    - conceptos de PERSONA → rota entre los sets de personas (peeps/croodles/notionists);
+    - conceptos de ACCIÓN → escena literal de open-doodles (reading.svg, running.svg…);
+    - si no hay match temático, fallback determinista por rotation_idx sobre todo
+      lo que exista en disco (people sets + scenes). Usa el mismo estilo de chequeo
+      de existencia on-disk que _lottie_src_for. None si no hay NADA descargado.
+    """
+    kind = _CONCEPT_KIND.get(icon)
+
+    # ACCIÓN → escena open-doodles cuyo filename coincide con el concepto.
+    if kind == "action":
+        doodle = _CONCEPT_TO_DOODLE.get(icon)
+        if doodle:
+            f = _ILLUSTRATIONS_DIR / _SCENE_SET / f"{doodle}.svg"
+            if f.exists():
+                return (_SCENE_SET, f.name)
+
+    # PERSONA → rota entre los sets de personas que tengan archivos.
+    if kind == "person":
+        sets = [s for s in _PERSON_SETS if (_ILLUSTRATIONS_DIR / s).exists()]
+        for off in range(len(sets)):
+            s = sets[(rotation_idx + off) % len(sets)]
+            files = _illustration_set_files(s)
+            if files:
+                return (s, files[rotation_idx % len(files)])
+
+    # FALLBACK determinista: aplana todo lo descargado (personas + escenas) y
+    # elige por rotation_idx. Misma semilla → misma ilustración (reproducible).
+    pool: list[tuple[str, str]] = []
+    for s in (*_PERSON_SETS, _SCENE_SET):
+        for f in _illustration_set_files(s):
+            pool.append((s, f))
+    if not pool:
+        return None
+    return pool[rotation_idx % len(pool)]
+
+
+def concept_illustrations(words: list[dict], duration: float, budget: int) -> list[dict]:
+    """Genera ILUSTRACIONES CC0 (personas/escenas, multicolor) representando los
+    conceptos mencionados — el primo "ilustración" de concept_icons(). Reusa el
+    mismo mapa de keywords (_WORD_TO_ICON) y la misma distribución temporal/min-gap.
+
+    Emite dicts con la forma de illustrationStickerSchema (at/duration/url/position/
+    size/rotation/duotone(0)/duotoneShadow/duotoneHighlight/dropShadow). budget =
+    cuántas como máximo. [] si no hay ilustraciones descargadas o no hay matches."""
+    if budget <= 0 or duration <= 0:
+        return []
+
+    # ── matcheo de conceptos (idéntico a concept_icons) ──
+    seen: set[str] = set()
+    hits: list[tuple[float, str]] = []
+    for w in words:
+        tok = _clean_word(str(w.get("word", ""))).lower().strip(".,!?¿¡")
+        if len(tok) < 3:
+            continue
+        icon = _WORD_TO_ICON.get(tok)
+        if not icon:
+            for kw, ic in _WORD_TO_ICON.items():
+                if len(kw) >= 5 and tok.startswith(kw[:5]):
+                    icon = ic
+                    break
+        if not icon or icon in seen:
+            continue
+        seen.add(icon)
+        hits.append((float(w.get("start", 0)), icon))
+    hits.sort(key=lambda h: h[0])
+
+    # Rotación determinista por video (mismo transcript → mismas ilustraciones).
+    rot = 0
+
+    out: list[dict] = []
+    min_gap = max(2.5, (duration / max(1, budget)) * 0.6)
+    last_t = -99.0
+    positions = ["bottom-right", "bottom-left", "right", "left"]
+    for t, icon in hits:
+        if len(out) >= budget:
+            break
+        if t - last_t < min_gap:
+            continue
+        resolved = _illustration_for_concept(icon, rot)
+        if not resolved:
+            # nada descargado para este concepto: probamos el siguiente hit
+            continue
+        set_name, file_name = resolved
+        last_t = t
+        i = len(out)
+        out.append({
+            "at": round(max(0.3, t - 0.1), 2),
+            "duration": 2.6,
+            "url": _illustration_url(set_name, file_name),
+            "position": positions[i % len(positions)],
+            "size": 420,
+            "rotation": (-6 if i % 2 == 0 else 6),
+            "duotone": 0,
+            "duotoneShadow": "#171310",
+            "duotoneHighlight": "#f3ede1",
+            "dropShadow": False,
+        })
+        rot += 1
+    return out
+
+
 def _ollama_alive(timeout: float = 2.0) -> bool:
     """Probe RÁPIDO: ¿Ollama está levantado? Evita esperar el timeout largo de
     generación cuando el server ni siquiera responde (fallback silencioso)."""
@@ -1461,7 +1607,7 @@ def llm_headlines(words: list[dict], duration: float, max_h: int = 3) -> list[di
     return out or None
 
 
-def generate(transcript_path: Path, use_llm: bool = True) -> dict:
+def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = False) -> dict:
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     words = transcript.get("words", [])
     duration = float(transcript.get("duration", 0) or 0)
@@ -1522,7 +1668,7 @@ def generate(transcript_path: Path, use_llm: bool = True) -> dict:
     ed_cards = editorial_cards(words, duration, seed=seed)
     if use_llm and ed_cards:
         ed_cards = _enrich_cards_llm(ed_cards, words)
-    return {
+    result: dict = {
         "dataViz": charts,
         "kineticHeadlines": [],
         "iconStickers": icons,
@@ -1531,6 +1677,19 @@ def generate(transcript_path: Path, use_llm: bool = True) -> dict:
         # Ola 7 — si el transcript menciona un lugar, escena de GLOBO con zoom.
         "editorialMap": editorial_map(words, duration),
     }
+    # ILUSTRACIONES CC0 (opt-in, default OFF). Solo cuando --illustrations: agrega
+    # "illustrationStickers" con personas/escenas multicolor para los conceptos
+    # mencionados. Budget chico (~1/3 del target). Sin la flag → no aparece la
+    # clave y el comportamiento es idéntico al histórico.
+    if illustrations:
+        illu_budget = max(2, target // 3)
+        result["illustrationStickers"] = concept_illustrations(words, duration, illu_budget)
+        print(
+            f"[graphics] {len(result['illustrationStickers'])} ilustraciones CC0 "
+            f"(budget {illu_budget})",
+            file=sys.stderr,
+        )
+    return result
 
 
 def _selftest() -> int:
@@ -1594,6 +1753,8 @@ def main() -> int:
     parser.add_argument("--transcript", help="Path al transcript JSON")
     parser.add_argument("--out", help="Path de salida (default: long_form/graphics/{clip_id}.json)")
     parser.add_argument("--no-llm", action="store_true", help="Solo heurística (sin Ollama)")
+    parser.add_argument("--illustrations", action="store_true",
+                        help="Agrega illustrationStickers (personas/escenas CC0) — opt-in, default off")
     parser.add_argument("--selftest", action="store_true", help="Corre los tests del corrector ES y sale")
     args = parser.parse_args()
 
@@ -1616,7 +1777,7 @@ def main() -> int:
         return 1
 
     t0 = time.time()
-    result = generate(tp, use_llm=not args.no_llm)
+    result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations)
     out = Path(args.out) if args.out else LF_GRAPHICS / f"{clip_id}.json"
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({
@@ -1624,6 +1785,7 @@ def main() -> int:
         "dataViz": len(result["dataViz"]),
         "iconStickers": len(result.get("iconStickers", [])),
         "kineticHeadlines": len(result["kineticHeadlines"]),
+        "illustrationStickers": len(result.get("illustrationStickers", [])),
         "elapsed_sec": round(time.time() - t0, 1),
     }))
     return 0

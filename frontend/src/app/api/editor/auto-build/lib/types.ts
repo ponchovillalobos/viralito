@@ -116,6 +116,9 @@ export interface ResolvedProject {
   dataViz?: unknown[];
   kineticHeadlines?: unknown[];
   iconStickers?: unknown[];
+  // ILUSTRACIONES CC0 (Phase 4) — personas/escenas multicolor (opt-in vía el
+  // REGISTRO de estilos, no vía flag del proyecto). applyIllustrations las llena.
+  illustrationStickers?: unknown[];
   // EDITORIAL — split-screen documental (tarjetas serif + line-art).
   editorialLayout?: { panel: string; panelWidth: number } | null;
   editorialCards?: unknown[];
