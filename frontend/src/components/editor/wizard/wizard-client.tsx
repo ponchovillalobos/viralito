@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Sparkles, Send } from "lucide-react";
+import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import {
@@ -445,10 +445,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [transcribing, setTranscribing] = useState(false);
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [building, setBuilding] = useState(false);
-  // ✨ "Hazlo por mí": un clic que escucha el video y lo crea con un preset viral
-  // por defecto, sin que el usuario decida nada. Guarda la fase para el copy del
-  // botón ("Transcribiendo…" / "Generando…").
-  const [magicPhase, setMagicPhase] = useState<null | "transcribing" | "building">(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   // Configuración del modo cinematográfico (opt-in). Cuando enabled=true, el sistema
@@ -1011,41 +1007,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
     }
   }
 
-  // ✨ "Hazlo por mí": el camino de un clic para el 80% que no quiere configurar.
-  // Setea un preset viral por defecto, ESCUCHA el video (la transcripción debe
-  // correr ANTES del build o este falla en un video recién importado) y SOLO
-  // cuando termina, dispara la creación — saltando directo al paso 4.
-  async function handleMagicBuild() {
-    if (selectedVideos.size === 0 || magicPhase || transcribing || building) return;
-
-    // Preset viral por defecto: "motion_beat" lleva música (está en MUSIC_STYLES:
-    // su plantilla setea musicTrack) y el fondo late al ritmo — energía con música,
-    // justo lo que pide un video viral sin que el usuario elija nada.
-    const MAGIC_STYLE: StyleId = "motion_beat";
-    setSelectedStyles([MAGIC_STYLE]); // refleja la elección en la UI por si vuelve atrás
-    setAspectRatio("9:16"); // vertical para TikTok/Reels (el default, lo fijamos explícito)
-    setMusic("auto"); // el sistema elige y rota la pista de fondo
-
-    // 1) Transcribir lo que falte ANTES de crear (build sin subtítulos falla).
-    setMagicPhase("transcribing");
-    const needsTranscribe = selectedVideoList.filter((v) => !v.status.transcribed);
-    if (needsTranscribe.length > 0) {
-      const allOk = await runTranscription(needsTranscribe);
-      if (!allOk) {
-        // runTranscription ya mostró el error y dejó los fallidos en el paso 1
-        // con su botón Reintentar; abortamos el modo mágico sin disparar el build.
-        setMagicPhase(null);
-        return;
-      }
-    }
-
-    // 2) Transcripción lista → crear. handleBuild salta al paso 4 y hace polling.
-    setMagicPhase("building");
-    setStep(4);
-    await handleBuild([MAGIC_STYLE]);
-    setMagicPhase(null);
-  }
-
   // Re-encola SOLO un combo "videoId::estilo" que falló (botón del paso final).
   // Mismo cuerpo que handleBuild pero con un único video y un único estilo.
   async function retryOneStyle(comboId: string) {
@@ -1573,15 +1534,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                 </div>
               </div>
 
-              {/* ✨ HAZLO POR MÍ: el camino de un clic para quien no quiere
-                  configurar nada. Escucha el video y lo crea con un preset viral
-                  (motion_beat: con música y al ritmo), 9:16, sin tocar más pasos.
-                  Debajo, "o configúralo tú" deja claro que el wizard sigue ahí. */}
-              {/* El camino NORMAL es "Siguiente" (abajo) → elegir estilo, formato y
-                  colores. "Hazlo por mí" es solo un ATAJO OPCIONAL de un clic (auto-
-                  genera con un preset viral SIN que elijas nada). Antes era un botón
-                  gigante con glow y la gente lo tocaba creyendo que era "continuar", se
-                  saltaba la elección de estilos y se frustraba. Ahora es secundario. */}
+              {/* El camino es "Siguiente" (abajo) → elegir estilo, formato y colores. */}
               <div className="mt-4 flex flex-col items-center gap-2 text-center">
                 <p className="text-sm">
                   Toca <b className="text-foreground">«Siguiente»</b> (abajo) para elegir
@@ -1589,26 +1542,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                   <b className="text-foreground">formato</b> y los{" "}
                   <b className="text-foreground">colores</b>.
                 </p>
-                <p className="text-[11px] text-muted-foreground">¿No quieres decidir nada?</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMagicBuild}
-                  disabled={selectedVideos.size === 0 || magicPhase !== null || transcribing || building}
-                  className="h-9 border-brand-pink/40 text-brand-pink hover:bg-brand-pink/10"
-                >
-                  {magicPhase ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {magicPhase === "transcribing" ? "Preparando…" : "Generando…"}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      …o hazlo por mí (un clic, sin elegir)
-                    </>
-                  )}
-                </Button>
               </div>
             </>
           )}
@@ -2092,6 +2025,10 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               </div>
             );
           })()}
+
+          {/* Vista previa REAL del video con el estilo elegido, justo antes de crear:
+              el usuario ve una foto/gif de cómo queda antes de tocar "Crear". */}
+          {previewPanel}
 
           {/* Botón GRANDE y prominente: el momento clave del wizard. */}
           <Button

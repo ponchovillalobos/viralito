@@ -35,9 +35,18 @@ import {
   RefreshCcw,
   Scissors,
   Sparkles,
+  Trash2,
   XCircle,
   Upload,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
@@ -228,7 +237,7 @@ const PALETTE = [
   { name: "violeta claro", value: "#c084fc", mood: "elegancia" },
 ];
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 /** Nombre humano de un estilo (nunca mostrar el id crudo tipo "hype_max_sfx"). */
 function styleName(id: string): string {
@@ -313,10 +322,17 @@ export function LongFormWizard() {
   // Flujo REVISAR: video cuyos momentos ya analizados se están revisando SIN job activo
   // (entrada directa desde el paso 5 cuando el análisis se hizo antes).
   const [reviewVideoId, setReviewVideoId] = useState<string | null>(null);
+  // Borrado de un video largo: guarda el que se va a borrar (abre el Dialog de
+  // confirmación) y el flag mientras corre el DELETE.
+  const [videoToDelete, setVideoToDelete] = useState<RawVideoEntry | null>(null);
+  const [deletingVideo, setDeletingVideo] = useState(false);
 
-  // ─── State del wizard (6 pasos) ─────────────────────────────────────────
+  // ─── State del wizard (4 pasos) ─────────────────────────────────────────
   const [step, setStep] = useState(1);
-  const [useHeuristic, setUseHeuristic] = useState(false); // default: modo inteligente (encuentra lo viral)
+  // El análisis SIEMPRE es inteligente (la IA local lee todo y encuentra lo viral).
+  // Cortar sin análisis no sirve, así que ya no hay paso para elegir el modo: la
+  // constante se sigue mandando al backend como `false` (= modo inteligente).
+  const useHeuristic = false;
   const [graphicsMode, setGraphicsMode] = useState(false); // Modo Gráficos & Motion (charts + titulares)
   const [maxClips, setMaxClips] = useState<string>("");
   const [ollamaModel, setOllamaModel] = useState<string>("");
@@ -386,6 +402,32 @@ export function LongFormWizard() {
       else next.add(id);
       return next;
     });
+  }
+
+  // Borra DEFINITIVO un video largo + sus clips/renders/transcripts del disco y
+  // refresca la lista. Lo dispara el Dialog de confirmación (acción destructiva).
+  async function deleteVideo(videoId: string) {
+    setDeletingVideo(true);
+    try {
+      const r = await fetch(`/api/long_form/${encodeURIComponent(videoId)}/delete`, {
+        method: "POST",
+      });
+      const data = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) throw new Error(data.error ?? "no se pudo borrar");
+      toast.success("Video borrado");
+      // Quitar de la selección si estaba elegido.
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+      setVideoToDelete(null);
+      await refreshList();
+    } catch (err) {
+      toastError(err, "No se pudo borrar el video");
+    } finally {
+      setDeletingVideo(false);
+    }
   }
 
   // Sube videos largos desde la compu del usuario por STREAMING → /api/long_form/import → LF_RAW.
@@ -462,16 +504,17 @@ export function LongFormWizard() {
     return () => clearInterval(tick);
   }, [refreshList]);
 
-  // Semáforo IA local: chequear al entrar al paso 2 con modo inteligente elegido
-  // (y cada vez que el usuario vuelve a seleccionar ese modo).
+  // Semáforo IA local: el análisis SIEMPRE es inteligente (usa la IA local), así que
+  // chequeamos al entrar al paso de confirmar (último paso) para avisar si Ollama está
+  // apagado antes de arrancar. startPipeline también revalida antes de lanzar.
   useEffect(() => {
-    if (step === 2 && !useHeuristic) {
+    if (step === TOTAL_STEPS) {
       // checkIaLocal hace setState al iniciar (semáforo "consultando"): es la carga
-      // al entrar al paso 2, no un loop de render.
+      // al entrar al paso de confirmar, no un loop de render.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       checkIaLocal();
     }
-  }, [step, useHeuristic, checkIaLocal]);
+  }, [step, checkIaLocal]);
 
   async function loadProposals(videoId: string) {
     try {
@@ -678,7 +721,7 @@ export function LongFormWizard() {
       const r = await fetch(`/api/long_form/proposals/${encodeURIComponent(videoId)}`);
       if (!r.ok) {
         toast.error("Todavía no hay momentos analizados para este video", {
-          description: "Usa «Encontrar los mejores momentos» primero.",
+          description: "Usa «Empezar a editar» primero.",
         });
         return;
       }
@@ -796,7 +839,7 @@ export function LongFormWizard() {
     );
   }
 
-  // ─── Render: wizard de 6 pasos ──────────────────────────────────────────
+  // ─── Render: wizard de 4 pasos ──────────────────────────────────────────
   return (
     <div className="space-y-6">
       <WizardHeader />
@@ -949,12 +992,14 @@ export function LongFormWizard() {
                 {list?.videos.map((v) => {
                   const sel = selectedIds.has(v.videoId);
                   return (
+                    // Wrapper relativo: la tarjeta-botón + el botón de basura van como
+                    // HERMANOS (no <button> dentro de <button> → rompería la hidratación).
+                    <div key={v.videoId} className="relative">
                     <button
-                      key={v.videoId}
                       type="button"
                       onClick={() => toggleVideo(v.videoId)}
                       className={cn(
-                        "flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors",
+                        "flex w-full items-start gap-3 rounded-md border p-3 pr-12 text-left transition-colors",
                         sel
                           ? "border-violet-500/40 bg-violet-500/5 ring-1 ring-violet-400/40"
                           : "border-border bg-muted/30 hover:bg-muted"
@@ -998,9 +1043,20 @@ export function LongFormWizard() {
                         </div>
                       </div>
                       {sel && (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-violet-400" />
+                        <CheckCircle2 className="absolute right-10 top-3 h-4 w-4 shrink-0 text-violet-400" />
                       )}
                     </button>
+                    {/* Botón de basura: borra DEFINITIVO este video + sus clips. Abre
+                        el Dialog de confirmación (acción destructiva). */}
+                    <button
+                      type="button"
+                      onClick={() => setVideoToDelete(v)}
+                      title="Borrar este video y sus clips (no se puede deshacer)"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -1028,143 +1084,10 @@ export function LongFormWizard() {
         </Card>
       )}
 
-      {/* STEP 2 — Modo de análisis */}
+      {/* STEP 2 — Estilos + Aspect ratio */}
       {step === 2 && (
         <Card className="border-border bg-card p-6">
-          <h2 className="mb-2 text-lg font-medium">2. ¿Cómo encontrar los clips icónicos?</h2>
-          <p className="mb-4 text-xs text-muted-foreground">
-            El paso de análisis decide qué momentos del video se convierten en clips de 30-60 seg.
-          </p>
-
-          <div className="grid grid-cols-1 gap-3">
-            <button
-              type="button"
-              onClick={() => setUseHeuristic(true)}
-              className={cn(
-                "rounded-lg border p-4 text-left transition-all",
-                useHeuristic
-                  ? "border-amber-500/40 bg-amber-500/5 ring-1 ring-amber-400/40"
-                  : "border-border hover:border-foreground/30"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⚡</span>
-                <span className="font-medium">Modo rápido — bloques parejos</span>
-                {useHeuristic && <CheckCircle2 className="h-4 w-4 text-amber-400" />}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Corta bloques de ~50 segundos espaciados parejo por el video (minuto 0, 10, 20…).{" "}
-                <strong className="text-foreground">~minutos</strong>. NO lee qué se dice — no elige por
-                viralidad. Útil solo para tener material rápido.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setUseHeuristic(false)}
-              className={cn(
-                "rounded-lg border p-4 text-left transition-all",
-                !useHeuristic
-                  ? "border-brand-violet/40 bg-brand-violet/5 ring-1 ring-brand-violet/40"
-                  : "border-border hover:border-foreground/30"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🧠</span>
-                <span className="font-medium">Modo inteligente — encuentra lo más viral</span>
-                <span className="rounded bg-brand-violet/20 px-1.5 py-0.5 text-[9px] font-medium text-brand-violet">RECOMENDADO</span>
-                {!useHeuristic && <CheckCircle2 className="h-4 w-4 text-brand-violet" />}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Transcribe el video en trozos (sin colgarse, aunque dure 90 min) y la IA local lee TODO
-                para elegir los momentos más virales — <strong className="text-foreground">mínimo 15 clips, más si hay</strong> —
-                con hook + caption + hashtags listos. <strong className="text-foreground">~30-50 min</strong> en segundo plano.
-              </p>
-              {/* Semáforo de la IA local: se chequea al seleccionar este modo. */}
-              <div className="mt-2">
-                {checkingIa && iaStatus === null ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[10px] text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Revisando la IA local…
-                  </span>
-                ) : iaStatus?.running ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-medium text-emerald-300">
-                    ✓ IA local lista
-                  </span>
-                ) : iaStatus ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-2.5 py-1 text-[10px] font-medium text-red-300">
-                    <XCircle className="h-3 w-3 shrink-0" />
-                    La IA local está apagada — abre la app Ollama desde el menú Inicio, o usa el modo rápido
-                  </span>
-                ) : null}
-              </div>
-            </button>
-
-            {/* Semáforo en rojo → reparación automática con un clic (despierta/instala
-                la IA local y baja el modelo, con barra de progreso). */}
-            {!useHeuristic && iaStatus && !iaStatus.running && (
-              <IaFixPanel onReady={checkIaLocal} />
-            )}
-          </div>
-
-          {!useHeuristic && (
-            <details className="mt-4 rounded-md border border-border bg-muted/20 p-3">
-              <summary className="cursor-pointer font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-                ⚙️ Avanzado (opcional — el default funciona solo)
-              </summary>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    Modelo de IA local <span className="text-muted-foreground">(Ollama)</span>
-                  </Label>
-                  <Input
-                    value={ollamaModel}
-                    onChange={(e) => setOllamaModel(e.target.value)}
-                    placeholder="automático (qwen3:1.7b)"
-                    className="font-mono-tab"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    Cantidad máxima de clips
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={maxClips}
-                    onChange={(e) => setMaxClips(e.target.value)}
-                    placeholder="automático: mínimo 15, más si el video es largo"
-                    className="font-mono-tab"
-                  />
-                </div>
-              </div>
-            </details>
-          )}
-
-          {allSelectedHaveTranscript && (
-            <label className="mt-4 flex items-start gap-3 cursor-pointer rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
-              <input
-                type="checkbox"
-                checked={skipTranscribe}
-                onChange={(e) => setSkipTranscribe(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border bg-muted accent-sky-500"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-sky-200">
-                  Saltar la transcripción ({selectedIds.size === 1 ? "ya existe" : "todos los seleccionados ya la tienen"})
-                </p>
-                <p className="text-xs text-muted-foreground">Ahorra 3-10 min por video.</p>
-              </div>
-            </label>
-          )}
-        </Card>
-      )}
-
-      {/* STEP 3 — Estilos + Aspect ratio */}
-      {step === 3 && (
-        <Card className="border-border bg-card p-6">
-          <h2 className="mb-2 text-lg font-medium">3. Estilo(s) de edición y formato</h2>
+          <h2 className="mb-2 text-lg font-medium">2. Estilo(s) de edición y formato</h2>
 
           {/* Modo Gráficos & Motion — opt-in, aditivo sobre el estilo elegido */}
           <button
@@ -1397,13 +1320,30 @@ export function LongFormWizard() {
               </p>
             </div>
           </label>
+
+          {allSelectedHaveTranscript && (
+            <label className="mt-4 flex items-start gap-3 cursor-pointer rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
+              <input
+                type="checkbox"
+                checked={skipTranscribe}
+                onChange={(e) => setSkipTranscribe(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border bg-muted accent-sky-500"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-sky-200">
+                  Saltar la transcripción ({selectedIds.size === 1 ? "ya existe" : "todos los seleccionados ya la tienen"})
+                </p>
+                <p className="text-xs text-muted-foreground">Ahorra 3-10 min por video.</p>
+              </div>
+            </label>
+          )}
         </Card>
       )}
 
-      {/* STEP 4 — Color + tipografía de subtítulos */}
-      {step === 4 && (
+      {/* STEP 3 — Color + tipografía de subtítulos */}
+      {step === 3 && (
         <Card className="border-border bg-card p-6">
-          <h2 className="mb-2 text-lg font-medium">4. Color principal</h2>
+          <h2 className="mb-2 text-lg font-medium">3. Color principal</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             {editorialOnly
               ? "En el estilo Editorial este color pinta las palabras destacadas de los titulares y las ilustraciones animadas."
@@ -1436,7 +1376,7 @@ export function LongFormWizard() {
             })}
           </div>
 
-          {/* Editorial-solo: la tipografía/colores vienen del TEMA elegido en el paso 3. */}
+          {/* Editorial-solo: la tipografía/colores vienen del TEMA elegido en el paso 2. */}
           {editorialOnly && (
             <div className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
               <p className="font-medium">📰 El estilo Editorial no lleva subtítulos</p>
@@ -1540,88 +1480,178 @@ export function LongFormWizard() {
         </Card>
       )}
 
-      {/* STEP 5 — Redes + confirmar + arrancar */}
-      {step === 5 && (
+      {/* STEP 4 — Confirmar + arrancar */}
+      {step === 4 && (
         <Card className="border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-medium">5. Confirmar y arrancar</h2>
+          <h2 className="mb-4 text-lg font-medium">4. Confirmar y arrancar</h2>
 
-          <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
-            <p className="mb-2 font-medium">Resumen</p>
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>
-                · Video{selectedIds.size === 1 ? "" : "s"} ({selectedIds.size}):{" "}
-                <span className="font-mono-tab text-foreground">
-                  {Array.from(selectedIds).slice(0, 3).join(", ")}
-                  {selectedIds.size > 3 && ` +${selectedIds.size - 3} más`}
-                </span>
-              </li>
-              <li>· Modo: <span className="text-foreground">{useHeuristic ? "Rápido (bloques parejos, sin IA)" : "Inteligente (la IA local encuentra lo viral, mínimo 15 clips)"}</span>
-                {!useHeuristic && ollamaModel && <span className="text-muted-foreground"> · modelo {ollamaModel}</span>}
-              </li>
-              <li>· Generar videos: <span className="text-foreground">{doRender ? "sí" : "no (solo recortar clips)"}</span></li>
-              {doRender && (
-                <>
-                  <li>· Estilo{selectedStyles.length === 1 ? "" : "s"}: <span className="text-foreground">{selectedStyles.map(styleName).join(", ")}</span></li>
-                  <li>
-                    · Formato:{" "}
-                    <span className="text-foreground">
-                      {aspectRatio === "9:16" ? "Vertical 9:16 (1080×1920)" : "Horizontal 16:9 (1920×1080)"}
-                    </span>
-                  </li>
-                  <li>· Color: <span className="inline-block h-2 w-2 rounded-full align-middle" style={{ background: accent }} />{" "}
-                    <span className="font-mono-tab text-foreground">{accent}</span>
-                  </li>
-                  {!editorialOnly && (
-                    <li>
-                      · Subtítulos:{" "}
-                      <span className="text-foreground">
-                        {SUBTITLE_FONTS.find((f) => f.id === subtitleFont)?.name ?? subtitleFont}
-                        {subtitleColor !== "auto" && (
-                          <>
-                            {" · texto "}
-                            <span className="inline-block h-2 w-2 rounded-full align-middle" style={{ background: subtitleColor }} />{" "}
-                            <span className="font-mono-tab">{subtitleColor}</span>
-                          </>
-                        )}
-                      </span>
-                    </li>
-                  )}
-                  {hasEditorial && (
-                    <li>
-                      · Tema editorial:{" "}
-                      <span className="text-foreground">
-                        {EDITORIAL_THEMES.find((t) => t.id === editorialTheme)?.name ?? editorialTheme}
-                      </span>
-                    </li>
-                  )}
-                </>
-              )}
-              {maxClips && <li>· Máximo de clips: <span className="text-foreground">{maxClips}</span></li>}
-              {/* Estimado HONESTO: rango según el modo (la duración del video no está
-                  disponible en /api/long_form/list, así que se habla en rangos). */}
-              <li className="text-amber-400">
-                {useHeuristic ? (
+          {/* Resumen visual en tarjetas grandes (paridad con el wizard de shorts). */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* VIDEOS */}
+            <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 sm:col-span-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Video{selectedIds.size === 1 ? "" : "s"} ({selectedIds.size})
+              </p>
+              <p className="mt-1 font-mono-tab text-sm text-foreground break-all">
+                {Array.from(selectedIds).slice(0, 3).join(", ")}
+                {selectedIds.size > 3 && ` +${selectedIds.size - 3} más`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Modo inteligente: la IA local lee todo y encuentra lo viral (mínimo 15 clips).
+                {ollamaModel && <> · modelo {ollamaModel}</>}
+              </p>
+            </div>
+
+            {/* GENERAR VIDEOS */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Generar videos</p>
+              <p className="mt-1 text-lg font-semibold">
+                {doRender ? "Sí" : "No (solo recortar clips)"}
+              </p>
+            </div>
+
+            {doRender && (
+              <>
+                {/* FORMATO */}
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Formato</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {aspectRatio === "9:16" ? "📱 Vertical 9:16" : "🖥️ Horizontal 16:9"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {aspectRatio === "9:16" ? "1080×1920 · TikTok · Reels" : "1920×1080 · LinkedIn · YouTube"}
+                  </p>
+                </div>
+
+                {/* COLOR */}
+                <div className="rounded-xl border p-4" style={{ borderColor: `${accent}40`, backgroundColor: `${accent}0d` }}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Color principal</p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <span
+                      className="h-10 w-10 shrink-0 rounded-full"
+                      style={{ background: accent, boxShadow: `0 0 16px ${accent}66` }}
+                    />
+                    <p className="font-mono-tab text-lg font-semibold">{accent}</p>
+                  </div>
+                </div>
+
+                {/* ESTILOS */}
+                <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Estilo{selectedStyles.length === 1 ? "" : "s"} ({selectedStyles.length})
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {selectedStyles.map((sid) => (
+                      <div key={sid} className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-2.5">
+                        <StyleMiniDemo styleId={sid} accent={accent} />
+                        <span className="text-sm font-semibold">{styleName(sid)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SUBTÍTULOS / TEMA EDITORIAL */}
+                {!editorialOnly && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Subtítulos</p>
+                    <p
+                      className="mt-1 text-2xl font-semibold leading-none"
+                      style={{ fontFamily: FONT_PREVIEW[subtitleFont] || undefined }}
+                    >
+                      {subtitleFont === "auto" ? "Automática" : "Viral"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {SUBTITLE_FONTS.find((f) => f.id === subtitleFont)?.name ?? subtitleFont}
+                      {subtitleColor !== "auto" && (
+                        <>
+                          {" · texto "}
+                          <span className="inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: subtitleColor }} />{" "}
+                          <span className="font-mono-tab">{subtitleColor}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {hasEditorial && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">📰 Tema editorial</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {EDITORIAL_THEMES.find((t) => t.id === editorialTheme)?.name ?? editorialTheme}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ESTIMADO DE TIEMPO */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 sm:col-span-2">
+              <p className="text-sm text-amber-400">
+                ⏱️ Estimado: análisis ~30-50 min para un video de 1 hora (puedes cerrar esta
+                pantalla, sigue solo). Después revisas los momentos
+                {doRender && (
                   <>
-                    Estimado: encontrar los momentos tarda unos minutos. Después los revisas
-                    {doRender && <> y cada clip que apruebes tarda ~2-3 min en generarse</>}{" "}
-                    (depende de tu compu). Puedes cerrar esta pantalla, sigue solo.
-                  </>
-                ) : (
-                  <>
-                    Estimado: análisis ~30-50 min para un video de 1 hora (puedes cerrar esta
-                    pantalla, sigue solo). Después revisas los momentos
-                    {doRender && (
-                      <>
-                        {" "}y cada clip que apruebes tarda ~2-3 min (propone{" "}
-                        {maxClips.trim() ? `hasta ${maxClips.trim()}` : "mínimo 15"})
-                      </>
-                    )}
-                    .
+                    {" "}y cada clip que apruebes tarda ~2-3 min (propone{" "}
+                    {maxClips.trim() ? `hasta ${maxClips.trim()}` : "mínimo 15"})
                   </>
                 )}
-              </li>
-            </ul>
+                .
+              </p>
+            </div>
           </div>
+
+          {/* Avanzado (opcional): modelo de IA local + máximo de clips. */}
+          <details className="mt-4 rounded-md border border-border bg-muted/20 p-3">
+            <summary className="cursor-pointer font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
+              ⚙️ Avanzado (opcional — el default funciona solo)
+            </summary>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Modelo de IA local <span className="text-muted-foreground">(Ollama)</span>
+                </Label>
+                <Input
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  placeholder="automático (qwen3:1.7b)"
+                  className="font-mono-tab"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cantidad máxima de clips</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={maxClips}
+                  onChange={(e) => setMaxClips(e.target.value)}
+                  placeholder="automático: mínimo 15, más si el video es largo"
+                  className="font-mono-tab"
+                />
+              </div>
+            </div>
+          </details>
+
+          {/* Semáforo de la IA local: el análisis siempre usa la IA local, así que
+              avisamos aquí si Ollama está apagado antes de arrancar. */}
+          <div className="mt-3">
+            {checkingIa && iaStatus === null ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[10px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Revisando la IA local…
+              </span>
+            ) : iaStatus?.running ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+                ✓ IA local lista
+              </span>
+            ) : iaStatus ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-2.5 py-1 text-[10px] font-medium text-red-300">
+                <XCircle className="h-3 w-3 shrink-0" />
+                La IA local está apagada — abre la app Ollama desde el menú Inicio
+              </span>
+            ) : null}
+          </div>
+          {/* Semáforo en rojo → reparación automática con un clic. */}
+          {iaStatus && !iaStatus.running && <div className="mt-2"><IaFixPanel onReady={checkIaLocal} /></div>}
 
           {/* Acto 1 del flujo REVISAR: primero solo el análisis; al terminar se
               muestran los momentos para aprobar/descartar/ajustar antes de generar. */}
@@ -1635,7 +1665,7 @@ export function LongFormWizard() {
             ) : (
               <span className="mr-2">🔍</span>
             )}
-            {submitting ? "Arrancando…" : "Encontrar los mejores momentos"}
+            {submitting ? "Arrancando…" : "Empezar a editar"}
           </Button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             Primero el análisis. Al terminar revisas los momentos propuestos y eliges
@@ -1653,21 +1683,6 @@ export function LongFormWizard() {
               🔁 Revisar los momentos ya encontrados (sin volver a analizar)
             </Button>
           )}
-
-          {/* Fallback: el modo clásico de un jalón (analiza + recorta + genera todo). */}
-          <button
-            type="button"
-            onClick={() => startPipeline("full")}
-            disabled={
-              submitting ||
-              selectedIds.size === 0 ||
-              (doRender && selectedStyles.length === 0)
-            }
-            className="mt-3 w-full rounded-md border border-border py-2 text-xs text-muted-foreground transition hover:border-foreground/30 hover:text-foreground disabled:opacity-50"
-          >
-            <Sparkles className="mr-1.5 inline h-3.5 w-3.5" />
-            Hacer todo de una vez sin revisar (modo clásico)
-          </button>
         </Card>
       )}
 
@@ -1675,8 +1690,8 @@ export function LongFormWizard() {
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          // Sin render, el paso 4 (color/tipografía) no aplica: se salta en ambos sentidos.
-          onClick={() => setStep(step === 5 && !doRender ? 3 : Math.max(1, step - 1))}
+          // Sin render, el paso 3 (color/tipografía) no aplica: se salta en ambos sentidos.
+          onClick={() => setStep(step === 4 && !doRender ? 2 : Math.max(1, step - 1))}
           disabled={step === 1 || submitting}
         >
           <ChevronLeft className="mr-1.5 h-4 w-4" />
@@ -1684,10 +1699,10 @@ export function LongFormWizard() {
         </Button>
         {step < TOTAL_STEPS && (
           <Button
-            onClick={() => setStep(step === 3 && !doRender ? 5 : step + 1)}
+            onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
             disabled={
               (step === 1 && selectedIds.size === 0) ||
-              (step === 3 && doRender && selectedStyles.length === 0)
+              (step === 2 && doRender && selectedStyles.length === 0)
             }
           >
             Siguiente
@@ -1695,6 +1710,53 @@ export function LongFormWizard() {
           </Button>
         )}
       </div>
+
+      {/* Confirmación de borrado (acción destructiva, irreversible). */}
+      <Dialog
+        open={videoToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingVideo) setVideoToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Borrar este video?</DialogTitle>
+            <DialogDescription>
+              Esto borra el video{" "}
+              <span className="font-mono-tab text-foreground break-all">
+                {videoToDelete?.filename}
+              </span>{" "}
+              y sus clips, no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVideoToDelete(null)}
+              disabled={deletingVideo}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => videoToDelete && deleteVideo(videoToDelete.videoId)}
+              disabled={deletingVideo}
+              className="bg-red-500 text-white hover:bg-red-400"
+            >
+              {deletingVideo ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Borrando…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Sí, borrar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
