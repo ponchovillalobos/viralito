@@ -786,6 +786,8 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
       {
         ...base,
         subtitleStyle: "cinematic" as const,
+        // Letra SERIF editorial (Playfair) en vez de display → look más profesional, de cine.
+        subtitleFont: "playfair",
         bRollMode: "fullscreen" as const,
         vignette: true,
         filmGrain: true,
@@ -798,8 +800,10 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
             ? base.cameraMoves
             : generateCameraMoves(ctx.duration, cineDensity),
         captionBounce: false,
-        musicTrack: pickRandomMusicTrack(ctx.videoId),
-        musicVolume: 0.1,
+        // Música con MOOD cinematográfico (no pop aleatorio) + volumen bajo para que
+        // acompañe sin sonar raro sobre la voz.
+        musicTrack: pickRandomMusicTrack(ctx.videoId, "inspirador"),
+        musicVolume: 0.06,
       },
       ctx,
       { lut: "teal_orange.cube", kinetic: "none" }

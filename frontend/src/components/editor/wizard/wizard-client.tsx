@@ -54,6 +54,9 @@ const FONT_PREVIEW: Record<string, string> = {
   archivo: _arch.style.fontFamily,
   teko: _teko.style.fontFamily,
   righteous: _right.style.fontFamily,
+  // Serif editorial: el preview cae a Georgia/serif si Playfair no está cargada en
+  // el navegador, lo suficiente para transmitir el look (el render sí usa Playfair).
+  playfair: "'Playfair Display', Georgia, serif",
 };
 
 type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico";
@@ -215,6 +218,7 @@ const SUBTITLE_FONTS: { id: string; name: string }[] = [
   { id: "archivo", name: "Archivo Black (sólida)" },
   { id: "teko", name: "Teko (fina alta)" },
   { id: "righteous", name: "Righteous (retro)" },
+  { id: "playfair", name: "Playfair (serif editorial)" },
 ];
 
 // Familias de estilos con submenú propio (patrón "tema editorial"): el submenú

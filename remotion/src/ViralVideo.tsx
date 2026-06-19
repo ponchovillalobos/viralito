@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { staticFile } from "remotion";
 import { loadFont } from "@remotion/fonts";
+import { loadFont as loadPlayfairFont } from "@remotion/google-fonts/PlayfairDisplay";
 import { CameraMotionBlur } from "@remotion/motion-blur";
 import {
   ImageOverlayLayer,
@@ -97,6 +98,13 @@ const TTF = (
 
 const BEBAS = "Bebas Neue";
 const ANTON = "Anton";
+// Serif EDITORIAL para subtítulos (el look "letra de cine"/Playfair de las tarjetas
+// editoriales). Lo usa el subtitleFont "playfair" — p.ej. cinematic_pro, para que la
+// letra se vea profesional/serif en vez de display. Aditivo: solo aplica si se elige.
+const { fontFamily: PLAYFAIR } = loadPlayfairFont("normal", {
+  weights: ["700"],
+  subsets: ["latin"],
+});
 
 // Display de un solo peso (400) — un .ttf cada una.
 TTF("BebasNeue-Regular.ttf", BEBAS);
@@ -139,6 +147,7 @@ const FONT_MAP: Record<string, string> = {
   teko: "Teko",
   righteous: "Righteous",
   tiktok: "TikTok Sans",
+  playfair: PLAYFAIR, // serif editorial (cinematic_pro)
 };
 
 import {
