@@ -1,46 +1,41 @@
 import Link from "next/link";
-import { Scissors, FolderKanban, ArrowRight, Upload, Wand2, Sparkles, Send, Telescope, Film, Clapperboard } from "lucide-react";
+import { Scissors, FolderKanban, ArrowRight, Telescope, Film, Clapperboard } from "lucide-react";
 import { GettingStarted } from "@/components/home/getting-started";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
 export const dynamic = "force-dynamic";
 
+// Menú principal: las tarjetas son el ÚNICO menú (el nav de arriba se redujo a
+// marca + Configuración). Cada tarjeta lleva su propio color de identidad.
 const ACTIONS = [
   {
     href: "/editor/wizard",
     title: "Crear un video corto",
     desc: "Sube un video y conviértelo en un short viral, paso a paso.",
     icon: Scissors,
-    primary: true,
+    color: "#06b6d4", // cyan
   },
   {
     href: "/largos",
     title: "Cortar un video largo",
     desc: "Sube un curso o charla y la IA extrae los mejores clips virales.",
     icon: Film,
-    primary: false,
+    color: "#ad23ee", // violeta
   },
   {
     href: "/editor/wizard?style=cinematic_pro",
     title: "Video cinematográfico",
     desc: "Sube tu video (y opcionalmente imágenes) — la IA lo edita con look de cine: grano, color y movimientos de cámara.",
     icon: Clapperboard,
-    primary: false,
+    color: "#e11d48", // rojo "alfombra roja"
   },
   {
     href: "/produccion",
     title: "Ver mis videos",
     desc: "Tus shorts ya editados, listos para publicar.",
     icon: FolderKanban,
-    primary: false,
+    color: "#f59e0b", // amber
   },
-] as const;
-
-const FLOW = [
-  { icon: Upload, label: "Subes tu video" },
-  { icon: Wand2, label: "Eliges un estilo" },
-  { icon: Sparkles, label: "Se genera solo" },
-  { icon: Send, label: "Publicas en tus redes" },
 ] as const;
 
 const SECONDARY = [
@@ -75,30 +70,30 @@ export default function Home() {
         </p>
       </header>
 
-      {/* 3 acciones principales ("Mis resultados" bajó a la fila secundaria) */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ACTIONS.map(({ href, title, desc, icon: Icon, primary }) => (
+      {/* Menú principal — tarjetas, cada una con su color de identidad. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {ACTIONS.map(({ href, title, desc, icon: Icon, color }) => (
           <Link
             key={href}
             href={href}
-            className={`group relative flex flex-col gap-3 overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
-              primary
-                ? "border-primary/40 bg-primary/10 hover:border-primary hover:shadow-primary/20"
-                : "border-border bg-card hover:border-primary/40 hover:shadow-primary/10"
-            }`}
+            className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            style={{ borderColor: `${color}40`, backgroundColor: `${color}0d` }}
           >
-            {/* Sheen sutil que aparece al pasar el mouse — efecto "preciosa". */}
+            {/* Glow del color de la tarjeta al pasar el mouse. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-30"
+              style={{ backgroundColor: color }}
+            />
+            {/* Sheen sutil que cruza al pasar el mouse — efecto "preciosa". */}
             <span
               aria-hidden
               className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 group-hover:translate-x-full"
             />
 
             <span
-              className={`relative flex h-11 w-11 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110 ${
-                primary
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                  : "bg-muted text-foreground group-hover:bg-primary/15 group-hover:text-primary"
-              }`}
+              className="relative flex h-11 w-11 items-center justify-center rounded-lg text-white transition-transform duration-300 group-hover:scale-110"
+              style={{ backgroundColor: color, boxShadow: `0 8px 24px -8px ${color}` }}
             >
               <Icon className="h-5 w-5" />
             </span>
@@ -106,38 +101,16 @@ export default function Home() {
               <h2 className="text-lg font-semibold">{title}</h2>
               <p className="text-sm text-muted-foreground">{desc}</p>
             </div>
-            <span className="relative mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+            <span
+              className="relative mt-auto flex items-center gap-1 text-sm font-medium"
+              style={{ color }}
+            >
               Empezar
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </span>
           </Link>
         ))}
       </div>
-
-      {/* Cómo funciona — 4 pasos */}
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Cómo funciona
-        </h2>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {FLOW.map(({ icon: Icon, label }, i) => (
-            <div key={label} className="flex flex-1 items-center gap-3">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/25 to-primary/5 text-sm font-semibold text-primary ring-1 ring-primary/30 shadow-sm shadow-primary/10">
-                  {i + 1}
-                </span>
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Icon className="h-4 w-4 text-primary/80" />
-                  {label}
-                </span>
-              </div>
-              {i < FLOW.length - 1 && (
-                <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground/40 sm:block" />
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* Primeros pasos (checklist que se tilda solo) */}
       <GettingStarted />

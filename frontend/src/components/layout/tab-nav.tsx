@@ -1,24 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-import { SECTION_COLORS } from "@/lib/section-colors";
-import { LayoutDashboard, Scissors, FolderKanban, Settings, Film, Menu, X } from "lucide-react";
+import { Settings } from "lucide-react";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
 
+// Header minimalista: SOLO marca (vuelve a Inicio) + Configuración. Los enlaces
+// de sección (Crear video / Videos largos / Mis videos) se quitaron — duplicaban
+// las tarjetas de la home, que ahora son el único menú (decisión del usuario
+// 2026-06). El logo siempre lleva a Inicio (el hub con las tarjetas).
 export function TabNav() {
-  const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  // Cerrar el menú móvil al navegar (store-and-compare para evitar setState-in-effect).
-  const [prevPath, setPrevPath] = useState(pathname);
-  if (prevPath !== pathname) {
-    setPrevPath(pathname);
-    setMenuOpen(false);
-  }
 
   // Permite abrir Configuración desde cualquier parte (p.ej. el checklist de la
   // home dispara `window.dispatchEvent(new CustomEvent("open-settings"))`).
@@ -27,34 +19,6 @@ export function TabNav() {
     window.addEventListener("open-settings", openSettings);
     return () => window.removeEventListener("open-settings", openSettings);
   }, []);
-
-  // /metricas y /research viven fuera del menú (decisión 2026-06) pero pertenecen
-  // conceptualmente a Inicio: resaltamos "Inicio" para que el menú nunca quede
-  // sin selección.
-  function isActive(href: string): boolean {
-    if (href === "/") {
-      return (
-        pathname === "/" ||
-        pathname === "/metricas" ||
-        pathname.startsWith("/metricas/") ||
-        pathname === "/research" ||
-        pathname.startsWith("/research/")
-      );
-    }
-    return pathname === href || pathname.startsWith(href + "/");
-  }
-
-  // Cada tab tiene su propio color (definido en lib/section-colors.ts — single
-  // source of truth, también lo usan los SectionHeader de cada pantalla).
-  // NAV SIMPLE (4 secciones, decisión 2026-06): el flujo completo es subir →
-  // crear → ver. "Resultados" e "Inspiración" siguen existiendo por URL
-  // (/metricas, /research) pero fuera del menú: confundían a usuarios nuevos.
-  const links = [
-    { href: "/", label: "Inicio", icon: LayoutDashboard, color: SECTION_COLORS.inicio },
-    { href: "/editor", label: "Crear video", icon: Scissors, color: SECTION_COLORS.editor },
-    { href: "/largos", label: "Videos largos", icon: Film, color: SECTION_COLORS.largos },
-    { href: "/produccion", label: "Mis videos", icon: FolderKanban, color: SECTION_COLORS.produccion },
-  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
@@ -71,47 +35,6 @@ export function TabNav() {
           </span>
         </Link>
 
-        {/* Links inline (desktop) — cada tab con su color: icono tintado siempre,
-            label más fuerte y underline glow cuando está activo. */}
-        <div className="hidden items-center gap-0.5 lg:flex">
-          {links.map(({ href, label, icon: Icon, color }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "relative flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-all duration-200",
-                  active
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                )}
-              >
-                <Icon
-                  className="h-4 w-4 transition-transform"
-                  style={{
-                    color,
-                    opacity: active ? 1 : 0.7,
-                    filter: active ? `drop-shadow(0 0 6px ${color}88)` : undefined,
-                  }}
-                />
-                <span>{label}</span>
-                {/* Underline animado del color del tab cuando está activo. */}
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute -bottom-[13px] left-3 right-3 h-[2px] rounded-full"
-                    style={{
-                      backgroundColor: color,
-                      boxShadow: `0 0 10px ${color}`,
-                    }}
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
@@ -123,56 +46,8 @@ export function TabNav() {
             <Settings className="h-4 w-4" />
             <span className="hidden lg:inline">Configuración</span>
           </button>
-          {/* Hamburguesa (móvil/tablet) */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground lg:hidden"
-            aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
-            aria-expanded={menuOpen}
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </nav>
-
-      {/* Panel de navegación móvil — mismo color-coding por tab. */}
-      {menuOpen && (
-        <div className="border-t border-border bg-background lg:hidden">
-          <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-1 px-4 py-3 sm:grid-cols-3">
-            {links.map(({ href, label, icon: Icon, color }) => {
-              const active = isActive(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors",
-                    active
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}
-                  style={
-                    active
-                      ? {
-                          backgroundColor: `${color}1f`,
-                          borderLeft: `3px solid ${color}`,
-                          paddingLeft: 10,
-                        }
-                      : undefined
-                  }
-                >
-                  <Icon
-                    className="h-4 w-4"
-                    style={{ color, opacity: active ? 1 : 0.75 }}
-                  />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
