@@ -18,6 +18,7 @@ import {
   VOICEOVER_DIR,
   TRANSCRIPTS_DIR,
   DATA_ROOT,
+  FFPROBE_EXE,
 } from "@/lib/paths";
 import { runProcess, parseLastJsonLine } from "@/lib/run-process";
 import { findRawVideo } from "./helpers";
@@ -325,6 +326,60 @@ function trackingParams(): { sampleSec: number; downscaleW: number } {
   return { sampleSec, downscaleW };
 }
 
+/**
+ * A2 — Dimensiones REALES del raw (ancho/alto DISPLAYED) vía ffprobe, para que el
+ * auto-reframe conozca el aspect verdadero. Clave en celulares: graban apaisado y
+ * marcan rotación 90/270 en metadata → el frame codificado es ancho×alto, pero se
+ * MUESTRA alto×ancho. Si no compensáramos la rotación, un vertical 9:16 se vería
+ * como 16:9 y el reencuadre fallaría. Reusa FFPROBE_EXE (binario ya configurado,
+ * sin asumir PATH). Devuelve null si ffprobe falla → el caller deja el campo sin
+ * setear y build-props mantiene su fallback 16/9.
+ */
+async function probeSourceAspect(
+  rawVideo: string
+): Promise<{ width: number; height: number; aspect: number } | null> {
+  try {
+    const run = await runProcess(
+      FFPROBE_EXE,
+      [
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height:stream_side_data=rotation:stream_tags=rotate",
+        "-of", "json",
+        rawVideo,
+      ],
+      undefined,
+      undefined,
+      30_000
+    );
+    if (!run.ok) return null;
+    const parsed = JSON.parse(run.stdout) as {
+      streams?: Array<{
+        width?: number;
+        height?: number;
+        tags?: { rotate?: string };
+        side_data_list?: Array<{ rotation?: number }>;
+      }>;
+    };
+    const s = parsed.streams?.[0];
+    if (!s || !s.width || !s.height) return null;
+    let width = s.width;
+    let height = s.height;
+    // Rotación viene como tag `rotate` (string) o en side_data (número, suele ser
+    // negativo: -90). Si es ±90/±270, ancho y alto se intercambian al mostrarse.
+    const rotTag = s.tags?.rotate ? parseInt(s.tags.rotate, 10) : 0;
+    const rotSide = s.side_data_list?.find((d) => typeof d.rotation === "number")?.rotation ?? 0;
+    const rot = ((Math.abs(rotTag || rotSide) % 360) + 360) % 360;
+    if (rot === 90 || rot === 270) {
+      [width, height] = [height, width];
+    }
+    if (width <= 0 || height <= 0) return null;
+    return { width, height, aspect: width / height };
+  } catch {
+    return null;
+  }
+}
+
 /** Motion tracking: detecta cara en el raw, llena project.trackPath. */
 export async function applyTracking(
   project: ResolvedProject,
@@ -373,6 +428,21 @@ export async function applyTracking(
       }
     }
     console.log(`[auto-build] motion tracking: ${pts.length} puntos de cara`);
+    // A2 — aspecto real del source para el auto-reframe. Solo lo necesita autoReframe;
+    // si ffprobe falla, dejamos los campos sin setear (build-props cae a 16/9 default).
+    if (project.autoReframe) {
+      const dims = await probeSourceAspect(rawVideo);
+      if (dims) {
+        project.sourceAspect = dims.aspect;
+        project.sourceWidth = dims.width;
+        project.sourceHeight = dims.height;
+        console.log(
+          `[auto-build] sourceAspect=${dims.aspect.toFixed(3)} (${dims.width}x${dims.height}) para auto-reframe`
+        );
+      } else {
+        console.warn("[auto-build] ffprobe no devolvió dimensiones — auto-reframe usará fallback 16/9");
+      }
+    }
   } catch (err) {
     console.warn("[auto-build] tracking falló:", err);
   }

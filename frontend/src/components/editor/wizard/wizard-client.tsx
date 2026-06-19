@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Sparkles, Send } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -265,9 +264,9 @@ const MOTION_BACKGROUNDS: { id: string; name: string; hint: string; preview: CSS
 // Intensidad de los FX de los estilos Viral/Premium. "normal" = el balance con el
 // que se diseñó cada estilo; "suave" recorta zooms/efectos; "max" los acentúa.
 const FX_INTENSITIES: { id: string; name: string; emoji: string; hint: string }[] = [
-  { id: "suave", name: "Suave", emoji: "🌙", hint: "Menos zooms y efectos, más respirable" },
-  { id: "normal", name: "Normal", emoji: "⚡", hint: "El balance del estilo (recomendado)" },
-  { id: "max", name: "Máximo", emoji: "🔥", hint: "Zooms más fuertes y cortes rápidos" },
+  { id: "suave", name: "Suave", emoji: "🌙", hint: "Pocos zooms, todo más tranquilo. Ideal si quieres algo calmado y elegante." },
+  { id: "normal", name: "Normal", emoji: "⚡", hint: "El balance recomendado: zooms y efectos justos, ni de más ni de menos." },
+  { id: "max", name: "Máximo", emoji: "🔥", hint: "Zooms fuertes y cortes rápidos. Máxima energía para que enganche al instante." },
 ];
 
 // Nombre humano de un estilo a partir de su id (acepta "videoId::style" del progreso).
@@ -293,16 +292,68 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 
 const PALETTE = [
   { name: "rosa coral", value: "#fb7185", mood: "urgencia" },
-  { name: "violeta", value: "#a78bfa", mood: "autoridad" },
-  { name: "amarillo", value: "#fbbf24", mood: "claridad" },
-  { name: "esmeralda", value: "#34d399", mood: "crecimiento" },
-  { name: "turquesa", value: "#22d3ee", mood: "tech" },
+  { name: "rojo", value: "#ef4444", mood: "pasión" },
+  { name: "fucsia", value: "#d946ef", mood: "atrevido" },
   { name: "magenta", value: "#ec4899", mood: "intensidad" },
-  { name: "naranja", value: "#fb923c", mood: "acción" },
-  { name: "verde limón", value: "#a3e635", mood: "energía" },
-  { name: "azul índigo", value: "#6366f1", mood: "IA" },
+  { name: "rosa pastel", value: "#f9a8d4", mood: "dulzura" },
+  { name: "violeta", value: "#a78bfa", mood: "autoridad" },
   { name: "violeta claro", value: "#c084fc", mood: "elegancia" },
+  { name: "lavanda", value: "#b4a0ff", mood: "calma" },
+  { name: "azul índigo", value: "#6366f1", mood: "IA" },
+  { name: "azul cielo", value: "#38bdf8", mood: "confianza" },
+  { name: "cian", value: "#06b6d4", mood: "claridad" },
+  { name: "turquesa", value: "#22d3ee", mood: "tech" },
+  { name: "teal", value: "#14b8a6", mood: "equilibrio" },
+  { name: "esmeralda", value: "#34d399", mood: "crecimiento" },
+  { name: "verde bosque", value: "#16a34a", mood: "naturaleza" },
+  { name: "lima", value: "#a3e635", mood: "energía" },
+  { name: "amarillo", value: "#fbbf24", mood: "claridad" },
+  { name: "dorado", value: "#eab308", mood: "premium" },
+  { name: "durazno", value: "#fdba74", mood: "calidez" },
+  { name: "naranja", value: "#fb923c", mood: "acción" },
 ];
+
+// Formato de salida del video: 3 tarjetas grandes (estilo home-card). Cada una
+// con su color de identidad, emoji, dónde se usa y el tamaño exacto en píxeles.
+// `box` define la forma de la mini-previsualización (proporción real del lienzo).
+const FORMATS: {
+  id: "9:16" | "1:1" | "16:9";
+  emoji: string;
+  title: string;
+  where: string;
+  size: string;
+  color: string;
+  box: CSSProperties;
+}[] = [
+  {
+    id: "9:16",
+    emoji: "📱",
+    title: "Vertical 9:16",
+    where: "TikTok · Reels",
+    size: "1080 × 1920",
+    color: "#fb7185",
+    box: { width: 26, height: 46 },
+  },
+  {
+    id: "1:1",
+    emoji: "⬜",
+    title: "Cuadrado 1:1",
+    where: "Feed · Instagram",
+    size: "1080 × 1080",
+    color: "#a78bfa",
+    box: { width: 40, height: 40 },
+  },
+  {
+    id: "16:9",
+    emoji: "🖥️",
+    title: "Horizontal 16:9",
+    where: "YouTube · LinkedIn",
+    size: "1920 × 1080",
+    color: "#22d3ee",
+    box: { width: 52, height: 29 },
+  },
+];
+
 
 export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
@@ -352,6 +403,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
   const [showAllThemes, setShowAllThemes] = useState(false);
+  // 👁️ Estilo cuyo ejemplo GRANDE se está viendo en el modal (null = cerrado).
+  // Muestra el mismo StyleMiniDemo (CSS, sin render) a tamaño grande.
+  const [previewStyleId, setPreviewStyleId] = useState<StyleId | null>(null);
   // Fondo animado (estilos motion_*). "auto" = el fondo propio de cada estilo.
   const [motionBackground, setMotionBackground] = useState<string>("auto");
   // 🎵 Música de fondo (estilos broll_*/motion_*/editorial). "auto" = el sistema
@@ -374,11 +428,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // y videos cuyo audio no se pudo escuchar (cada uno con su botón Reintentar).
   const [transcribeQueue, setTranscribeQueue] = useState<VideoEntry[]>([]);
   const [transcribeErrors, setTranscribeErrors] = useState<VideoEntry[]>([]);
-  // Diálogos propios para plantillas (reemplazan window.prompt/confirm).
-  const [templateDialog, setTemplateDialog] = useState<
-    { mode: "save" } | { mode: "delete"; id: string; name: string } | null
-  >(null);
-  const [templateName, setTemplateName] = useState("");
   // Combo "videoId::estilo" que se está re-creando desde el paso final.
   const [retryingStyle, setRetryingStyle] = useState<string | null>(null);
 
@@ -389,16 +438,8 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // Redes fijas: la descripción se genera SOLA para todas (en /produccion están los
   // copys por red). Ya no hay botones de redes en el wizard — un paso menos de fricción.
   const selectedPlatforms: PlatformId[] = ["instagram", "linkedin"];
-  // Aspect ratio del output. 9:16 vertical (TikTok/Reels) default, 16:9 horizontal (LinkedIn/YouTube).
-  const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9">("9:16");
-  // Plantillas guardables: combos favoritos (estilo+color+fuente+plataformas).
-  type Template = { id: string; name: string; styles: string[]; accentColor: string; subtitleFont: string; subtitleColor?: string; platforms: string[]; aspectRatio: "9:16" | "16:9"; music?: MusicChoice; feedId?: string };
-  const [templates, setTemplates] = useState<Template[]>([]);
-  // Feed de plantillas vivas: curadas del estudio (GitHub), solo las no instaladas.
-  type FeedPreset = { feedId: string; name: string; description?: string; styles: string[]; accentColor?: string; subtitleFont?: string; music?: MusicChoice; aspectRatio?: "9:16" | "16:9" };
-  const [feedPresets, setFeedPresets] = useState<FeedPreset[]>([]);
-  const [feedFetched, setFeedFetched] = useState(false);
-  const [installingFeedId, setInstallingFeedId] = useState<string | null>(null);
+  // Aspect ratio del output. 9:16 vertical (TikTok/Reels) default, 1:1 cuadrado (Feed/Instagram), 16:9 horizontal (LinkedIn/YouTube).
+  const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
   const [caption, setCaption] = useState<string>("");
   const [captionMeta, setCaptionMeta] = useState<CaptionMeta | null>(null);
   const [transcribing, setTranscribing] = useState(false);
@@ -570,69 +611,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
     }
   }
 
-  async function loadTemplates() {
-    try {
-      const r = await fetch("/api/templates", { cache: "no-store" });
-      const d = await r.json();
-      setTemplates(Array.isArray(d.templates) ? d.templates : []);
-    } catch {
-      /* sin plantillas */
-    }
-  }
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadTemplates();
-  }, []);
-
-  // Feed de plantillas vivas: se consulta EN SILENCIO al llegar al paso 2 (una
-  // sola vez por sesión del wizard). Si falla o viene vacío, no se muestra nada.
-  useEffect(() => {
-    if (step !== 2 || feedFetched) return;
-    // Guard "una sola vez por sesión": marcar fetched antes del fetch evita doble llamada.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFeedFetched(true);
-    fetch("/api/presets/feed", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (Array.isArray(d.presets)) setFeedPresets(d.presets);
-      })
-      .catch(() => {
-        /* sin feed — no se muestra el banner */
-      });
-  }, [step, feedFetched]);
-
-  // Agregar una plantilla curada del feed a "Mis plantillas" (con su feedId
-  // para que el feed ya no la vuelva a ofrecer). Después refresca ambas listas.
-  async function installFeedPreset(p: FeedPreset) {
-    setInstallingFeedId(p.feedId);
-    try {
-      const r = await fetch("/api/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: p.name,
-          styles: p.styles,
-          accentColor: p.accentColor || "#fb7185",
-          subtitleFont: p.subtitleFont || "auto",
-          music: p.music ?? "auto",
-          platforms: selectedPlatforms,
-          aspectRatio: p.aspectRatio === "16:9" ? "16:9" : "9:16",
-          feedId: p.feedId,
-        }),
-      });
-      if (!r.ok) throw new Error((await r.json()).error ?? "no se pudo agregar");
-      toast.success(`Plantilla «${p.name}» agregada ✓`);
-      setFeedPresets((prev) => prev.filter((x) => x.feedId !== p.feedId));
-      loadTemplates();
-    } catch (e) {
-      toastError(e, "No se pudo agregar la plantilla", {
-        action: { label: "Reintentar", onClick: () => installFeedPreset(p) },
-      });
-    } finally {
-      setInstallingFeedId(null);
-    }
-  }
-
   // 🎵 Cargar la lista real de pistas una vez (para los botones ▶ Escuchar).
   useEffect(() => {
     let cancelled = false;
@@ -691,67 +669,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
-
-  function applyTemplate(t: Template) {
-    setSelectedStyles(t.styles as StyleId[]);
-    setAccent(t.accentColor);
-    // El color de la plantilla fue elegido a mano en su momento: cuenta como
-    // elección del usuario y los temas editoriales ya no lo pisan.
-    setAccentTouched(true);
-    setSubtitleFont(t.subtitleFont || "auto");
-    setSubtitleColor(t.subtitleColor || "auto");
-    setAspectRatio(t.aspectRatio === "16:9" ? "16:9" : "9:16");
-    // Plantillas viejas sin `music` → "auto" (comportamiento de siempre).
-    setMusic(t.music ?? "auto");
-    toast.success(`Plantilla "${t.name}" aplicada`);
-  }
-
-  // Diálogo propio en vez de window.prompt: abre, pide nombre y guarda.
-  function openSaveTemplateDialog() {
-    setTemplateName("");
-    setTemplateDialog({ mode: "save" });
-  }
-
-  async function saveTemplate(name: string) {
-    if (!name.trim()) return;
-    setTemplateDialog(null);
-    try {
-      const r = await fetch("/api/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          styles: selectedStyles,
-          accentColor: accent,
-          subtitleFont,
-          subtitleColor,
-          platforms: selectedPlatforms,
-          aspectRatio,
-          music,
-        }),
-      });
-      if (!r.ok) throw new Error((await r.json()).error ?? "no se pudo guardar");
-      toast.success(`Plantilla "${name.trim()}" guardada`);
-      loadTemplates();
-    } catch (e) {
-      toastError(e, "No se pudo guardar tu plantilla", {
-        action: { label: "Reintentar", onClick: () => saveTemplate(name) },
-      });
-    }
-  }
-
-  async function deleteTemplate(id: string) {
-    setTemplateDialog(null);
-    try {
-      const r = await fetch(`/api/templates?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!r.ok) throw new Error("no se pudo borrar");
-      loadTemplates();
-    } catch (err) {
-      toastError(err, "No se pudo borrar la plantilla", {
-        action: { label: "Reintentar", onClick: () => deleteTemplate(id) },
-      });
-    }
-  }
 
   // Overrides del paso a paso que viajan IGUAL a la creación final y a la vista
   // previa (mismo mapeo): tema editorial, fondo animado e intensidad de FX.
@@ -1313,42 +1230,54 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
 
   // Intensidad de FX (estilos hype*/supreme). "Normal" viene elegido —
   // no tocar nada = el balance original de cada estilo.
+  const FX_COLOR = "#fb923c"; // naranja (identidad del panel de intensidad)
   const fxIntensityPanel = (
-    <div className="mt-3 rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
-      <p className="mb-1 text-sm font-medium">🔥 Intensidad de los efectos</p>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Opcional: cuánta energía llevan los zooms y efectos de los estilos Viral y Premium.
+    <div className="mt-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-5">
+      <p className="mb-1 text-base font-semibold">🔥 ¿Cuánta energía quieres?</p>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Controla la fuerza de los <strong className="text-foreground">zooms</strong> y los{" "}
+        <strong className="text-foreground">efectos</strong> de los estilos Viral y Premium.
+        Es opcional: con &quot;Normal&quot; queda en el balance recomendado.
       </p>
-      <div className="grid grid-cols-3 gap-2">
-        {FX_INTENSITIES.map((f, fi) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFxIntensity(f.id)}
-            className={`rounded-lg border p-3 text-left transition-all ${
-              fxIntensity === f.id
-                ? "border-orange-400 ring-1 ring-orange-400 bg-orange-500/10"
-                : "border-border hover:border-foreground/30"
-            }`}
-          >
-            {/* mini-preview: 1/2/3 rayos latiendo a la velocidad del nivel */}
-            <div className="mb-1.5 flex h-7 items-center justify-center gap-1 rounded bg-black/40">
-              {Array.from({ length: fi + 1 }).map((_, j) => (
-                <span
-                  key={j}
-                  className="animate-pulse text-base"
-                  style={{ animationDuration: `${1.6 - fi * 0.5}s`, animationDelay: `${j * 0.15}s` }}
-                >
-                  ⚡
-                </span>
-              ))}
-            </div>
-            <p className="truncate text-sm font-medium">
-              {f.emoji} {f.name}
-            </p>
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{f.hint}</p>
-          </button>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {FX_INTENSITIES.map((f, fi) => {
+          const selected = fxIntensity === f.id;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFxIntensity(f.id)}
+              className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+              style={{
+                borderColor: selected ? FX_COLOR : `${FX_COLOR}40`,
+                backgroundColor: selected ? `${FX_COLOR}1f` : `${FX_COLOR}0d`,
+                boxShadow: selected ? `0 0 0 2px ${FX_COLOR}, 0 10px 30px -12px ${FX_COLOR}` : undefined,
+              }}
+            >
+              {selected && (
+                <CheckCircle2 className="absolute right-3 top-3 h-5 w-5" style={{ color: FX_COLOR }} />
+              )}
+              {/* mini-preview GRANDE: 1/2/3 rayos latiendo a la velocidad del nivel */}
+              <div className="flex h-12 items-center justify-center gap-1.5 rounded-lg bg-black/40">
+                {Array.from({ length: fi + 1 }).map((_, j) => (
+                  <span
+                    key={j}
+                    className="animate-pulse text-2xl"
+                    style={{ animationDuration: `${1.6 - fi * 0.5}s`, animationDelay: `${j * 0.15}s` }}
+                  >
+                    ⚡
+                  </span>
+                ))}
+              </div>
+              <div>
+                <p className="text-lg font-semibold">
+                  {f.emoji} {f.name}
+                </p>
+                <p className="mt-1 text-sm leading-snug text-muted-foreground">{f.hint}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1822,13 +1751,23 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                 {STYLES.map((s) => {
                   const selected = selectedStyles.includes(s.id);
                   return (
-                    <button
+                    // Tarjeta GRANDE seleccionable. Es <div role="button"> (no
+                    // <button>) para poder anidar el botón "Ver ejemplo" sin
+                    // romper hidratación (regla del proyecto: nada de button-en-button).
+                    <div
                       key={s.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleStyle(s.id)}
-                      className={`relative flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-all ${
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          toggleStyle(s.id);
+                        }
+                      }}
+                      className={`relative flex cursor-pointer items-center gap-4 rounded-xl border bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg ${
                         selected
-                          ? "border-primary ring-1 ring-primary bg-primary/5"
+                          ? "border-primary ring-2 ring-primary bg-primary/5"
                           : "border-border hover:border-foreground/30"
                       }`}
                     >
@@ -1841,98 +1780,27 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                       <StyleMiniDemo styleId={s.id} accent={accent} />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{s.name}</span>
-                          {selected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                          <span className="text-base font-semibold">{s.name}</span>
+                          {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
                         </div>
-                        <p className="text-xs text-muted-foreground">{s.tagline}</p>
+                        <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{s.tagline}</p>
+                        {/* 👁️ Ver cómo se vería: abre el modal con el demo GRANDE
+                            (sin renderizar nada). stopPropagation: no togglea la tarjeta. */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewStyleId(s.id);
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                        >
+                          👁️ Ver cómo se vería
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
-            </div>
-          </details>
-
-          {/* Mis plantillas: al final del paso 2; arranca plegado si no hay nada
-              guardado y abierto cuando ya tienes plantillas. */}
-          <details
-            className="mt-5 rounded-lg border border-border bg-muted/20"
-            {...(templates.length > 0 || feedPresets.length > 0 ? { open: true } : {})}
-          >
-            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
-              💾 Mis plantillas{templates.length > 0 ? ` (${templates.length})` : ""}
-            </summary>
-            <div className="border-t border-border p-3">
-              {/* Feed de plantillas vivas: combos curados del estudio que aún no
-                  tienes. Se llena en silencio; si no hay nada nuevo, no aparece. */}
-              {feedPresets.length > 0 && (
-                <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-2.5">
-                  <p className="mb-2 text-xs font-medium text-foreground">
-                    🎨 {feedPresets.length === 1 ? "1 plantilla nueva" : `${feedPresets.length} plantillas nuevas`} del estudio
-                  </p>
-                  <div className="space-y-1.5">
-                    {feedPresets.map((fp) => (
-                      <div
-                        key={fp.feedId}
-                        className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2.5 py-1.5"
-                      >
-                        <div className="min-w-0">
-                          <span className="text-xs font-medium">{fp.name}</span>
-                          {fp.description && (
-                            <p className="truncate text-[11px] text-muted-foreground">{fp.description}</p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => installFeedPreset(fp)}
-                          disabled={installingFeedId === fp.feedId}
-                          className="shrink-0 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
-                        >
-                          {installingFeedId === fp.feedId ? "Agregando…" : "Agregar"}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="mb-2 flex items-center justify-between">
-                <p className="font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Tus combos guardados
-                </p>
-                <button
-                  type="button"
-                  onClick={openSaveTemplateDialog}
-                  className="rounded border border-border bg-card px-2 py-1 text-[11px] hover:bg-muted"
-                >
-                  💾 Guardar configuración actual
-                </button>
-              </div>
-              {templates.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Guarda tu combo de estilo + color + tipografía + redes para reusarlo con un click.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {templates.map((t) => (
-                    <span
-                      key={t.id}
-                      className="group inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-xs"
-                    >
-                      <button type="button" onClick={() => applyTemplate(t)} className="hover:text-primary">
-                        {t.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTemplateDialog({ mode: "delete", id: t.id, name: t.name })}
-                        className="text-muted-foreground opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
-                        title="Borrar plantilla"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </details>
         </Card>
@@ -2109,80 +1977,137 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               ahora es la tarjeta de estilo "Cinematográfico" (cinematic_pro) del paso 2,
               con su picker de overlays inline. El resumen de abajo reporta si está activo. */}
 
-          <div className="mt-6 rounded-md border border-border bg-muted/30 p-4 text-sm">
-            <p className="mb-2 font-medium">Resumen</p>
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>
-                · Video{selectedVideos.size === 1 ? "" : "s"} ({selectedVideos.size}):{" "}
-                <span className="text-foreground">
-                  {Array.from(selectedVideos)
-                    .slice(0, 3)
-                    .map((id) => videos.find((v) => v.id === id)?.filename ?? id)
-                    .join(", ")}
-                  {selectedVideos.size > 3 && ` +${selectedVideos.size - 3} más`}
-                </span>
-              </li>
-              <li>
-                · Estilo{selectedStyles.length === 1 ? "" : "s"}:{" "}
-                <span className="text-foreground">{selectedStyles.map(humanStyleName).join(", ")}</span>
-              </li>
-              <li>
-                · Formato:{" "}
-                <span className="text-foreground">
-                  {aspectRatio === "9:16" ? "Vertical 9:16 (1080×1920)" : "Horizontal 16:9 (1920×1080)"}
-                </span>
-              </li>
-              <li>
-                · Color: <span className="inline-block h-2 w-2 rounded-full align-middle" style={{ background: accent }} />{" "}
-                <span className="text-foreground">
-                  {(() => {
-                    // Nombre humano del color: el de la paleta, o "del tema X"
-                    // si vino sugerido por un tema editorial.
-                    const p = PALETTE.find((c) => c.value === accent);
-                    if (p) return p.name;
-                    const t = EDITORIAL_THEMES.find((x) => "accent" in x && x.accent === accent);
-                    return t ? `del tema ${t.name}` : accent;
-                  })()}
-                </span>
-              </li>
-              <li>
-                · Vas a generar{" "}
-                <span className="text-foreground">
-                  {selectedVideos.size * selectedStyles.length} video
-                  {selectedVideos.size * selectedStyles.length === 1 ? "" : "s"}
-                </span>
-                {selectedStyles.length > 1 &&
-                  ` (${selectedVideos.size} video${selectedVideos.size === 1 ? "" : "s"} en ${selectedStyles.length} estilos)`}
-              </li>
-              <li className="text-amber-400">
-                ⏱️ Va a tardar alrededor de {4 * selectedVideos.size * selectedStyles.length} minutos.
-                Se crean de a uno — puedes seguir usando la app mientras tanto.
-              </li>
-              {cinematicConfig.enabled && (
-                <li className="text-violet-300">
-                  · 🎬 Modo cinematográfico ACTIVO:{" "}
-                  <span className="text-foreground">
-                    {cinematicConfig.overlayIds.length}{" "}
-                    {cinematicConfig.overlayIds.length === 1 ? "imagen" : "imágenes"}
-                    {cinematicConfig.filmGrain ? " · film grain" : ""}
-                    {cinematicConfig.vignette ? " · vignette" : ""}
-                    {cinematicConfig.subtitleStyleCinematic ? " · subs cine" : ""}
-                  </span>
-                </li>
-              )}
-            </ul>
-          </div>
+          {/* RESUMEN en TARJETAS GRANDES: todo lo elegido, fácil de revisar de
+              un vistazo, con la miniatura de cada estilo. */}
+          {(() => {
+            const fmt = FORMATS.find((f) => f.id === aspectRatio);
+            const colorName = (() => {
+              const p = PALETTE.find((c) => c.value === accent);
+              if (p) return p.name;
+              const t = EDITORIAL_THEMES.find((x) => "accent" in x && x.accent === accent);
+              return t ? `del tema ${t.name}` : accent;
+            })();
+            const fontName = SUBTITLE_FONTS.find((f) => f.id === subtitleFont)?.name ?? "Automática";
+            const musicLabel =
+              music === "auto"
+                ? "Automática"
+                : music === "none"
+                  ? "Sin música"
+                  : MUSIC_MOODS.find((m) => m.id === music.mood)?.name ?? "Elegida";
+            const fxLabel = FX_INTENSITIES.find((f) => f.id === fxIntensity)?.name ?? "Normal";
+            const hasMusicStyle = selectedStyles.some((s) => MUSIC_STYLES.includes(s));
+            const hasFxStyle = selectedStyles.some((s) => HYPE_STYLES.includes(s));
+            const totalVideos = selectedVideos.size * selectedStyles.length;
+            return (
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* FORMATO */}
+                <div className="rounded-xl border p-4" style={{ borderColor: `${fmt?.color ?? "#fb7185"}40`, backgroundColor: `${fmt?.color ?? "#fb7185"}0d` }}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Formato</p>
+                  <p className="mt-1 text-lg font-semibold">{fmt?.emoji} {fmt?.title}</p>
+                  <p className="text-sm text-muted-foreground">{fmt?.where} · {fmt?.size}</p>
+                </div>
 
-          <Button onClick={() => handleBuild()} disabled={building} className="mt-4 w-full">
+                {/* COLOR */}
+                <div className="rounded-xl border p-4" style={{ borderColor: `${accent}40`, backgroundColor: `${accent}0d` }}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Color principal</p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <span
+                      className="h-10 w-10 shrink-0 rounded-full"
+                      style={{ background: accent, boxShadow: `0 0 16px ${accent}66` }}
+                    />
+                    <p className="text-lg font-semibold capitalize">{colorName}</p>
+                  </div>
+                </div>
+
+                {/* ESTILOS con miniatura */}
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Estilo{selectedStyles.length === 1 ? "" : "s"} ({selectedStyles.length})
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {selectedStyles.map((sid) => (
+                      <div key={sid} className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-2.5">
+                        <StyleMiniDemo styleId={sid} accent={accent} />
+                        <span className="text-sm font-semibold">{humanStyleName(sid)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* LETRA / FUENTE */}
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Letra de los subtítulos</p>
+                  <p
+                    className="mt-1 text-2xl font-semibold leading-none"
+                    style={{ fontFamily: FONT_PREVIEW[subtitleFont] || undefined }}
+                  >
+                    {subtitleFont === "auto" ? "Automática" : "Viral"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{fontName}</p>
+                </div>
+
+                {/* MÚSICA / INTENSIDAD (solo si aplica al/los estilo/s elegido/s) */}
+                {(hasMusicStyle || hasFxStyle) && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-4">
+                    {hasMusicStyle && (
+                      <>
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">🎵 Música</p>
+                        <p className="mt-1 text-lg font-semibold">{musicLabel}</p>
+                      </>
+                    )}
+                    {hasFxStyle && (
+                      <>
+                        <p className={`text-xs font-medium uppercase tracking-wider text-muted-foreground ${hasMusicStyle ? "mt-3" : ""}`}>🔥 Intensidad</p>
+                        <p className="mt-1 text-lg font-semibold">{fxLabel}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* VIDEOS + TIEMPO */}
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 sm:col-span-2">
+                  <p className="text-sm">
+                    Vas a generar{" "}
+                    <span className="font-semibold text-foreground">
+                      {totalVideos} video{totalVideos === 1 ? "" : "s"}
+                    </span>
+                    {selectedStyles.length > 1 &&
+                      ` (${selectedVideos.size} video${selectedVideos.size === 1 ? "" : "s"} en ${selectedStyles.length} estilos)`}
+                    .
+                  </p>
+                  <p className="mt-1 text-sm text-amber-400">
+                    ⏱️ Va a tardar alrededor de {4 * totalVideos} minutos. Se crean de a uno —
+                    puedes seguir usando la app mientras tanto.
+                  </p>
+                  {cinematicConfig.enabled && (
+                    <p className="mt-1 text-sm text-violet-300">
+                      🎬 Modo cinematográfico ACTIVO: {cinematicConfig.overlayIds.length}{" "}
+                      {cinematicConfig.overlayIds.length === 1 ? "imagen" : "imágenes"}
+                      {cinematicConfig.filmGrain ? " · film grain" : ""}
+                      {cinematicConfig.vignette ? " · vignette" : ""}
+                      {cinematicConfig.subtitleStyleCinematic ? " · subs cine" : ""}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Botón GRANDE y prominente: el momento clave del wizard. */}
+          <Button
+            onClick={() => handleBuild()}
+            disabled={building}
+            className="mt-6 h-16 w-full text-lg font-bold shadow-lg shadow-primary/30 transition-transform hover:scale-[1.01]"
+          >
             {building ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Creando tus videos…
               </>
             ) : (
               <>
                 ✨ Crear mis videos
-                <ChevronRight className="ml-1.5 h-4 w-4" />
+                <ChevronRight className="ml-2 h-5 w-5" />
               </>
             )}
           </Button>
@@ -2402,68 +2327,51 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
         </div>
       )}
 
-      {/* Diálogos propios para plantillas (sin window.prompt / window.confirm). */}
+      {/* 👁️ Modal "Ver cómo se vería": muestra el MISMO mini-demo del estilo a
+          tamaño GRANDE (CSS animado, sin renderizar nada). Así el usuario ve el
+          estilo sin esperar un render. */}
       <Dialog
-        open={templateDialog?.mode === "save"}
+        open={previewStyleId !== null}
         onOpenChange={(open) => {
-          if (!open) setTemplateDialog(null);
+          if (!open) setPreviewStyleId(null);
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Cómo se llama tu plantilla?</DialogTitle>
-            <DialogDescription>
-              Guarda este combo de estilo + color + tipografía para aplicarlo con un click.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-            placeholder="Ej: Mi estilo viral"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && templateName.trim()) saveTemplate(templateName);
-            }}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTemplateDialog(null)}>
-              Cancelar
-            </Button>
-            <Button disabled={!templateName.trim()} onClick={() => saveTemplate(templateName)}>
-              Guardar plantilla
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={templateDialog?.mode === "delete"}
-        onOpenChange={(open) => {
-          if (!open) setTemplateDialog(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              ¿Borrar la plantilla «{templateDialog?.mode === "delete" ? templateDialog.name : ""}»?
-            </DialogTitle>
-            <DialogDescription>
-              Esto no toca ningún video — solo borra la plantilla guardada.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTemplateDialog(null)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (templateDialog?.mode === "delete") deleteTemplate(templateDialog.id);
-              }}
-            >
-              Borrar
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const s = STYLES.find((x) => x.id === previewStyleId);
+            if (!s) return null;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {s.emoji} {s.name}
+                  </DialogTitle>
+                  <DialogDescription>{s.tagline}</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <StyleMiniDemo styleId={s.id} accent={accent} big />
+                  <p className="text-center text-xs text-muted-foreground">
+                    Así se mueve este estilo. Tu video real saldrá con TU contenido y este look.
+                  </p>
+                </div>
+                <DialogFooter>
+                  {!selectedStyles.includes(s.id) && (
+                    <Button
+                      onClick={() => {
+                        toggleStyle(s.id);
+                        setPreviewStyleId(null);
+                      }}
+                    >
+                      Usar este estilo
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setPreviewStyleId(null)}>
+                    Cerrar
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

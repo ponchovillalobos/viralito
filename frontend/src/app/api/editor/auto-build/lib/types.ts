@@ -45,8 +45,8 @@ export interface AutoBuildRequest {
   captionMeta?: Record<string, unknown>;
   platforms?: string[];
   day?: number;
-  /** Aspecto del output. "9:16" → 1080×1920 (vertical, default). "16:9" → 1920×1080 (horizontal). */
-  aspectRatio?: "9:16" | "16:9";
+  /** Aspecto del output. "9:16" → 1080×1920 (vertical, default). "1:1" → 1080×1080 (cuadrado). "16:9" → 1920×1080 (horizontal). */
+  aspectRatio?: "9:16" | "1:1" | "16:9";
   /** Modo cinematográfico opt-in. Si undefined, render sale idéntico a antes. */
   cinematic?: CinematicConfig;
   /**
@@ -77,6 +77,13 @@ export interface ResolvedProject {
   musicTrack?: string | null;
   tracking?: boolean;
   trackPath?: unknown[];
+  // A2 — auto-reframe: sigue la cara del sujeto. autoReframe lo activan los estilos
+  // viral (hype*/supreme) vía applyCapcutFx; sourceAspect/Width/Height los computa
+  // applyTracking con ffprobe sobre el raw (sin ellos, build-props cae a 16/9 default).
+  autoReframe?: boolean;
+  sourceAspect?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
   removeBg?: boolean;
   foregroundVideoId?: string;
   voiceover?: { text?: string; volume?: number; startSec?: number; speakerWav?: string; lang?: string };

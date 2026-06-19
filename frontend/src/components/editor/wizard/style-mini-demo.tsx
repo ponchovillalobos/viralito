@@ -46,8 +46,23 @@ const Caption = ({ color = "#fde047", anim = "smd-pop" }: { color?: string; anim
   />
 );
 
-export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: string }) {
-  return (
+export function StyleMiniDemo({
+  styleId,
+  accent,
+  big = false,
+}: {
+  styleId: string;
+  accent: string;
+  big?: boolean;
+}) {
+  // En modo `big` (modal "Ver ejemplo") reusamos EXACTAMENTE el mismo demo
+  // pequeño (cada `case` está calibrado a la pantalla h-20 w-12) y lo escalamos
+  // con un transform — así no duplicamos los 22 casos ni perdemos la animación.
+  // 48px → ~288px de ancho ⇒ factor 6.
+  const SMALL_W = 48;
+  const BIG_W = 288;
+  const scale = BIG_W / SMALL_W;
+  const content = (
     <>
       <style dangerouslySetInnerHTML={{ __html: KEYFRAMES }} />
       {(() => {
@@ -362,5 +377,23 @@ export function StyleMiniDemo({ styleId, accent }: { styleId: string; accent: st
         }
       })()}
     </>
+  );
+
+  if (!big) return content;
+
+  // Escalado para el modal: el demo pequeño (h-20 w-12 = 192×48 px) dentro de un
+  // contenedor que reserva el espacio escalado y lo centra.
+  return (
+    <div
+      className="relative shrink-0"
+      style={{ width: BIG_W, height: BIG_W * (80 / 48) }}
+    >
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{ transform: `scale(${scale})` }}
+      >
+        {content}
+      </div>
+    </div>
   );
 }

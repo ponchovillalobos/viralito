@@ -20,6 +20,7 @@ export function dimensionsFromAspect(
   ratio: AutoBuildRequest["aspectRatio"]
 ): { width: number; height: number } {
   if (ratio === "16:9") return { width: 1920, height: 1080 };
+  if (ratio === "1:1") return { width: 1080, height: 1080 };
   return { width: 1080, height: 1920 }; // default 9:16
 }
 

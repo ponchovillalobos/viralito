@@ -169,24 +169,55 @@ import { LottieStickerLayer } from "./layers/lottie-sticker-layer";
 import { TextBehindLayer } from "./layers/text-behind-layer";
 
 /**
- * A2 — Interpolación lineal de la posición X de la cara a un tiempo dado, en el espacio
+ * A2 — Interpolación lineal de un eje de la cara a un tiempo dado, en el espacio
  * normalizado 0..1 del trackPath. Igual lógica que sampleAt() en tracked-layer, pero
- * inline para no acoplar este archivo al otro.
+ * inline para no acoplar este archivo al otro. `axis` elige x o y del punto.
  */
-function sampleTrackX(path: { t: number; x: number }[], t: number): number {
+function sampleTrackAxis(
+  path: { t: number; x: number; y: number }[],
+  t: number,
+  axis: "x" | "y"
+): number {
   if (path.length === 0) return 0.5;
-  if (t <= path[0].t) return path[0].x;
+  if (t <= path[0].t) return path[0][axis];
   const last = path[path.length - 1];
-  if (t >= last.t) return last.x;
+  if (t >= last.t) return last[axis];
   for (let i = 1; i < path.length; i++) {
     if (t <= path[i].t) {
       const a = path[i - 1];
       const b = path[i];
       const f = (t - a.t) / Math.max(0.0001, b.t - a.t);
-      return a.x + (b.x - a.x) * f;
+      return a[axis] + (b[axis] - a[axis]) * f;
     }
   }
-  return last.x;
+  return last[axis];
+}
+
+/** Compat: posición X de la cara (usa el sampler genérico). */
+function sampleTrackX(path: { t: number; x: number; y: number }[], t: number): number {
+  return sampleTrackAxis(path, t, "x");
+}
+
+/**
+ * A2 — Posición SUAVE de la cara: promedia varias muestras alrededor de `t` (ventana
+ * ±window s) para matar el jitter del tracker Haar (que salta frame a frame). Resultado
+ * estable → el pan del auto-reframe se desliza, no tiembla. Determinista por frame.
+ */
+function sampleTrackAxisSmooth(
+  path: { t: number; x: number; y: number }[],
+  t: number,
+  axis: "x" | "y",
+  windowSec = 0.5,
+  taps = 5
+): number {
+  if (path.length === 0) return 0.5;
+  let sum = 0;
+  for (let k = 0; k < taps; k++) {
+    // muestras equiespaciadas en [t-window, t+window]
+    const dt = (k / (taps - 1) - 0.5) * 2 * windowSec;
+    sum += sampleTrackAxis(path, t + dt, axis);
+  }
+  return sum / taps;
 }
 
 // brandKitSchema (B6) vive ahora en ./schemas.
@@ -446,22 +477,52 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   const currentTime = frame / fps;
   const totalDuration = durationInFrames / fps;
 
-  // A2 — Auto-reframe: si el source es más ancho que el frame, desplazar horizontalmente
-  // para mantener la cara centrada. Sólo aplica con autoReframe=true + trackPath poblado +
-  // frame vertical (9:16) + source más ancho que el frame.
+  // A2 — Auto-reframe: mantener la cara del sujeto centrada siguiendo el trackPath.
+  // Dos regímenes según el aspecto del source vs. el canvas vertical:
+  //
+  //   (1) SOURCE MÁS ANCHO que el canvas (p.ej. 16:9 horneado en 9:16): objectFit:cover
+  //       ya recorta los lados; sólo se DESPLAZA en X dentro del exceso horizontal.
+  //       Comportamiento HISTÓRICO — exacto, sin regresión.
+  //
+  //   (2) SOURCE NO más ancho que el canvas (VERTICAL de celular ~9:16, o cuadrado):
+  //       no hay exceso horizontal → el desplazamiento sería imperceptible. En su lugar
+  //       ZOOM-AND-PAN: se escala el video levemente (reframeZoom) para crear margen en
+  //       AMBOS ejes y se traslada DENTRO de ese margen (X e Y) para centrar la cara.
+  //       Clampeado al margen → NUNCA se ve borde negro (objectFit:cover se mantiene).
+  //
+  // En ambos: si autoReframe=false o trackPath vacío, nada se aplica → render byte-idéntico.
   let autoReframeTranslateX = 0;
-  if (
-    autoReframe &&
-    trackPath.length > 0 &&
-    compHeight > compWidth &&
-    sourceAspect > compWidth / compHeight
-  ) {
+  let autoReframeZoomTranslateX = 0;
+  let autoReframeZoomTranslateY = 0;
+  let autoReframeScale = 1;
+  const reframeActive = autoReframe && trackPath.length > 0 && compHeight > compWidth;
+  if (reframeActive && sourceAspect > compWidth / compHeight) {
+    // (1) Source horizontal — comportamiento histórico (no tocar).
     const faceX = sampleTrackX(trackPath, currentTime);
     // objectFit:cover escala el source para que el alto = compHeight; el ancho excede.
     const renderedSourceWidth = compHeight * sourceAspect;
     const maxOffset = (renderedSourceWidth - compWidth) / 2;
     const desired = -(faceX - 0.5) * renderedSourceWidth;
     autoReframeTranslateX = Math.max(-maxOffset, Math.min(maxOffset, desired));
+  } else if (reframeActive) {
+    // (2) Source vertical/cuadrado — zoom-and-pan suave siguiendo la cara.
+    // Zoom fijo y moderado: crea margen para reencuadrar sin degradar nitidez.
+    const reframeZoom = 1.14;
+    autoReframeScale = reframeZoom;
+    const faceX = sampleTrackAxisSmooth(trackPath, currentTime, "x");
+    const faceY = sampleTrackAxisSmooth(trackPath, currentTime, "y");
+    // El transform es scale(S)·translate(T): el desplazamiento real en px es S·T, y el
+    // margen disponible (mitad) tras el zoom es (S-1)·dim/2. Para no descubrir borde:
+    //   |S·T| ≤ (S-1)·dim/2  →  |T| ≤ (S-1)·dim/(2·S).
+    // Se clampa contra ESTE zoom (los zooms dinámicos —reactionZoom, etc.— sólo agregan
+    // más escala, nunca menos, así que el clamp es conservador y seguro).
+    const maxTx = ((reframeZoom - 1) * compWidth) / (2 * reframeZoom);
+    const maxTy = ((reframeZoom - 1) * compHeight) / (2 * reframeZoom);
+    // Llevar la cara (normalizada 0..1) al centro: desplazamiento deseado en px del canvas.
+    const desiredTx = -(faceX - 0.5) * compWidth;
+    const desiredTy = -(faceY - 0.5) * compHeight;
+    autoReframeZoomTranslateX = Math.max(-maxTx, Math.min(maxTx, desiredTx));
+    autoReframeZoomTranslateY = Math.max(-maxTy, Math.min(maxTy, desiredTy));
   }
 
   const activeAnim = animations.find(
@@ -571,9 +632,10 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   const transitionMotionActive =
     trScale !== 1 || trTx !== 0 || trTy !== 0 || trBlur > 0.5 || trRotY !== 0;
 
-  const baseScale = scale * cameraMove.scale * trScale;
-  const baseTranslateX = shake + cameraMove.translateX + autoReframeTranslateX + trTx;
-  const baseTranslateY = cameraMove.translateY + trTy;
+  const baseScale = scale * cameraMove.scale * trScale * autoReframeScale;
+  const baseTranslateX =
+    shake + cameraMove.translateX + autoReframeTranslateX + autoReframeZoomTranslateX + trTx;
+  const baseTranslateY = cameraMove.translateY + autoReframeZoomTranslateY + trTy;
 
   // F3 SUPREME — Color grading PROFESIONAL según densidad (mood-aware).
   // Antes: contrast(1.05) saturate(0.92) — imperceptible.

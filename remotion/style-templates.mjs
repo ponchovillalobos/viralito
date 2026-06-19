@@ -640,7 +640,7 @@ export function buildProjectForStyle(ctx, styleId) {
         stutterMarks: pickKeywords(ctx, 2).map((kw) => ({ at: Math.max(0, kw.start - 0.15), duration: 0.18 })),
       },
       ctx,
-      { lut: "cyberpunk.cube", kinetic: "bounce", mirror: true, speedRamps: true, lottieStickers: true }
+      { lut: "cyberpunk.cube", kinetic: "bounce", mirror: true, speedRamps: true, lottieStickers: true, autoReframe: true }
     );
   }
 
@@ -665,7 +665,7 @@ export function buildProjectForStyle(ctx, styleId) {
         sfxMarks,
       },
       ctx,
-      { lut: "teal_orange.cube", kinetic: "pop" }
+      { lut: "teal_orange.cube", kinetic: "pop", autoReframe: true }
     );
   }
 
@@ -679,6 +679,7 @@ export function buildProjectForStyle(ctx, styleId) {
       iconStickers: true,
       speedRamps: true,
       lottieStickers: true,
+      autoReframe: true,
     });
   }
 
