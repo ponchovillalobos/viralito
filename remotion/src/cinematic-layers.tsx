@@ -93,19 +93,18 @@ function computeMotion(
   progress: number, // 0 a 1 del tiempo total visible
   seed: number
 ): { scale: number; translateX: number; translateY: number } {
-  // pan random según seed para que cada overlay sea distinto
-  const panAmplitude = random(`pan-${seed}`) * 30 - 15;
-
   switch (motion) {
     case "ken_burns_in": {
-      // scale 1.0 → 1.3 + slight pan
+      // scale 1.0 → 1.3 + slight pan. panAmplitude random por seed → cada overlay distinto.
+      const panAmplitude = random(`pan-${seed}`) * 30 - 15;
       const scale = interpolate(progress, [0, 1], [1.0, 1.3]);
       const tx = interpolate(progress, [0, 1], [0, panAmplitude]);
       const ty = interpolate(progress, [0, 1], [0, panAmplitude * 0.5]);
       return { scale, translateX: tx, translateY: ty };
     }
     case "ken_burns_out": {
-      // scale 1.3 → 1.0 + opposite pan
+      // scale 1.3 → 1.0 + opposite pan. panAmplitude random por seed → cada overlay distinto.
+      const panAmplitude = random(`pan-${seed}`) * 30 - 15;
       const scale = interpolate(progress, [0, 1], [1.3, 1.0]);
       const tx = interpolate(progress, [0, 1], [panAmplitude, 0]);
       const ty = interpolate(progress, [0, 1], [panAmplitude * 0.5, 0]);
@@ -235,7 +234,6 @@ const EffectOverlay: React.FC<{ effect: ImageOverlayProps["effect"]; size: numbe
         style={{
           position: "absolute",
           inset: 0,
-          width: size,
           pointerEvents: "none",
           background:
             "repeating-linear-gradient(0deg, rgba(0,0,0,0.85) 0px, rgba(0,0,0,0.85) 1px, transparent 1px, transparent 2px)",
@@ -250,7 +248,6 @@ const EffectOverlay: React.FC<{ effect: ImageOverlayProps["effect"]; size: numbe
         style={{
           position: "absolute",
           inset: 0,
-          width: size,
           pointerEvents: "none",
           background:
             "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.95) 100%)",

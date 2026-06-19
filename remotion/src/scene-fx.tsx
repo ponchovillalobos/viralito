@@ -153,7 +153,7 @@ export const SceneFxLayer: React.FC<SceneFxLayerProps> = ({ fx, currentTime }) =
           const cx2 = interpolate(progress, [0, 1], [120, 30]);
           return (
             <AbsoluteFill
-              key={`sfx-${i}`}
+              key={`${f.at}-${i}`}
               style={{ pointerEvents: "none", mixBlendMode: "screen", opacity: baseOpacity }}
             >
               <AbsoluteFill
@@ -175,7 +175,7 @@ export const SceneFxLayer: React.FC<SceneFxLayerProps> = ({ fx, currentTime }) =
           const count = Math.round(10 * f.intensity);
           return (
             <AbsoluteFill
-              key={`sfx-${i}`}
+              key={`${f.at}-${i}`}
               style={{ pointerEvents: "none", mixBlendMode: "screen", opacity: baseOpacity }}
             >
               {Array.from({ length: count }).map((_, k) => {
@@ -210,7 +210,7 @@ export const SceneFxLayer: React.FC<SceneFxLayerProps> = ({ fx, currentTime }) =
           const pulse = 0.6 + 0.4 * Math.sin(Math.PI * progress);
           return (
             <AbsoluteFill
-              key={`sfx-${i}`}
+              key={`${f.at}-${i}`}
               style={{
                 pointerEvents: "none",
                 mixBlendMode: "screen",
@@ -225,7 +225,7 @@ export const SceneFxLayer: React.FC<SceneFxLayerProps> = ({ fx, currentTime }) =
         const count = Math.round(34 * f.intensity);
         return (
           <AbsoluteFill
-            key={`sfx-${i}`}
+            key={`${f.at}-${i}`}
             style={{ pointerEvents: "none", mixBlendMode: "screen", opacity: baseOpacity }}
           >
             {Array.from({ length: count }).map((_, k) => {
@@ -535,6 +535,12 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
     // Reusa EXACTAMENTE el motor de palabra activa de karaoke; solo cambia el CSS.
     const popReels = preset === "pop_reels";
 
+    // Contorno grueso vía text-shadow multi-dirección (el "stroke" de TikTok).
+    // Constante → se construye una vez por frame, no por palabra dentro del map.
+    const stroke =
+      "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, " +
+      "0 -3px 0 #000, 0 3px 0 #000, -3px 0 0 #000, 3px 0 0 #000";
+
     return (
       <AbsoluteFill
         style={{
@@ -577,11 +583,8 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
             const spoken = words[j].start <= currentTime + 0.05;
 
             if (popReels) {
-              // Contorno grueso vía text-shadow multi-dirección (el "stroke" de TikTok)
-              // + la palabra activa dentro de una píldora del color highlight.
-              const stroke =
-                "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, " +
-                "0 -3px 0 #000, 0 3px 0 #000, -3px 0 0 #000, 3px 0 0 #000";
+              // La palabra activa va dentro de una píldora del color highlight; el
+              // contorno (stroke) se hoisteó fuera del map (constante por frame).
               return (
                 <span
                   key={j}
@@ -635,7 +638,13 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
   const word = words[activeIndex];
   const next = words[activeIndex + 1];
   const startsAt = word.start;
-  const endsAt = next ? next.start - 0.04 : word.end + 1.5;
+  // Clamp anti-"subtítulo invisible": si el timestamp de la palabra siguiente es
+  // degenerado (next.start <= word.start), no dejar que endsAt colapse antes de
+  // startsAt → garantiza la regla "subtítulos siempre visibles".
+  const endsAt = Math.max(
+    startsAt + 0.05,
+    next ? next.start - 0.04 : word.end + 1.5
+  );
   if (currentTime > endsAt + 0.1) return null;
 
   const elapsed = currentTime - startsAt;

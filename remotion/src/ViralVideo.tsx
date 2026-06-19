@@ -875,12 +875,16 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
       {fullscreenBRoll &&
         bRoll.map((clip, i) => (
           <Sequence
-            key={i}
+            key={`${clip.start}-${i}`}
             from={Math.floor(clip.start * fps)}
             durationInFrames={Math.ceil((clip.end - clip.start) * fps)}
           >
             <AbsoluteFill>
-              <OffthreadVideo src={clip.url} muted />
+              <OffthreadVideo
+                src={clip.url}
+                muted
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             </AbsoluteFill>
           </Sequence>
         ))}
@@ -888,7 +892,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
       {!fullscreenBRoll &&
         bRoll.map((clip, i) => (
           <Sequence
-            key={i}
+            key={`${clip.start}-${i}`}
             from={Math.floor(clip.start * fps)}
             durationInFrames={Math.ceil((clip.end - clip.start) * fps)}
           >
@@ -1205,7 +1209,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           // 1.6s — sin esto la música cortaba en seco al terminar (anti-premium).
           volume={(f) => {
             const t = f / fps;
-            const fadeOut = Math.min(1, Math.max(0, (videoDurationSec - t) / 1.6));
+            const fadeOut = Math.min(1, Math.max(0, (totalDuration - t) / 1.6));
             if (musicVolumeCurve.length === 0) return musicVolume * fadeOut;
             let idx = 0;
             for (let i = 0; i < musicVolumeCurve.length; i++) {

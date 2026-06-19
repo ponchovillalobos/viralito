@@ -45,7 +45,13 @@ export const SubtitleLayer: React.FC<{
   const word = words[activeIndex];
   const next = words[activeIndex + 1];
   const startsAt = word.start;
-  const endsAt = next ? next.start - 0.04 : word.end + 1.5;
+  // Clamp anti-"subtítulo invisible": timestamps degenerados (next.start <=
+  // word.start) no deben colapsar endsAt por debajo de startsAt. Garantiza la
+  // regla "subtítulos siempre visibles".
+  const endsAt = Math.max(
+    startsAt + 0.05,
+    next ? next.start - 0.04 : word.end + 1.5
+  );
   if (currentTime > endsAt + 0.1) return null;
 
   const elapsed = currentTime - startsAt;
