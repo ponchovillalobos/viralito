@@ -156,11 +156,26 @@ def _nvidia_query() -> dict:
     }
 
 
-def _ffmpeg_lists_encoder(encoder: str) -> bool:
+_encoders_text_memo: str | None = None
+
+
+def _ffmpeg_encoders_text() -> str:
+    """stdout de `ffmpeg -encoders`, memoizado por proceso: se invoca ffmpeg UNA
+    sola vez aunque _ffmpeg_lists_encoder se llame para nvenc/qsv/amf. '' si falla
+    (no se memoiza el fallo, para reintentar). Mantiene QUÉ se detecta; cambia solo
+    CÓMO (1 subprocess en vez de 3)."""
+    global _encoders_text_memo
+    if _encoders_text_memo is not None:
+        return _encoders_text_memo
     r = _run([str(FFMPEG_PATH), "-hide_banner", "-encoders"], timeout=15)
     if not r or r.returncode != 0 or not r.stdout:
-        return False
-    return encoder in r.stdout
+        return ""
+    _encoders_text_memo = r.stdout
+    return r.stdout
+
+
+def _ffmpeg_lists_encoder(encoder: str) -> bool:
+    return encoder in _ffmpeg_encoders_text()
 
 
 def _encode_probe(encoder: str, timeout: int = 30) -> subprocess.CompletedProcess | None:
@@ -469,6 +484,7 @@ def _detect_full() -> dict:
         }
 
     # QSV / AMF best-effort: solo si el ffmpeg los lista (evita probes que tardan).
+    # Los 3 checks comparten el stdout memoizado de `ffmpeg -encoders` (1 invocación).
     qsv_usable = _qsv_usable() if _ffmpeg_lists_encoder("h264_qsv") else False
     amf_usable = _amf_usable() if _ffmpeg_lists_encoder("h264_amf") else False
 
@@ -525,7 +541,12 @@ def detect(force: bool = False) -> dict:
     prof = _detect_full()
     try:
         _CACHE.parent.mkdir(parents=True, exist_ok=True)
-        _CACHE.write_text(json.dumps(prof, indent=2), encoding="utf-8")
+        # Escritura ATÓMICA: tmp por-PID + os.replace, para que N subprocesos
+        # paralelos no corrompan el JSON al escribir el cache simultáneamente
+        # (mismo patrón que postencode.py).
+        tmp = _CACHE.with_name(f"{_CACHE.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(prof, indent=2), encoding="utf-8")
+        os.replace(tmp, _CACHE)
     except Exception as e:  # noqa: BLE001
         # Visible en stderr: si no cachea, cada proceso re-detecta (~1-2s extra) y
         # conviene saber por qué (audit B3).

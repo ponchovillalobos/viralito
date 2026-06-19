@@ -1291,7 +1291,7 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0) -> list[d
             card["kicker"] = f"HOY TE ENSEÑO · {chapter:02d} / {max(total_chapters, chapter):02d}"
             # re-limpiar el fragmento: cortar en 8 palabras puede dejar colgantes
             rest = clean_screen_text(" ".join(toks[1:9]), max_chars=48) or " ".join(toks[1:6]).strip(" ,.")
-            card["title"] = rest + ("." if rest[-1] not in ".?!…" else "")
+            card["title"] = rest + ("." if rest and rest[-1] not in ".?!…" else "")
             sig = [
                 t for t in rest.split()
                 if len(_clean_word(t)) >= 4 and _clean_word(t).lower() not in _GENERIC_ACCENT
@@ -1334,7 +1334,7 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0) -> list[d
                 or clean_screen_text(" ".join(toks[:9]), max_chars=52)
                 or " ".join(toks[:5]).strip(" ,.")
             )
-            card["title"] = title_txt + ("." if title_txt[-1] not in ".?!…" else "")
+            card["title"] = title_txt + ("." if title_txt and title_txt[-1] not in ".?!…" else "")
             sig = [
                 t for t in title_txt.split()
                 if len(_clean_word(t)) >= 4
@@ -1482,129 +1482,6 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
     except Exception as e:  # noqa: BLE001
         print(f"[editorial] LLM skip ({e}) — tarjetas heurísticas", file=sys.stderr)
         return cards
-
-
-def heuristic_headlines(words: list[dict], duration: float, max_h: int = 3) -> list[dict]:
-    """Elige frases potentes DISTRIBUIDAS parejo en el tiempo (~1 por bucket), para
-    densidad uniforme en vez de agrupar todas al principio. Hook de apertura + frases
-    con palabras de énfasis. `max_h` = cuántos titulares objetivo (escala con duración)."""
-    sents = _sentences(words)
-    if not sents:
-        return []
-    scored: list[tuple[float, dict]] = []
-    for s in sents:
-        text = s["text"].strip()
-        wcount = len(text.split())
-        if wcount < 2 or wcount > 8:
-            continue  # titulares: 2-8 palabras
-        # Solo frases que sobreviven la limpieza: nada de muletillas ni
-        # fragmentos colgantes como titular gigante en pantalla.
-        if not clean_screen_text(text, min_words=2):
-            continue
-        low = text.lower()
-        score = sum(2 for e in EMPHASIS if e in low)
-        if s["start"] < 2.0:
-            score += 3  # el hook de apertura siempre es buen titular
-        score += min(2, wcount / 3)
-        score -= _disfluency_penalty(text)
-        scored.append((score, s))
-    if not scored:
-        return []
-
-    # Distribución por buckets temporales: ~1 titular cada (duration/max_h) seg.
-    n = max(1, max_h)
-    bucket = max(1.0, duration / n) if duration > 0 else 10.0
-    used: set[int] = set()
-    chosen: list[dict] = []
-    for b in range(n):
-        lo, hi = b * bucket, (b + 1) * bucket
-        cands = [(sc, s) for sc, s in scored if lo <= s["start"] < hi and id(s) not in used]
-        if not cands:
-            continue
-        cands.sort(key=lambda x: -x[0])
-        used.add(id(cands[0][1]))
-        chosen.append(cands[0][1])
-    # Si quedaron huecos (frases ralas), rellenar con las mejores no usadas.
-    if len(chosen) < n:
-        rest = sorted((p for p in scored if id(p[1]) not in used), key=lambda x: -x[0])
-        for _, s in rest:
-            if len(chosen) >= n:
-                break
-            used.add(id(s))
-            chosen.append(s)
-
-    chosen.sort(key=lambda s: s["start"])
-    headlines: list[dict] = []
-    for i, s in enumerate(chosen):
-        # clean_screen_text ya corrige confusiones; review re-asegura tras .upper()
-        text = review_screen_texts(
-            [clean_screen_text(s["text"], max_chars=40, min_words=2).upper()]
-        )[0]
-        if not text:
-            continue
-        headlines.append({
-            "at": round(min(duration - 1.8, max(0.3, s["start"])), 2),
-            "duration": 2.2,
-            "text": text,
-            "effect": EFFECTS[i % len(EFFECTS)],
-            "accent": ACCENTS[i % len(ACCENTS)],
-            "position": "bottom" if i % 2 == 0 else "top",
-            "size": 120,
-        })
-    return headlines
-
-
-def llm_headlines(words: list[dict], duration: float, max_h: int = 3) -> list[dict] | None:
-    """Pide a Ollama 2-3 titulares potentes. Devuelve None si falla."""
-    text = " ".join(w.get("word", "") for w in words)[:2000]
-    prompt = (
-        f"Sos editor de video viral. De este fragmento, dame los {max_h} TITULARES más "
-        "potentes (frases de 2-6 palabras que paren el scroll, en MAYÚSCULAS, sin "
-        "comillas), REPARTIDOS a lo largo de todo el clip (no todos al inicio). Para cada "
-        "uno, el segundo aprox del clip donde aparece la idea.\n"
-        "Devolvé SOLO JSON: {\"headlines\":[{\"text\":\"...\",\"at\":<seg>}]}\n"
-        f"Duración del clip: {duration:.0f}s.\n\nFRAGMENTO:\n{text}\n\nJSON:"
-    )
-    try:
-        resp = _ollama(prompt, temperature=0.2)
-    except Exception as e:
-        print(f"[graphics] Ollama no disponible ({e}) — uso heurística", file=sys.stderr)
-        return None
-    m = re.search(r"\{.*\}", resp, re.DOTALL)
-    if not m:
-        return None
-    try:
-        data = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
-    items = data.get("headlines") if isinstance(data, dict) else None
-    if not isinstance(items, list) or not items:
-        return None
-    out: list[dict] = []
-    for i, it in enumerate(items[:max_h]):
-        raw = str(it.get("text", "")).strip(" .,\"'")
-        # El LLM escribe bien, pero a veces copia muletillas del transcript:
-        # mismo limpiador (si la limpieza lo destruye, queda el original corto)
-        # + corrector determinista (por si copió una confusión de Whisper).
-        text = review_screen_texts(
-            [(clean_screen_text(raw, max_chars=40, min_words=2) or raw[:40]).upper()]
-        )[0]
-        if not text or len(text.split()) > 8:
-            continue
-        try:
-            at = float(it.get("at", i * 2 + 0.5))
-        except (ValueError, TypeError):
-            at = i * 2 + 0.5
-        out.append({
-            "at": round(min(duration - 1.8, max(0.3, at)), 2),
-            "duration": 2.2,
-            "text": text,
-            "effect": EFFECTS[i % len(EFFECTS)],
-            "accent": ACCENTS[i % len(ACCENTS)],
-            "position": "bottom" if i % 2 == 0 else "top",
-            "size": 120,
-        })
-    return out or None
 
 
 def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = False) -> dict:

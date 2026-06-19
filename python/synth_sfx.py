@@ -14,8 +14,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 import random
+import shutil
 import struct
 import subprocess
 import sys
@@ -660,7 +663,9 @@ def _synth_curated_wav(out_dir: Path, force: bool) -> dict:
             skipped += 1
             continue
         try:
-            random.seed(hash(filename))  # determinismo (mismo patrón que main)
+            # Seed determinista REAL: hash() de str no es estable entre procesos
+            # (PYTHONHASHSEED), md5 sí → mismo SFX byte-a-byte en cada corrida.
+            random.seed(int(hashlib.md5(filename.encode()).hexdigest()[:8], 16))
             gen(out_path)  # write_wav deja el .wav final, sin convert_to_mp3
             print(f"  + curated/{filename}", file=sys.stderr)
             created += 1
@@ -690,6 +695,16 @@ def main() -> int:
         res = _synth_curated_wav(Path(a.out_dir), a.force)
         return 0 if res["ok"] else 1
 
+    # El flujo legacy convierte cada WAV a MP3 con ffmpeg (convert_to_mp3). Sin
+    # ffmpeg, antes devolvía {ok:true, created:0} silenciosamente: error claro.
+    if not shutil.which(FFMPEG) and not Path(FFMPEG).exists():
+        print(json.dumps({
+            "ok": False,
+            "created": 0,
+            "error": f"ffmpeg no encontrado ({FFMPEG}); requerido para generar los .mp3",
+        }, ensure_ascii=False))
+        return 1
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", required=True, help="Directorio donde guardar los .mp3")
     parser.add_argument("--force", action="store_true", help="Regenerar aunque ya existan")
@@ -707,7 +722,9 @@ def main() -> int:
             skipped += 1
             continue
         try:
-            random.seed(hash(filename))  # determinismo
+            # Seed determinista REAL (ver _synth_curated_wav): md5 estable entre
+            # procesos, a diferencia de hash() de str.
+            random.seed(int(hashlib.md5(filename.encode()).hexdigest()[:8], 16))
             gen(out_path)
             print(f"  + {category}/{filename}", file=sys.stderr)
             created += 1

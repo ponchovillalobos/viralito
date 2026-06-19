@@ -1273,10 +1273,16 @@ def main() -> int:
     if args.render and clips_info:
         print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
         styles = [s.strip() for s in args.styles.split(",") if s.strip()]
+        # Fuente de verdad del catálogo: frontend/src/lib/style-registry.data.json
+        # (22 estilos). Mantener sincronizado para no rechazar estilos válidos como
+        # cine_clasico / editorial_broll / kinetic_type / etc. en --render.
         VALID_STYLES = {
             "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
+            "cinematic_pro", "broll_full", "broll_pip", "text_behind", "pop_reels",
             "graphics_pro", "graphics_max",
-            "motion_pro", "motion_beat", "motion_grid", "editorial",
+            "motion_pro", "motion_beat", "motion_grid",
+            "editorial", "editorial_broll",
+            "kinetic_type", "lottie_pop", "paper_cut", "cine_clasico",
         }
         invalid = [s for s in styles if s not in VALID_STYLES]
         if invalid:

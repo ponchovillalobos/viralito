@@ -150,7 +150,11 @@ def main() -> None:
         if not cap.isOpened():
             print(json.dumps({"points": [], "error": "cannot open video"}))
             return
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps:
+            print("[track_subject] CAP_PROP_FPS devolvió 0 — asumiendo fps=30",
+                  file=sys.stderr)
+            fps = 30.0
         step = max(1, int(round(sample_every * fps)))
 
         samples = []  # (t, cx, cy, w_norm, h_norm) en coords NORMALIZADAS del frame original
@@ -197,8 +201,10 @@ def main() -> None:
         result = {"fps": round(float(fps), 3), "points": points}
         out_str = json.dumps(result)
 
-        # 4) Guardar en caché (best-effort; si falla, no rompe).
-        if cache_file is not None:
+        # 4) Guardar en caché (best-effort; si falla, no rompe). NO cachear un
+        # resultado con points vacío: sería un fallo de detección que quedaría
+        # "pegado" para siempre en el cache.
+        if cache_file is not None and points:
             try:
                 cache_file.parent.mkdir(parents=True, exist_ok=True)
                 cache_file.write_text(out_str, encoding="utf-8")

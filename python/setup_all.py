@@ -214,7 +214,8 @@ def _run(stage: str, nombre: str, args: list[str]) -> tuple[bool, str]:
         print(f"[setup] {nombre}: descargando (intento {i}/3)...", flush=True)
         try:
             r = subprocess.run(
-                [PY, *args], cwd=str(HERE), capture_output=True, text=True, timeout=timeout
+                [PY, *args], cwd=str(HERE), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=timeout
             )
             if r.returncode == 0:
                 valido, detalle = _validate(stage)

@@ -36,9 +36,6 @@ def build_filter(segments: list[dict]) -> str:
 
 
 def cut(video_path: Path, cuts_path: Path, out_path: Path) -> dict:
-    import tempfile
-    import os
-
     cuts = json.loads(cuts_path.read_text(encoding="utf-8"))
     segments = cuts.get("keep_segments") or []
     if not segments:

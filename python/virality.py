@@ -160,7 +160,11 @@ def score_clip(words: list[dict], start: float, end: float, hook: str = "") -> d
 
 
 def score_proposals_file(proposals_path: Path, transcript_path: Path) -> dict[str, Any]:
-    proposals = json.loads(proposals_path.read_text(encoding="utf-8"))
+    try:
+        proposals = json.loads(proposals_path.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[virality] proposals corrupto ({proposals_path}): {e}", file=sys.stderr)
+        return []
     clips = proposals.get("clips") if isinstance(proposals, dict) else proposals
     if not isinstance(clips, list):
         return {"ok": False, "error": "proposals sin lista de clips"}
@@ -188,14 +192,14 @@ def score_proposals_file(proposals_path: Path, transcript_path: Path) -> dict[st
 
     # Reordenar de más viral a menos viral (mantiene mejores arriba en la UI).
     if isinstance(proposals, dict):
-        clips.sort(key=lambda c: -int(c.get("viralityScore", 0)))
+        clips.sort(key=lambda c: -int(c.get("viralityScore", 0) or 0))
         proposals["clips"] = clips
         out_obj: Any = proposals
     else:
-        clips.sort(key=lambda c: -int(c.get("viralityScore", 0)))
+        clips.sort(key=lambda c: -int(c.get("viralityScore", 0) or 0))
         out_obj = clips
     proposals_path.write_text(json.dumps(out_obj, ensure_ascii=False, indent=2), encoding="utf-8")
-    avg = round(sum(int(c.get("viralityScore", 0)) for c in clips) / max(1, len(clips)))
+    avg = round(sum(int(c.get("viralityScore", 0) or 0) for c in clips) / max(1, len(clips)))
     return {"ok": True, "scored": scored, "avg": avg}
 
 

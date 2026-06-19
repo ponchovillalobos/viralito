@@ -93,7 +93,8 @@ def _run_download(args: list[str]) -> bool:
     print(f"[repair] corriendo: {' '.join(args)}", flush=True)
     try:
         r = subprocess.run(
-            [PY, *args], cwd=str(HERE), capture_output=True, text=True, timeout=3600
+            [PY, *args], cwd=str(HERE), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=3600
         )
         if r.returncode == 0:
             print(f"[repair] OK: {args[0]}", flush=True)
