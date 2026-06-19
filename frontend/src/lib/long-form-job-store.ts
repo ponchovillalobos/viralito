@@ -34,6 +34,10 @@ export interface LongFormStep {
   label: string;
   status: "pending" | "running" | "ok" | "fail" | "skipped";
   message?: string;
+  /** 0-100 — sub-progreso DENTRO del paso. Hoy lo emite el render (N/M clips listos)
+   *  para que la barra avance durante el render (la fase más larga) en vez de
+   *  quedarse congelada. Los pasos que no lo emiten usan la heurística 0.5. */
+  progress?: number;
   startedAt?: number;
   finishedAt?: number;
 }
@@ -217,14 +221,24 @@ export function updateLongFormStep(
   }
   Object.assign(step, patch);
 
-  // Recalcular overall (cada paso pesa igual, "skipped" cuenta como completado)
-  const total = job.steps.length;
-  const done = job.steps.filter(
-    (s) => s.status === "ok" || s.status === "skipped" || s.status === "fail"
-  ).length;
-  const running = job.steps.filter((s) => s.status === "running").length;
-  // Cada paso done = 100/N, running = 50/N (mitad de progreso)
-  job.overallProgress = Math.round(((done + running * 0.5) / total) * 100);
+  // Recalcular overall. Cada paso pesa igual (1/N). Un paso done/skipped/fail aporta
+  // su peso completo; un paso RUNNING aporta su sub-progreso (step.progress/100) si lo
+  // emite — hoy el render manda N/M clips listos — y si no, 0.5 (heurística "a la
+  // mitad", como antes). Así la barra YA NO se congela durante el render: antes el
+  // render running pesaba 0.5 fijo → 75% clavado toda la fase más larga (~30+ min).
+  const total = job.steps.length || 1;
+  let weighted = 0;
+  for (const s of job.steps) {
+    if (s.status === "ok" || s.status === "skipped" || s.status === "fail") {
+      weighted += 1;
+    } else if (s.status === "running") {
+      weighted +=
+        typeof s.progress === "number"
+          ? Math.min(100, Math.max(0, s.progress)) / 100
+          : 0.5;
+    }
+  }
+  job.overallProgress = Math.round((weighted / total) * 100);
 
   // Terminal: un paso que falla cierra el job DE INMEDIATO. El pipeline Python
   // corta en el primer error (subprocess check=True), así que los pasos siguientes

@@ -210,6 +210,24 @@ async function processJob(
         }
         return;
       }
+      // Sub-progreso REAL del render: "[ok] render -> … (N/M listos)" (N = renders
+      // clip×estilo COMPLETADOS, M = total). MUEVE la barra durante el render — la fase
+      // más larga (~30+ min) — en vez de dejarla congelada en 75%. Paralelo-seguro: lo
+      // emite el loop principal (as_completed de long_form_pipeline), no el render-server,
+      // a diferencia de "Rendered X/Y" que se intercala entre clips con render paralelo.
+      const doneM = line.match(/\((\d+)\/(\d+)\s+listos\)/);
+      if (doneM) {
+        const n = parseInt(doneM[1], 10);
+        const m = parseInt(doneM[2], 10);
+        if (m > 0) {
+          updateLongFormStep(jobId, "render", {
+            status: "running",
+            progress: Math.round((n / m) * 100),
+            message: `video ${n} de ${m} listo`,
+          });
+        }
+        // sin return: la línea ya se logueó arriba; no matchea headers/skips.
+      }
       // Marcadores del pipeline Python (clip i/n, detectando cara, color grade, master):
       // se muestran como mensaje del step render para que el panel muestre actividad
       // durante los tramos silenciosos (tracking + post-fx ffmpeg).
@@ -226,7 +244,13 @@ async function processJob(
             updateLongFormStep(jobId, currentStep, { status: "ok" });
           }
           currentStep = p.key;
-          updateLongFormStep(jobId, p.key, { status: "running" });
+          // El render arranca su sub-progreso en 0 para que la barra suba con cada clip
+          // (N/M listos), en vez de saltar de 75% hacia atrás al completarse el 1ro.
+          updateLongFormStep(
+            jobId,
+            p.key,
+            p.key === "render" ? { status: "running", progress: 0 } : { status: "running" }
+          );
           return;
         }
       }
