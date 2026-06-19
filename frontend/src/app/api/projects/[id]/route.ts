@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PROJECTS_DIR, RENDERS_DIR, LF_ROOT, LF_RENDERS, DATA_ROOT } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
   const project = await loadProject(id);
   if (!project) {
     return NextResponse.json({ error: "project not found" }, { status: 404 });
@@ -75,6 +79,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
   const body = (await req.json()) as Partial<ProjectPayload>;
   const loaded = await loadProject(id);
   const existing = loaded ?? {
@@ -119,6 +126,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
   let removed = false;
 
   // 1) JSON del proyecto (short o largo).

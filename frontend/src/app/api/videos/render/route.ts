@@ -19,6 +19,7 @@ import {
 import { embedIconStickerSvgs } from "@/lib/sticker-svg";
 import { renderWithServer, renderServerEnabled } from "@/lib/render-server-client";
 import { localizeBrollClips, type LocalizableClip } from "@/lib/broll-localize";
+import { isSafeId } from "@/lib/safe-id";
 
 // ── Preset/CRF de x264 desde hw_profile.json (#4/#5). Para el camino `npx remotion
 //    render`: si el perfil recomienda un preset/crf válido, los pasamos por flags.
@@ -78,6 +79,12 @@ export async function POST(req: NextRequest) {
     const { videoId, props, quality = "final" } = body;
     if (!videoId) {
       return NextResponse.json({ error: "videoId required" }, { status: 400 });
+    }
+    // Anti path-traversal: el videoId arma el output `${videoId}.mp4` /
+    // `${videoId}.__rendering.mp4` en path.join → rechazar separadores / ".."
+    // ANTES de tocar el FS o adquirir locks.
+    if (!isSafeId(videoId)) {
+      return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
     }
 
     await fs.mkdir(RENDERS_DIR, { recursive: true });

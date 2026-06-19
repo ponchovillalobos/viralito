@@ -9,6 +9,7 @@ import {
   RENDERS_DIR,
   TRANSCRIPTS_DIR,
 } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
   const body = (await req.json()) as { newId?: string };
   const newId = (body.newId ?? "").trim();
 

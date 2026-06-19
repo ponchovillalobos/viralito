@@ -27,9 +27,24 @@ import {
   CUTS_DIR,
 } from "@/lib/paths";
 import { LF_TRANSCRIPTS, LF_CUTS, LF_PROPOSALS, LF_PROJECTS_DIR } from "@/lib/paths-long-form";
+import { STYLE_IDS } from "@/lib/style-registry";
 
 const VIDEO_EXTS = [".mp4", ".mov", ".mkv", ".webm", ".m4v"];
 const SWEEP_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12h → ~2 barridos/día
+
+// Renders de naming de máquina `{videoStem}_{styleId}`. El sufijo de estilo se
+// DERIVA del registro (STYLE_IDS) en vez de hardcodear la lista — así un render
+// huérfano de un estilo nuevo (cine_clasico, kinetic_type, …) SÍ se barre sin
+// tener que tocar este regex. Ordenamos por longitud desc para que la alternancia
+// no trunque (`hype_max_sfx` antes que `hype_max` antes que `hype`) y escapamos
+// cada id por si alguno trae metacaracteres de regex.
+const _STYLE_ALT = [...STYLE_IDS]
+  .sort((a, b) => b.length - a.length)
+  .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  .join("|");
+const MACHINE_RENDER = new RegExp(
+  `_(${_STYLE_ALT})(\\.__rendering(_[a-z]+)?)?$`
+);
 
 const LF_GRAPHICS = path.join(LF_ROOT, "graphics");
 const LF_FACE_TRACKS = path.join(LF_ROOT, "face_tracks");
@@ -189,7 +204,6 @@ export async function sweepShortOrphans(): Promise<{ deleted: number; orphans: s
   // auto-borran los de naming de máquina `{videoStem}_{styleId}`. Los renders ya
   // publicados se renombran a título legible ("Empatía Ambos Editorial.mp4") y no
   // tienen prefijo de raw — esos NUNCA se tocan (sólo el usuario los borra a mano).
-  const MACHINE_RENDER = /_(silent|punch|hype|hype_max|hype_max_sfx|supreme|cinematic_pro|broll_full|broll_pip|text_behind|graphics_pro|graphics_max|motion_pro|motion_beat|motion_grid|editorial)(\.__rendering(_[a-z]+)?)?$/;
   for (const f of await listSafe(RENDERS_DIR)) {
     const id = path.basename(f, path.extname(f));
     if (!MACHINE_RENDER.test(id)) continue;

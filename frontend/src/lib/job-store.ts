@@ -223,6 +223,9 @@ setInterval(() => {
   const cutoff = Date.now() - 72 * 60 * 60 * 1000;
   let changed = false;
   for (const [k, v] of STORE.entries()) {
+    // NUNCA borrar un job que aún corre (o espera slot): un pipeline largo puede
+    // superar las 72h y borrarlo dejaría el trabajo activo sin entrada de estado.
+    if (v.status === "running" || v.status === "queued") continue;
     if (v.startedAt < cutoff) {
       STORE.delete(k);
       changed = true;

@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { RAW_DIR } from "@/lib/paths";
 import { sweepShortOrphans } from "@/lib/orphan-sweep";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return NextResponse.json({ error: "id inválido" }, { status: 400 });
+  }
   const deleted = [
     ...(await deleteMatching(RAW_DIR, id)),
     ...(await deleteMatching(USED_DIR, id)),

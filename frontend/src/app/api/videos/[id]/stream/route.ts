@@ -3,6 +3,7 @@ import path from "node:path";
 import { promises as fs, createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { RAW_DIR, RENDERS_DIR, LF_CLIPS, LF_RENDERS, PROJECTS_DIR } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (!isSafeId(id)) {
+    return new Response("invalid id", { status: 400 });
+  }
   const source = req.nextUrl.searchParams.get("source") ?? "raw"; // raw | render
 
   // Construí la lista de directorios a buscar — short primero, long-form como fallback.

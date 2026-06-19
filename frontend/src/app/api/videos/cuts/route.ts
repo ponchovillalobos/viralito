@@ -3,6 +3,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { runPython } from "@/lib/run-python";
 import { RAW_DIR, CUTS_DIR } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -12,6 +13,9 @@ export async function POST(req: NextRequest) {
   const videoId = body.videoId;
   if (!videoId) {
     return NextResponse.json({ error: "videoId required" }, { status: 400 });
+  }
+  if (!isSafeId(videoId)) {
+    return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
   }
 
   const files = await fs.readdir(RAW_DIR);
@@ -39,6 +43,9 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const videoId = req.nextUrl.searchParams.get("videoId");
   if (!videoId) return NextResponse.json({ error: "videoId required" }, { status: 400 });
+  if (!isSafeId(videoId)) {
+    return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
+  }
   const outPath = path.join(CUTS_DIR, `${videoId}.json`);
   try {
     const data = JSON.parse(await fs.readFile(outPath, "utf-8"));

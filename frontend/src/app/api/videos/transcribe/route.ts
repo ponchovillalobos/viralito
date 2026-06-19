@@ -5,6 +5,7 @@ import { runPythonJson } from "@/lib/run-python";
 import { humanizeError } from "@/lib/humanize-error";
 import { withSerialLock } from "@/lib/serial-lock";
 import { RAW_DIR, TRANSCRIPTS_DIR } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 600;
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   const videoId = body.videoId;
   if (!videoId) {
     return NextResponse.json({ error: "videoId required" }, { status: 400 });
+  }
+  if (!isSafeId(videoId)) {
+    return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
   }
 
   const files = await fs.readdir(RAW_DIR);
@@ -61,6 +65,9 @@ export async function GET(req: NextRequest) {
   const videoId = req.nextUrl.searchParams.get("videoId");
   if (!videoId) {
     return NextResponse.json({ error: "videoId required" }, { status: 400 });
+  }
+  if (!isSafeId(videoId)) {
+    return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
   }
   const outPath = path.join(TRANSCRIPTS_DIR, `${videoId}.json`);
   try {
