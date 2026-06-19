@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, ArrowLeft } from "lucide-react";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
 
 // Header minimalista: SOLO marca (vuelve a Inicio) + Configuración. Los enlaces
@@ -10,7 +11,10 @@ import { SettingsDialog } from "@/components/layout/settings-dialog";
 // las tarjetas de la home, que ahora son el único menú (decisión del usuario
 // 2026-06). El logo siempre lleva a Inicio (el hub con las tarjetas).
 export function TabNav() {
+  const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // En el Inicio no hace falta el botón de volver; en cualquier otra pantalla sí.
+  const onHome = pathname === "/";
 
   // Permite abrir Configuración desde cualquier parte (p.ej. el checklist de la
   // home dispara `window.dispatchEvent(new CustomEvent("open-settings"))`).
@@ -34,6 +38,18 @@ export function TabNav() {
             Viralito
           </span>
         </Link>
+
+        {/* Botón explícito de "volver al inicio" — visible en todas las pantallas
+            menos en el propio Inicio (ahí sería redundante). */}
+        {!onHome && (
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/50 hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver al inicio</span>
+          </Link>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <button

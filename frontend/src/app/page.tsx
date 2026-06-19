@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Scissors, FolderKanban, ArrowRight, Telescope, Film, Clapperboard } from "lucide-react";
-import { GettingStarted } from "@/components/home/getting-started";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
 export const dynamic = "force-dynamic";
@@ -111,9 +110,6 @@ export default function Home() {
           </Link>
         ))}
       </div>
-
-      {/* Primeros pasos (checklist que se tilda solo) */}
-      <GettingStarted />
 
       {/* Accesos secundarios */}
       <div className="flex flex-wrap gap-2">
