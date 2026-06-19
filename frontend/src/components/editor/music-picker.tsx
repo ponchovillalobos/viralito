@@ -46,7 +46,7 @@ export function MusicPicker({ selected, volume, onSelect, onVolumeChange }: Prop
     // quedar la música en el video. Se actualiza en vivo al mover el slider (useEffect).
     a.volume = Math.max(0, Math.min(1, volume ?? 0.35));
     a.onended = () => setPlaying(null);
-    a.play();
+    a.play().catch(() => {});
     setAudio(a);
     setPlaying(t.filename);
   }
@@ -58,6 +58,17 @@ export function MusicPicker({ selected, volume, onSelect, onVolumeChange }: Prop
     // eslint-disable-next-line react-hooks/immutability
     if (audio) audio.volume = Math.max(0, Math.min(1, volume ?? 0.35));
   }, [volume, audio]);
+
+  // Detener y resetear el preview al desmontar: sin esto el track sigue sonando
+  // al navegar fuera del wizard.
+  useEffect(() => {
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+  }, [audio]);
 
   return (
     <div className="space-y-4">

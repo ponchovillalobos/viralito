@@ -354,6 +354,38 @@ const FORMATS: {
   },
 ];
 
+// Tema del estilo Editorial. Los 4 clásicos + 13 SUB-TEMAS de clase mundial
+// (Ola 3): cada uno con lienzo, tipografías y "gesto de motion" propios.
+// ORDEN: los primeros 8 son los visibles por default (slice(0,8)) y se
+// eligieron para que haya variedad real de lienzos/colores a primera vista.
+// A nivel módulo: es data constante, no se recrea en cada render.
+const EDITORIAL_THEMES = [
+  { id: "clasico", name: "Clásico", hint: "Elegante y serio, estilo documental", theme: "", font: "playfair", background: "dark", bg: "#0a0908", text: "#f3ede1", demoFont: "Georgia, serif" },
+  { id: "ft", name: "FT salmón", hint: "Rosa salmón de periódico financiero", theme: "ft", accent: "#0d7680", font: "lora", background: "cream", bg: "#fff1e5", text: "#33302e", demoFont: "'Franklin Gothic Medium', sans-serif" },
+  { id: "vogue", name: "Vogue noir", hint: "Negro con dorado, revista de lujo", theme: "vogue", accent: "#c9a96a", font: "bodoni", background: "dark", bg: "#0c0b0a", text: "#f4f0e6", demoFont: "'Didot', 'Bodoni MT', serif" },
+  { id: "riso", name: "Zine riso", hint: "Fanzine rebelde, rosa neón", theme: "riso", accent: "#FF48B0", font: "abril", background: "cream", bg: "#f1ece0", text: "#141414", demoFont: "'Arial Black', sans-serif" },
+  { id: "stripe", name: "Stripe press", hint: "Azul tech de manual fino", theme: "stripe", accent: "#635bff", font: "newsreader", background: "ink", bg: "#0a2540", text: "#f6f9fc", demoFont: "Georgia, serif" },
+  { id: "prensa", name: "Prensa 1900", hint: "Periódico antiguo, tinta roja", theme: "prensa", accent: "#8e2a1e", font: "playfair", background: "cream", bg: "#e8e1cf", text: "#1c1812", demoFont: "'Times New Roman', serif" },
+  { id: "swiss", name: "Suizo grid", hint: "Blanco, orden, toque rojo", theme: "swiss", accent: "#e30613", font: "lora", background: "cream", bg: "#f4f4f1", text: "#0d0d0d", demoFont: "'Helvetica', 'Arial', sans-serif" },
+  { id: "bold", name: "Bold", hint: "Letras gruesas que gritan", theme: "", font: "abril", background: "dark", bg: "#0a0908", text: "#f3ede1", demoFont: "'Arial Black', serif" },
+  { id: "tinta", name: "Tinta", hint: "Azul noche, sobrio", theme: "", font: "dmserif", background: "ink", bg: "#0a0f16", text: "#e9eef5", demoFont: "'Times New Roman', serif" },
+  { id: "crema", name: "Crema", hint: "Claro y cálido, se siente caro", theme: "", font: "lora", background: "cream", bg: "#f5efe3", text: "#1c1611", demoFont: "Georgia, serif" },
+  { id: "kinfolk", name: "Kinfolk calma", hint: "Minimalista, tonos tierra", theme: "kinfolk", accent: "#b06b4c", font: "lora", background: "cream", bg: "#f6f3ec", text: "#33302a", demoFont: "'Garamond', serif" },
+  { id: "grabado", name: "Grabado", hint: "Ilustración antigua, sepia", theme: "grabado", accent: "#8a6d3b", font: "playfair", background: "cream", bg: "#ece3cd", text: "#2a2118", demoFont: "'Book Antiqua', serif" },
+  { id: "constructivista", name: "Constructivista", hint: "Cartel ruso: rojo y diagonales", theme: "constructivista", accent: "#cf2618", font: "abril", background: "cream", bg: "#ece2cf", text: "#181613", demoFont: "'Arial Narrow', sans-serif" },
+  { id: "bauhaus", name: "Bauhaus", hint: "Geometría con rojo", theme: "bauhaus", accent: "#be1e2d", font: "lora", background: "cream", bg: "#f2e9d8", text: "#1f1d1a", demoFont: "'Century Gothic', sans-serif" },
+  { id: "mincho", name: "Japón mincho", hint: "Papel claro y sello rojo, calma", theme: "mincho", accent: "#b3342c", font: "lora", background: "cream", bg: "#f5f3ed", text: "#26241f", demoFont: "'MS Mincho', serif" },
+  { id: "brutal", name: "Brutalista", hint: "Crudo y directo", theme: "brutal", accent: "#ff4d00", font: "lora", background: "cream", bg: "#efefea", text: "#000000", demoFont: "'Consolas', monospace" },
+  { id: "docu", name: "Docu rojo", hint: "Documental de denuncia", theme: "docu", accent: "#e3120b", font: "lora", background: "cream", bg: "#f9f7f1", text: "#121212", demoFont: "'Franklin Gothic Medium', sans-serif" },
+  { id: "art_deco", name: "Art Déco", hint: "Lujo 1920, crema y dorado", theme: "art_deco", accent: "#bd9a4e", font: "playfair", background: "cream", bg: "#f3ead6", text: "#16130d", demoFont: "'Cinzel', serif" },
+  { id: "blueprint", name: "Blueprint", hint: "Plano de ingeniería, azul y cian", theme: "blueprint", accent: "#34c6d8", font: "dmserif", background: "ink", bg: "#0b2138", text: "#dbe9f4", demoFont: "'Consolas', monospace" },
+  { id: "noir", name: "Noir", hint: "Cine negro, blanco y negro", theme: "noir", accent: "#d8d2c4", font: "playfair", background: "dark", bg: "#0a0a0a", text: "#f2f2f0", demoFont: "'Playfair Display', serif" },
+] as const;
+
+// Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía y
+// colores vienen del TEMA elegido en el paso 2. A nivel módulo: lista constante.
+const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll"];
+
 
 export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
@@ -374,32 +406,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [subtitleFont, setSubtitleFont] = useState<string>("auto");
   // Color del TEXTO de los subtítulos ("auto" = el del estilo, normalmente blanco).
   const [subtitleColor, setSubtitleColor] = useState<string>("auto");
-  // Tema del estilo Editorial. Los 4 clásicos + 13 SUB-TEMAS de clase mundial
-  // (Ola 3): cada uno con lienzo, tipografías y "gesto de motion" propios.
-  // ORDEN: los primeros 8 son los visibles por default (slice(0,8)) y se
-  // eligieron para que haya variedad real de lienzos/colores a primera vista.
-  const EDITORIAL_THEMES = [
-    { id: "clasico", name: "Clásico", hint: "Elegante y serio, estilo documental", theme: "", font: "playfair", background: "dark", bg: "#0a0908", text: "#f3ede1", demoFont: "Georgia, serif" },
-    { id: "ft", name: "FT salmón", hint: "Rosa salmón de periódico financiero", theme: "ft", accent: "#0d7680", font: "lora", background: "cream", bg: "#fff1e5", text: "#33302e", demoFont: "'Franklin Gothic Medium', sans-serif" },
-    { id: "vogue", name: "Vogue noir", hint: "Negro con dorado, revista de lujo", theme: "vogue", accent: "#c9a96a", font: "bodoni", background: "dark", bg: "#0c0b0a", text: "#f4f0e6", demoFont: "'Didot', 'Bodoni MT', serif" },
-    { id: "riso", name: "Zine riso", hint: "Fanzine rebelde, rosa neón", theme: "riso", accent: "#FF48B0", font: "abril", background: "cream", bg: "#f1ece0", text: "#141414", demoFont: "'Arial Black', sans-serif" },
-    { id: "stripe", name: "Stripe press", hint: "Azul tech de manual fino", theme: "stripe", accent: "#635bff", font: "newsreader", background: "ink", bg: "#0a2540", text: "#f6f9fc", demoFont: "Georgia, serif" },
-    { id: "prensa", name: "Prensa 1900", hint: "Periódico antiguo, tinta roja", theme: "prensa", accent: "#8e2a1e", font: "playfair", background: "cream", bg: "#e8e1cf", text: "#1c1812", demoFont: "'Times New Roman', serif" },
-    { id: "swiss", name: "Suizo grid", hint: "Blanco, orden, toque rojo", theme: "swiss", accent: "#e30613", font: "lora", background: "cream", bg: "#f4f4f1", text: "#0d0d0d", demoFont: "'Helvetica', 'Arial', sans-serif" },
-    { id: "bold", name: "Bold", hint: "Letras gruesas que gritan", theme: "", font: "abril", background: "dark", bg: "#0a0908", text: "#f3ede1", demoFont: "'Arial Black', serif" },
-    { id: "tinta", name: "Tinta", hint: "Azul noche, sobrio", theme: "", font: "dmserif", background: "ink", bg: "#0a0f16", text: "#e9eef5", demoFont: "'Times New Roman', serif" },
-    { id: "crema", name: "Crema", hint: "Claro y cálido, se siente caro", theme: "", font: "lora", background: "cream", bg: "#f5efe3", text: "#1c1611", demoFont: "Georgia, serif" },
-    { id: "kinfolk", name: "Kinfolk calma", hint: "Minimalista, tonos tierra", theme: "kinfolk", accent: "#b06b4c", font: "lora", background: "cream", bg: "#f6f3ec", text: "#33302a", demoFont: "'Garamond', serif" },
-    { id: "grabado", name: "Grabado", hint: "Ilustración antigua, sepia", theme: "grabado", accent: "#8a6d3b", font: "playfair", background: "cream", bg: "#ece3cd", text: "#2a2118", demoFont: "'Book Antiqua', serif" },
-    { id: "constructivista", name: "Constructivista", hint: "Cartel ruso: rojo y diagonales", theme: "constructivista", accent: "#cf2618", font: "abril", background: "cream", bg: "#ece2cf", text: "#181613", demoFont: "'Arial Narrow', sans-serif" },
-    { id: "bauhaus", name: "Bauhaus", hint: "Geometría con rojo", theme: "bauhaus", accent: "#be1e2d", font: "lora", background: "cream", bg: "#f2e9d8", text: "#1f1d1a", demoFont: "'Century Gothic', sans-serif" },
-    { id: "mincho", name: "Japón mincho", hint: "Papel claro y sello rojo, calma", theme: "mincho", accent: "#b3342c", font: "lora", background: "cream", bg: "#f5f3ed", text: "#26241f", demoFont: "'MS Mincho', serif" },
-    { id: "brutal", name: "Brutalista", hint: "Crudo y directo", theme: "brutal", accent: "#ff4d00", font: "lora", background: "cream", bg: "#efefea", text: "#000000", demoFont: "'Consolas', monospace" },
-    { id: "docu", name: "Docu rojo", hint: "Documental de denuncia", theme: "docu", accent: "#e3120b", font: "lora", background: "cream", bg: "#f9f7f1", text: "#121212", demoFont: "'Franklin Gothic Medium', sans-serif" },
-    { id: "art_deco", name: "Art Déco", hint: "Lujo 1920, crema y dorado", theme: "art_deco", accent: "#bd9a4e", font: "playfair", background: "cream", bg: "#f3ead6", text: "#16130d", demoFont: "'Cinzel', serif" },
-    { id: "blueprint", name: "Blueprint", hint: "Plano de ingeniería, azul y cian", theme: "blueprint", accent: "#34c6d8", font: "dmserif", background: "ink", bg: "#0b2138", text: "#dbe9f4", demoFont: "'Consolas', monospace" },
-    { id: "noir", name: "Noir", hint: "Cine negro, blanco y negro", theme: "noir", accent: "#d8d2c4", font: "playfair", background: "dark", bg: "#0a0a0a", text: "#f2f2f0", demoFont: "'Playfair Display', serif" },
-  ] as const;
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
   const [showAllThemes, setShowAllThemes] = useState(false);
@@ -473,10 +479,16 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   } | null>(null);
 
   async function loadVideos() {
-    const r = await fetch("/api/videos/list");
-    const d = await r.json();
-    setVideos(d.videos ?? []);
-    if (d.rawDir) setRawDir(d.rawDir);
+    try {
+      const r = await fetch("/api/videos/list");
+      const d = await r.json();
+      setVideos(d.videos ?? []);
+      if (d.rawDir) setRawDir(d.rawDir);
+    } catch (err) {
+      toastError(err, "No se pudieron cargar tus videos", {
+        action: { label: "Reintentar", onClick: loadVideos },
+      });
+    }
   }
 
   // Load on mount: lista de videos raw. Patrón válido aunque el lint quiera use(promise).
@@ -526,7 +538,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía y colores
   // vienen del TEMA elegido en el paso 2. Si solo hay estilos editoriales, los
   // selectores de texto no aplican y se ocultan.
-  const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll"];
   const hasEditorial = selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
   const editorialOnly =
     hasEditorial && selectedStyles.every((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
@@ -1594,35 +1605,55 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
         <Card className="border-border bg-card p-6">
           <h2 className="mb-2 text-lg font-medium">2. Elige formato y estilo(s)</h2>
 
-          {/* Formato de salida: dos pills chicas SIEMPRE visibles arriba. */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
-              Formato
-            </span>
-            <button
-              type="button"
-              onClick={() => setAspectRatio("9:16")}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-all ${
-                aspectRatio === "9:16"
-                  ? "border-brand-pink bg-brand-pink/10 font-medium text-brand-pink ring-1 ring-brand-pink"
-                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-              }`}
-            >
-              📱 Vertical 9:16
-              <span className="font-mono-tab text-[9px] opacity-70">TikTok · Reels</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAspectRatio("16:9")}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-all ${
-                aspectRatio === "16:9"
-                  ? "border-brand-pink bg-brand-pink/10 font-medium text-brand-pink ring-1 ring-brand-pink"
-                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-              }`}
-            >
-              🖥️ Horizontal 16:9
-              <span className="font-mono-tab text-[9px] opacity-70">LinkedIn · YouTube</span>
-            </button>
+          {/* Formato de salida: 3 TARJETAS GRANDES (estilo home-card), incluido el
+              cuadrado 1:1. Se arman desde FORMATS para no repetir markup. */}
+          <div className="mb-5">
+            <p className="mb-2 text-sm font-medium">¿Para dónde es el video?</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {FORMATS.map((f) => {
+                const active = aspectRatio === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setAspectRatio(f.id)}
+                    className="group relative flex flex-col items-center gap-1.5 rounded-xl border p-4 text-center transition-all duration-200 hover:-translate-y-0.5"
+                    style={{
+                      borderColor: active ? f.color : `${f.color}40`,
+                      backgroundColor: active ? `${f.color}1f` : `${f.color}0d`,
+                      boxShadow: active
+                        ? `0 0 0 2px ${f.color}, 0 8px 24px -10px ${f.color}`
+                        : undefined,
+                    }}
+                  >
+                    {/* Forma REAL del lienzo, para que se vea de un vistazo. */}
+                    <span className="flex h-12 items-center justify-center">
+                      <span
+                        className="rounded-sm"
+                        style={{
+                          ...f.box,
+                          backgroundColor: f.color,
+                          boxShadow: `0 0 14px ${f.color}66`,
+                        }}
+                      />
+                    </span>
+                    <span className="text-base font-semibold">
+                      {f.emoji} {f.title}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{f.where}</span>
+                    <span className="font-mono-tab text-[10px] text-muted-foreground/70">{f.size}</span>
+                    {active && (
+                      <span
+                        className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-white"
+                        style={{ backgroundColor: f.color }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <p className="mb-4 text-sm text-muted-foreground">

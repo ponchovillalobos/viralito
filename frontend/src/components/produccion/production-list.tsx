@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { ScheduleDialog } from "@/components/produccion/schedule-dialog";
-import { UploadHelperDialog } from "@/components/produccion/upload-helper-dialog";
 import { InstagramHelperDialog } from "@/components/produccion/instagram-helper-dialog";
 import { ScheduleStatusBadge } from "@/components/produccion/schedule-status-badge";
 import { FilterChip } from "@/components/produccion/filter-chip";
@@ -40,7 +39,6 @@ export function ProductionList() {
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewProject, setPreviewProject] = useState<ProjectExt | null>(null);
-  const [uploadHelperTarget, setUploadHelperTarget] = useState<ProjectExt | null>(null);
   const [instagramHelperTarget, setInstagramHelperTarget] = useState<ProjectExt | null>(null);
   const [publishingToLinkedin, setPublishingToLinkedin] = useState<string | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<ProjectExt | null>(null);
@@ -203,7 +201,7 @@ export function ProductionList() {
   // captionMeta (texto corto + hashtags propios; LinkedIn usa la versión larga).
   // Si el proyecto no tiene captionMeta, cae al caption general.
   const [copiedNetwork, setCopiedNetwork] = useState<string | null>(null);
-  function copyCaptionForNetwork(p: ProjectExt, net: "tiktok" | "instagram" | "linkedin") {
+  async function copyCaptionForNetwork(p: ProjectExt, net: "tiktok" | "instagram" | "linkedin") {
     const meta = (p as unknown as {
       captionMeta?: {
         caption_short?: string;
@@ -221,9 +219,13 @@ export function ProductionList() {
       else text = (meta.caption_short || text) + tags(meta.hashtags_tiktok);
     }
     if (!text.trim()) return;
-    navigator.clipboard.writeText(text.trim());
-    setCopiedNetwork(`${p.id}:${net}`);
-    setTimeout(() => setCopiedNetwork(null), 1800);
+    try {
+      await navigator.clipboard.writeText(text.trim());
+      setCopiedNetwork(`${p.id}:${net}`);
+      setTimeout(() => setCopiedNetwork(null), 1800);
+    } catch (err) {
+      toastError(err, "No se pudo copiar el texto");
+    }
   }
   const publishToLinkedIn = (p: ProjectExt) =>
     publishActions.publishToLinkedIn(p, setPublishingToLinkedin);
@@ -782,17 +784,6 @@ export function ProductionList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {uploadHelperTarget && (
-        <UploadHelperDialog
-          open={!!uploadHelperTarget}
-          onOpenChange={(open) => !open && setUploadHelperTarget(null)}
-          projectId={uploadHelperTarget.id}
-          caption={pickCaptionForPlatform(uploadHelperTarget, "tiktok") || (uploadHelperTarget.caption ?? "")}
-          tiktokHandle={tiktokHandle}
-          source={uploadHelperTarget.source ?? "short"}
-        />
-      )}
 
       {instagramHelperTarget && (
         <InstagramHelperDialog

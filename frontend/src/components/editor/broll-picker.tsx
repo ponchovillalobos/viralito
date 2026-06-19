@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Trash2 } from "lucide-react";
+import { Search, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import type { BRollClip } from "@/components/editor/workspace";
@@ -32,6 +32,7 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PexelsVideo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   async function search() {
     if (!query.trim()) return;
@@ -43,6 +44,7 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "search failed");
       setResults(data.videos ?? []);
+      setSearched(true);
     } catch (err) {
       toastError(err, "No se pudo buscar en Pexels");
     } finally {
@@ -78,7 +80,11 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
           onKeyDown={(e) => e.key === "Enter" && search()}
         />
         <Button onClick={search} disabled={loading}>
-          <Search className="h-3.5 w-3.5" />
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Search className="h-3.5 w-3.5" />
+          )}
         </Button>
       </div>
 
@@ -91,7 +97,12 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
               onClick={() => addClip(v)}
               className="group relative overflow-hidden rounded-md border border-border bg-card aspect-[9/16]"
             >
-              <img src={v.image} alt="" className="h-full w-full object-cover" />
+              <img
+                src={v.image}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
               <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/60 group-hover:opacity-100">
                 <Plus className="h-6 w-6 text-brand-pink" />
               </div>
@@ -101,6 +112,12 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
             </button>
           ))}
         </div>
+      )}
+
+      {searched && !loading && results.length === 0 && (
+        <p className="rounded-md border border-dashed border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">
+          Sin resultados para esa búsqueda. Probá otros términos.
+        </p>
       )}
 
       <div className="space-y-2">
@@ -115,7 +132,12 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
                 className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2"
               >
                 {c.thumbnail && (
-                  <img src={c.thumbnail} className="h-10 w-7 rounded object-cover" alt="" />
+                  <img
+                    src={c.thumbnail}
+                    loading="lazy"
+                    className="h-10 w-7 rounded object-cover"
+                    alt=""
+                  />
                 )}
                 <div className="flex-1 text-xs">
                   <div className="font-mono-tab">

@@ -82,6 +82,11 @@ interface Props {
 
 const COLUMN_MIN = 88; // px por celda (icono + nombre)
 const ROW_HEIGHT = 104;
+
+// Cache de JSON Lottie por url, a nivel MÓDULO: persiste aunque la celda
+// virtualizada se recicle al hacer scroll. Sin esto se re-fetchea el mismo JSON
+// cada vez que una celda vuelve a entrar en viewport y recibe hover.
+const lottieCache = new Map<string, object>();
 const FAVORITES_KEY = "viralito.stickers.favorites";
 const RECENTS_KEY = "viralito.stickers.recents";
 const RECENTS_CAP = 24; // sólo recordamos los 24 stickers más recientes
@@ -100,6 +105,11 @@ export function StickerPicker({ onAdd, currentTime, selectedCount = 0 }: Props) 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [gridWidth, setGridWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // currentTime cambia en cada tick del video padre. Lo leemos por ref dentro de
+  // handlePick para que ese callback NO se recree cada tick (lo que re-renderizaría
+  // todas las celdas virtualizadas vía cellProps).
+  const currentTimeRef = useRef(currentTime);
+  currentTimeRef.current = currentTime;
 
   // FAVORITOS y RECIENTES — persistidos en localStorage (sobreviven recargas).
   const favorites = useLocalStorageList(FAVORITES_KEY);
@@ -192,12 +202,14 @@ export function StickerPicker({ onAdd, currentTime, selectedCount = 0 }: Props) 
   const rowCount = Math.ceil(filtered.length / columnCount);
   const columnWidth = gridWidth > 0 ? Math.floor(gridWidth / columnCount) : COLUMN_MIN;
 
+  const recentsPush = recents.push;
+  const favoritesToggle = favorites.toggle;
   const handlePick = useCallback(
     (s: StickerEntry) => {
       // Registrar como RECIENTE (se persiste solo).
-      recents.push(s.id);
+      recentsPush(s.id);
       const base: IconStickerInput = {
-        at: Math.round(currentTime * 10) / 10,
+        at: Math.round(currentTimeRef.current * 10) / 10,
         duration: 2,
         position: "top-right",
         size: 120,
@@ -217,12 +229,25 @@ export function StickerPicker({ onAdd, currentTime, selectedCount = 0 }: Props) 
         onAdd({ ...base, icon: s.id });
       }
     },
-    [currentTime, onAdd, recents]
+    [onAdd, recentsPush]
   );
 
   const handleToggleFav = useCallback(
-    (s: StickerEntry) => favorites.toggle(s.id),
-    [favorites]
+    (s: StickerEntry) => favoritesToggle(s.id),
+    [favoritesToggle]
+  );
+
+  // Props del Grid memoizadas: sin esto se crea un objeto nuevo en cada render del
+  // padre (cada tick del video), forzando un re-render de TODAS las celdas montadas.
+  const cellProps = useMemo<CellProps>(
+    () => ({
+      items: filtered,
+      columnCount,
+      onPick: handlePick,
+      onToggleFav: handleToggleFav,
+      favSet,
+    }),
+    [filtered, columnCount, handlePick, handleToggleFav, favSet]
   );
 
   if (loading) {
@@ -326,13 +351,7 @@ export function StickerPicker({ onAdd, currentTime, selectedCount = 0 }: Props) 
         {gridWidth > 0 && filtered.length > 0 ? (
           <Grid
             cellComponent={Cell}
-            cellProps={{
-              items: filtered,
-              columnCount,
-              onPick: handlePick,
-              onToggleFav: handleToggleFav,
-              favSet,
-            }}
+            cellProps={cellProps}
             columnCount={columnCount}
             columnWidth={columnWidth}
             rowCount={rowCount}
@@ -449,17 +468,35 @@ function StickerCell({
   isFav: boolean;
 }) {
   const [hover, setHover] = useState(false);
-  const [lottieData, setLottieData] = useState<object | null>(null);
+  // Arranca del cache de módulo si ya se bajó antes (celda reciclada al scrollear).
+  const [lottieData, setLottieData] = useState<object | null>(
+    () => lottieCache.get(item.url) ?? null
+  );
   const lottieRef = useRef<LottieRefCurrentProps | null>(null);
 
+  // react-window recicla la MISMA instancia de celda para otro sticker al
+  // scrollear (sin remontar): si cambia la url, re-sincronizamos lottieData con
+  // el nuevo item (del cache si está) para no mostrar la animación del anterior.
+  const [prevUrl, setPrevUrl] = useState(item.url);
+  if (prevUrl !== item.url) {
+    setPrevUrl(item.url);
+    setLottieData(lottieCache.get(item.url) ?? null);
+  }
+
   // Lottie: traer el JSON SÓLO al primer hover (nunca al montar). Una vez bajado,
-  // queda cacheado en el estado de la celda para hovers siguientes.
+  // queda en el cache de MÓDULO (por url) para todas las celdas y reciclajes.
   useEffect(() => {
     if (item.type !== "lottie" || !hover || lottieData) return;
+    const cached = lottieCache.get(item.url);
+    if (cached) {
+      setLottieData(cached);
+      return;
+    }
     let cancelled = false;
     fetch(item.url)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
+        if (d) lottieCache.set(item.url, d);
         if (!cancelled && d) setLottieData(d);
       })
       .catch(() => {});
