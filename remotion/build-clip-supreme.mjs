@@ -75,6 +75,10 @@ const VALID_STYLES = [
   "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
   "graphics_pro", "graphics_max",
   "motion_pro", "motion_beat", "motion_grid", "editorial",
+  // Estilos de archivo: buildProjectForStyle ya los maneja; el b-roll lo puebla
+  // el pipeline (_apply_broll → /api/long_form/broll). Antes faltaban acá, así que
+  // elegirlos en largos fallaba con "style_id inválido".
+  "editorial_broll", "broll_full", "broll_pip",
 ];
 if (!VALID_STYLES.includes(styleId)) {
   console.error(`style_id inválido '${styleId}'. Válidos: ${VALID_STYLES.join(", ")}`);
