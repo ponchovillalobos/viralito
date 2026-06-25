@@ -533,6 +533,29 @@ def step_extract(
         return []
 
 
+def _blaze_trackpath(clip_video: Path) -> list[dict]:
+    """Detección de cara per-frame con BlazeFace (face_tracking.py) → trackPath
+    [{t,x,y,w,h}] en coords normalizadas. Más fiable que el Haar de track_subject
+    para encuadrar la CABEZA (no confunde manos/torso). Best-effort: [] si falla."""
+    out_json = clip_video.with_name(f"{clip_video.stem}_blaze.json")
+    try:
+        subprocess.run(
+            [
+                str(VENV_PYTHON), str(PYTHON_DIR / "face_tracking.py"),
+                str(clip_video), str(out_json), "--sample-every", "5",
+            ],
+            check=False, cwd=PYTHON_DIR, capture_output=True, text=True, timeout=180,
+        )
+        d = json.loads(out_json.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+    return [
+        {"t": s["t"], "x": s["cx"], "y": s["cy"], "w": s.get("w", 0.0), "h": s.get("h", 0.0)}
+        for s in d.get("samples", [])
+        if "cx" in s and "cy" in s
+    ]
+
+
 def _apply_tracking(clip_id: str, style_id: str) -> None:
     """Si el estilo pide motion tracking (ej. `hype` setea tracking=true), corre
     track_subject.py sobre el clip y parchea project.trackPath ANTES de build-props.
@@ -565,17 +588,23 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         if clip_video is None:
             return
         print(f"[tracking] detectando cara en {clip_id}…", file=sys.stderr, flush=True)
-        proc = subprocess.run(
-            [str(VENV_PYTHON), str(PYTHON_DIR / "track_subject.py"), str(clip_video), "0.15"],
-            check=False, cwd=PYTHON_DIR, capture_output=True, text=True, timeout=180,
-        )
-        line = next(
-            (l for l in reversed(proc.stdout.splitlines()) if l.strip().startswith("{")),
-            None,
-        )
-        if not line:
-            return
-        points = (json.loads(line) or {}).get("points") or []
+        # EDITORIAL usa BlazeFace (face_tracking.py): mucho más fiable que el Haar de
+        # track_subject, que confundía manos/torso con la cara y la ponía muy abajo →
+        # el panel encuadraba el cuerpo y CORTABA la cabeza. Los estilos legacy con
+        # tracking=true siguen en track_subject (paridad, sin cambios).
+        use_blaze = bool(data.get("editorialLayout")) and not data.get("tracking")
+        if use_blaze:
+            points = _blaze_trackpath(clip_video)
+        else:
+            proc = subprocess.run(
+                [str(VENV_PYTHON), str(PYTHON_DIR / "track_subject.py"), str(clip_video), "0.15"],
+                check=False, cwd=PYTHON_DIR, capture_output=True, text=True, timeout=180,
+            )
+            line = next(
+                (l for l in reversed(proc.stdout.splitlines()) if l.strip().startswith("{")),
+                None,
+            )
+            points = ((json.loads(line) or {}).get("points") or []) if line else []
         if not points:
             return
         data["trackPath"] = points

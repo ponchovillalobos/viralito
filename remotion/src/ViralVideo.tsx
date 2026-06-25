@@ -531,16 +531,30 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   }
 
   // SEGUIMIENTO INTELIGENTE EN COVER-CROP (panel editorial) — objectPosition.
-  // Cuando el contenedor del video RECORTA (panel editorial angosto, o aspecto
-  // distinto del source), objectFit:cover muestra solo una franja; por defecto el
-  // centro → si el que habla está a un lado, SE PIERDE (queja real del usuario).
-  // Con trackPath movemos la franja visible hacia la cara (X e Y) → el speaker
-  // siempre encuadrado, sin recortar ni reescalar el material. Sin trackPath →
-  // undefined → "50% 50%" nativo (render byte-idéntico al histórico).
-  const faceObjectPosition =
+  // Cuando el contenedor RECORTA (panel editorial angosto), objectFit:cover muestra
+  // solo una franja; por defecto el centro → si el que habla está a un lado, SE
+  // PIERDE. Movemos la franja visible hacia la CABEZA detectada (trackPath).
+  //
+  // CLAVE (feedback del usuario): la cabeza debe quedar centrada con AIRE arriba y a
+  // los lados, nunca cortada. Por eso clampeamos el punto a una banda segura: X con
+  // margen lateral, e Y a la zona ALTA-central (headroom) → el encuadre jamás baja
+  // al torso/piernas aunque la detección falle y dé un punto muy abajo. Suavizado
+  // fuerte (ventana 0.8s) para que no tiemble. Sin trackPath → undefined → "50% 50%"
+  // nativo (render byte-idéntico al histórico).
+  const headX =
     trackPath.length > 0
-      ? `${(Math.min(1, Math.max(0, sampleTrackAxisSmooth(trackPath, currentTime, "x"))) * 100).toFixed(2)}% ` +
-        `${(Math.min(1, Math.max(0, sampleTrackAxisSmooth(trackPath, currentTime, "y"))) * 100).toFixed(2)}%`
+      ? Math.min(0.9, Math.max(0.1, sampleTrackAxisSmooth(trackPath, currentTime, "x", 0.8)))
+      : null;
+  // HEADROOM: restamos un margen al Y de la cabeza para que el encuadre muestre algo
+  // de aire ARRIBA de la cabeza (no pegada al borde) y el cuerpo abajo. Clamp a una
+  // banda alta-central → nunca cae al torso/piernas (cortando la cabeza).
+  const headY =
+    trackPath.length > 0
+      ? Math.min(0.42, Math.max(0.0, sampleTrackAxisSmooth(trackPath, currentTime, "y", 0.8) - 0.1))
+      : null;
+  const faceObjectPosition =
+    headX !== null && headY !== null
+      ? `${(headX * 100).toFixed(2)}% ${(headY * 100).toFixed(2)}%`
       : undefined;
   // Solo en el panel editorial: ahí el recorte pierde la cara. En fullscreen el
   // auto-reframe por transform ya sigue al sujeto en vertical → no se toca.
@@ -657,6 +671,13 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   const baseTranslateX =
     shake + cameraMove.translateX + autoReframeTranslateX + autoReframeZoomTranslateX + trTx;
   const baseTranslateY = cameraMove.translateY + autoReframeZoomTranslateY + trTy;
+  // MENOS ZOOM en el panel editorial (feedback del usuario): los punches de
+  // reactionZoom/cameraMove escalan el video hacia adentro y RECORTAN la cabeza.
+  // En editorial el video del panel se queda en cover puro (scale<=1) → encuadre
+  // amplio, se ve cabeza + cuerpo. Fuera de editorial, sin cambios.
+  const panelVideoScale = editorialLayout ? Math.min(baseScale, 1) : baseScale;
+  const panelVideoTranslateX = editorialLayout ? 0 : baseTranslateX;
+  const panelVideoTranslateY = editorialLayout ? 0 : baseTranslateY;
 
   // F3 SUPREME — Color grading PROFESIONAL según densidad (mood-aware).
   // Antes: contrast(1.05) saturate(0.92) — imperceptible.
@@ -820,8 +841,8 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           // el resto del tiempo el transform es idéntico al histórico.
           transform:
             trRotY !== 0
-              ? `perspective(1200px) rotateY(${trRotY.toFixed(2)}deg) scale(${baseScale}) translate(${baseTranslateX}px, ${baseTranslateY}px)`
-              : `scale(${baseScale}) translate(${baseTranslateX}px, ${baseTranslateY}px)`,
+              ? `perspective(1200px) rotateY(${trRotY.toFixed(2)}deg) scale(${panelVideoScale}) translate(${panelVideoTranslateX}px, ${panelVideoTranslateY}px)`
+              : `scale(${panelVideoScale}) translate(${panelVideoTranslateX}px, ${panelVideoTranslateY}px)`,
         }}
       >
         {rawVideoUrl && (
