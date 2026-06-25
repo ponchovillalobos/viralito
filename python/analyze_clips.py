@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -307,15 +308,42 @@ def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
     return body.get("response", "").strip()
 
 
+_ONLINE_CACHE: bool | None = None
+
+
+def _online() -> bool:
+    """¿Hay internet + DNS? Resuelve el host del provider OAuth (NO conecta, solo DNS).
+    Si no resuelve es EXACTAMENTE el modo de falla offline (ERR_NAME_NOT_RESOLVED): en ese
+    caso claude/codex (que requieren red) van a fallar, así que el caller usa Ollama local
+    directo en vez de perder tiempo en intentos condenados. Cacheado por proceso.
+
+    Cero regresión online: si el host resuelve (internet OK), se sigue prefiriendo el modelo
+    frontier como siempre. Un falso-negativo solo pasaría sin DNS pero con red (rarísimo), y
+    aun así Ollama local funciona.
+    """
+    global _ONLINE_CACHE
+    if _ONLINE_CACHE is None:
+        try:
+            socket.setdefaulttimeout(2.0)
+            socket.gethostbyname("api.anthropic.com")
+            _ONLINE_CACHE = True
+        except OSError:
+            _ONLINE_CACHE = False
+    return _ONLINE_CACHE
+
+
 def clip_provider() -> str:
     """Mejor LLM para ELEGIR clips virales. Prefiere CLI OAuth (modelos frontier — Claude /
     ChatGPT — gratis con tu suscripción, MUCHO más listos que el Ollama local) sobre Ollama.
     Elegir bien qué es viral es la tarea más delicada del pipeline, así que va al mejor modelo.
     Override: VIRAL_CLIP_PROVIDER=claude|codex|ollama. Default: claude > codex > ollama.
+    OFFLINE: si no hay DNS, claude/codex fallarían → va directo a Ollama local (sin colgarse).
     """
     override = os.environ.get("VIRAL_CLIP_PROVIDER", "").strip().lower()
     if override in ("claude", "codex", "ollama"):
         return override
+    if not _online():
+        return "ollama"
     if shutil.which("claude"):
         return "claude"
     if shutil.which("codex"):

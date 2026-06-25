@@ -27,6 +27,7 @@ import os
 import random
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -389,8 +390,30 @@ def call_codex_cli(transcript_text: str, video_id: str, model: str | None = None
     return extract_json_from_text(stdout)
 
 
+_ONLINE_CACHE: bool | None = None
+
+
+def _online() -> bool:
+    """¿Hay internet + DNS? Resuelve el host del provider OAuth (solo DNS, no conecta).
+    Si no resuelve (offline / ERR_NAME_NOT_RESOLVED), claude/codex fallarían → se usa Ollama
+    local directo. Cacheado por proceso. Cero regresión online (si resuelve, prefiere claude).
+    """
+    global _ONLINE_CACHE
+    if _ONLINE_CACHE is None:
+        try:
+            socket.setdefaulttimeout(2.0)
+            socket.gethostbyname("api.anthropic.com")
+            _ONLINE_CACHE = True
+        except OSError:
+            _ONLINE_CACHE = False
+    return _ONLINE_CACHE
+
+
 def auto_provider() -> str:
-    """Detecta el mejor provider OAuth disponible. Prefiere claude > codex > ollama."""
+    """Detecta el mejor provider OAuth disponible. Prefiere claude > codex > ollama.
+    OFFLINE (sin DNS): va directo a Ollama local para no colgarse en claude/codex."""
+    if not _online():
+        return "ollama"
     if shutil.which("claude"):
         return "claude"
     if shutil.which("codex"):

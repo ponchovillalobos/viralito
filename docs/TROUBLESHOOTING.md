@@ -197,6 +197,15 @@ Si no responde:
 - Verificar que el modelo está instalado: `ollama list`
 - Pull de nuevo: `ollama pull qwen3:1.7b`
 
+### Sin internet, el análisis de clips se siente lento o usa el modelo local
+
+El paso de **analizar** (elegir los mejores momentos) y el de **caption** prefieren el
+modelo frontier vía CLI OAuth (claude/codex) cuando hay internet. **Offline** detectan que
+no hay DNS y van **directo a Ollama local** (sin colgarse intentando la red). Es decir:
+funciona offline, solo que la selección de clips la hace el modelo local (algo menos fina).
+El **render de los clips sí es 100% offline**. Requisito: tener los modelos de WhisperX ya
+descargados (la primera vez `Configurar todo` los cachea) y Ollama instalado.
+
 ### "Terminó pero faltan clips"
 
 El pipeline ahora reporta los clips **realmente renderizados** (no solo los extraídos):
