@@ -17,7 +17,8 @@ async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
         .filter((f) => f.endsWith(".json"))
         .map(async (f) => {
           try {
-            const raw = await fs.readFile(path.join(dir, f), "utf-8");
+            const fp = path.join(dir, f);
+            const [raw, stat] = await Promise.all([fs.readFile(fp, "utf-8"), fs.stat(fp)]);
             const data = JSON.parse(raw);
             // El nombre de archivo es la fuente de verdad del `id`: el endpoint
             // [id]/route.ts resuelve `${id}.json` y los renders se escriben como
@@ -27,7 +28,11 @@ async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
             // (c) hacía que el preview de B/C cayera por prefix-match al de A.
             // Derivar del filename garantiza un id único y consistente con disco.
             const id = path.basename(f, ".json");
-            return { ...data, id, source };
+            // mtime = cuándo se creó/rendió DE VERDAD. Los clips de largos no setean
+            // `updatedAt` en su JSON → sin esto caían al FINAL de "Mis videos". Ahora
+            // los nuevos quedan al PRINCIPIO (orden por fecha real, más nuevo primero).
+            const mtime = stat.mtime.toISOString();
+            return { ...data, id, source, updatedAt: data.updatedAt ?? mtime };
           } catch {
             return null;
           }

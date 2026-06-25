@@ -1377,7 +1377,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   ) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       {/* UN solo <audio> compartido para las muestras de música del paso 2:
           reproducir un mood pausa el anterior, y a los ~10s se detiene solo. */}
       <audio
@@ -2263,41 +2263,44 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
         </Card>
       )}
 
-      {/* Navegación — PEGADA al fondo de la pantalla (sticky) para que "Siguiente"
-          esté SIEMPRE visible sin tener que hacer scroll, aunque el paso sea largo.
-          El contenido del paso scrollea por debajo; el fondo + blur lo mantienen legible. */}
+      {/* Navegación — barra FIJA al fondo del viewport: "Siguiente" SIEMPRE visible
+          sin scroll, incluso al cargar un paso largo. `fixed` se ancla a la pantalla
+          (sticky no servía: al cargar arriba, el botón seguía abajo del fold). La raíz
+          lleva pb-28 para que el contenido no quede tapado por la barra. */}
       {step < 5 && (
-        <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-border bg-background/90 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-          <Button
-            variant="ghost"
-            onClick={() => setStep(Math.max(1, step - 1))}
-            disabled={step === 1 || building || transcribing}
-          >
-            <ChevronLeft className="mr-1.5 h-4 w-4" />
-            Atrás
-          </Button>
-          {step < 4 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
             <Button
-              onClick={step === 1 ? advanceFromStep1 : () => setStep(step + 1)}
-              disabled={
-                transcribing ||
-                (step === 1 && selectedVideos.size === 0) ||
-                (step === 2 && selectedStyles.length === 0)
-              }
+              variant="ghost"
+              onClick={() => setStep(Math.max(1, step - 1))}
+              disabled={step === 1 || building || transcribing}
             >
-              {step === 1 && transcribing ? (
-                <>
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  Escuchando tu video…
-                </>
-              ) : (
-                <>
-                  {step === 1 ? "Siguiente: elegir estilo" : "Siguiente"}
-                  <ChevronRight className="ml-1.5 h-4 w-4" />
-                </>
-              )}
+              <ChevronLeft className="mr-1.5 h-4 w-4" />
+              Atrás
             </Button>
-          )}
+            {step < 4 && (
+              <Button
+                onClick={step === 1 ? advanceFromStep1 : () => setStep(step + 1)}
+                disabled={
+                  transcribing ||
+                  (step === 1 && selectedVideos.size === 0) ||
+                  (step === 2 && selectedStyles.length === 0)
+                }
+              >
+                {step === 1 && transcribing ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Escuchando tu video…
+                  </>
+                ) : (
+                  <>
+                    {step === 1 ? "Siguiente: elegir estilo" : "Siguiente"}
+                    <ChevronRight className="ml-1.5 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

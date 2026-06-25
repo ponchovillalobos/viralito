@@ -841,7 +841,7 @@ export function LongFormWizard() {
 
   // ─── Render: wizard de 4 pasos ──────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       <WizardHeader />
 
       {/* Stepper visual */}
@@ -1686,30 +1686,33 @@ export function LongFormWizard() {
         </Card>
       )}
 
-      {/* Navegación — PEGADA al fondo (sticky) para que "Siguiente" esté SIEMPRE
-          visible sin scroll, aunque el paso sea largo. El contenido scrollea debajo. */}
-      <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-border bg-background/90 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <Button
-          variant="ghost"
-          // Sin render, el paso 3 (color/tipografía) no aplica: se salta en ambos sentidos.
-          onClick={() => setStep(step === 4 && !doRender ? 2 : Math.max(1, step - 1))}
-          disabled={step === 1 || submitting}
-        >
-          <ChevronLeft className="mr-1.5 h-4 w-4" />
-          Atrás
-        </Button>
-        {step < TOTAL_STEPS && (
+      {/* Navegación — barra FIJA al fondo del viewport: "Siguiente" SIEMPRE visible sin
+          scroll, incluso al cargar un paso largo. `fixed` se ancla a la pantalla (sticky
+          no servía). La raíz lleva pb-28 para que el contenido no quede tapado. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
           <Button
-            onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
-            disabled={
-              (step === 1 && selectedIds.size === 0) ||
-              (step === 2 && doRender && selectedStyles.length === 0)
-            }
+            variant="ghost"
+            // Sin render, el paso 3 (color/tipografía) no aplica: se salta en ambos sentidos.
+            onClick={() => setStep(step === 4 && !doRender ? 2 : Math.max(1, step - 1))}
+            disabled={step === 1 || submitting}
           >
-            Siguiente
-            <ChevronRight className="ml-1.5 h-4 w-4" />
+            <ChevronLeft className="mr-1.5 h-4 w-4" />
+            Atrás
           </Button>
-        )}
+          {step < TOTAL_STEPS && (
+            <Button
+              onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
+              disabled={
+                (step === 1 && selectedIds.size === 0) ||
+                (step === 2 && doRender && selectedStyles.length === 0)
+              }
+            >
+              Siguiente
+              <ChevronRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Confirmación de borrado (acción destructiva, irreversible). */}
