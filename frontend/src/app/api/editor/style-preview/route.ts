@@ -22,6 +22,7 @@ import { offthreadCacheFlag } from "@/lib/render-utils";
 import { pickTopKeywords, type TranscriptWord } from "@/lib/content-title";
 import { runProcess } from "@/lib/run-process";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
+import { withSerialLock } from "@/lib/serial-lock";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -135,54 +136,63 @@ export async function POST(req: NextRequest) {
     await writeJsonFileAtomic(projectPath, project);
 
     const propsName = `props_preview_${cacheKey}.json`;
-    const buildRun = await runProcess(
-      "node",
-      ["build-props.mjs", videoId, projectPath, propsName],
-      REMOTION_DIR,
-      undefined,
-      120_000
-    );
-    if (!buildRun.ok) {
-      return NextResponse.json(
-        { error: `build-props: ${buildRun.stderr.slice(-300)}` },
-        { status: 500 }
-      );
-    }
 
-    // Frame al 35% de la duración: suele haber cara + subtítulo activo.
-    const frame = Math.max(1, Math.floor(transcript.duration * 0.35 * 30));
-    const npxExe = process.platform === "win32" ? "npx.cmd" : "npx";
-    const needsQuote = process.platform === "win32" && /\s/.test(outPng);
-    const outArg = needsQuote ? `"${outPng}"` : outPng;
-    // motion=true → 3 segundos (90 frames) EN MOVIMIENTO desde ese punto; si no, still.
-    const args = motion
-      ? [
-          "remotion", "render", "src/index.ts", "ViralVideo",
-          outArg, `--frames=${frame}-${frame + 89}`, `--props=${propsName}`,
-          "--scale=0.4", "--concurrency=4", "--timeout=120000",
-          offthreadCacheFlag(),
-        ]
-      : [
-          "remotion", "still", "src/index.ts", "ViralVideo",
-          outArg, `--frame=${frame}`, `--props=${propsName}`, "--scale=0.5",
-          "--timeout=120000",
-        ];
-    const stillRun = await runProcess(
-      npxExe,
-      args,
-      REMOTION_DIR,
-      undefined,
-      motion ? 280_000 : 240_000
-    );
-    // limpiar props temporal (best-effort)
-    await fs.rm(path.join(REMOTION_DIR, propsName), { force: true }).catch(() => {});
-
-    const exists = await fs.access(outPng).then(() => true).catch(() => false);
-    if (!stillRun.ok || !exists) {
-      return NextResponse.json(
-        { error: `preview falló: ${stillRun.stderr.slice(-300)}` },
-        { status: 500 }
+    // Serializamos el SPAWN de build-props + remotion still/render: cada preview lanza
+    // un Chrome headless (Remotion). Varios clicks de "comparar estilos" a la vez
+    // arrancaban N Chrome simultáneos y reventaban la RAM. Con el lock se encolan y
+    // corren de a uno. Lo PESADO (spawn) va dentro; las respuestas se devuelven afuera.
+    const spawnResult = await withSerialLock("style-preview", async (): Promise<
+      | { kind: "error"; status: number; message: string }
+      | { kind: "ok" }
+    > => {
+      const buildRun = await runProcess(
+        "node",
+        ["build-props.mjs", videoId, projectPath, propsName],
+        REMOTION_DIR,
+        undefined,
+        120_000
       );
+      if (!buildRun.ok) {
+        return { kind: "error", status: 500, message: `build-props: ${buildRun.stderr.slice(-300)}` };
+      }
+
+      // Frame al 35% de la duración: suele haber cara + subtítulo activo.
+      const frame = Math.max(1, Math.floor(transcript.duration * 0.35 * 30));
+      const npxExe = process.platform === "win32" ? "npx.cmd" : "npx";
+      const needsQuote = process.platform === "win32" && /\s/.test(outPng);
+      const outArg = needsQuote ? `"${outPng}"` : outPng;
+      // motion=true → 3 segundos (90 frames) EN MOVIMIENTO desde ese punto; si no, still.
+      const args = motion
+        ? [
+            "remotion", "render", "src/index.ts", "ViralVideo",
+            outArg, `--frames=${frame}-${frame + 89}`, `--props=${propsName}`,
+            "--scale=0.4", "--concurrency=4", "--timeout=120000",
+            offthreadCacheFlag(),
+          ]
+        : [
+            "remotion", "still", "src/index.ts", "ViralVideo",
+            outArg, `--frame=${frame}`, `--props=${propsName}`, "--scale=0.5",
+            "--timeout=120000",
+          ];
+      const stillRun = await runProcess(
+        npxExe,
+        args,
+        REMOTION_DIR,
+        undefined,
+        motion ? 280_000 : 240_000
+      );
+      // limpiar props temporal (best-effort)
+      await fs.rm(path.join(REMOTION_DIR, propsName), { force: true }).catch(() => {});
+
+      const exists = await fs.access(outPng).then(() => true).catch(() => false);
+      if (!stillRun.ok || !exists) {
+        return { kind: "error", status: 500, message: `preview falló: ${stillRun.stderr.slice(-300)}` };
+      }
+      return { kind: "ok" };
+    });
+
+    if (spawnResult.kind === "error") {
+      return NextResponse.json({ error: spawnResult.message }, { status: spawnResult.status });
     }
     return NextResponse.json({ ok: true, url, motion, cached: false });
   } catch (err) {

@@ -17,7 +17,11 @@
  * caller sobre el .mp4 que devuelve este server (idéntico al de `npx remotion
  * render`): este módulo NO los toca.
  */
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  spawn,
+  execFile,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import os from "node:os";
 import readline from "node:readline";
 import { REMOTION_DIR } from "@/lib/paths";
@@ -299,17 +303,90 @@ export async function renderWithServer(opts: RenderServerOpts): Promise<string> 
 }
 
 /**
+ * LIMPIEZA DE HUÉRFANOS AL BOOT — mata procesos `render-server.mjs` que quedaron vivos
+ * de una sesión ANTERIOR del server Next. Cuando Next se reinicia (crash, recarga dura,
+ * cierre brusco), el `child` que manejaba este módulo se pierde de la memoria pero el
+ * proceso Node + su Chrome headless siguen corriendo y comiendo RAM para siempre. Como
+ * esto corre ANTES del warmup (que es quien arranca NUESTRO render-server), cualquier
+ * `render-server.mjs` vivo en este momento es necesariamente de una sesión vieja → seguro
+ * matarlo. Best-effort y conservador: identifica por cmdline `render-server.mjs` y excluye
+ * el PID propio. Si no puede identificar con certeza, no mata nada.
+ */
+function sweepOrphanRenderServers(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const selfPid = process.pid;
+
+    const killPid = (pid: number) => {
+      if (!Number.isFinite(pid) || pid <= 0 || pid === selfPid) return;
+      try {
+        if (process.platform === "win32") {
+          // /T mata también el árbol (el Chrome headless que cuelga del render-server).
+          execFile("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true }, () => {});
+        } else {
+          process.kill(pid, "SIGKILL");
+        }
+      } catch {
+        /* ya muerto o sin permiso: best-effort */
+      }
+    };
+
+    try {
+      if (process.platform === "win32") {
+        // Lista PID + CommandLine de todos los node.exe; filtramos los que corren
+        // render-server.mjs. Usamos PowerShell/CIM (CommandLine fiable, sin parsear CSV).
+        const ps =
+          "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | " +
+          "Where-Object { $_.CommandLine -like '*render-server.mjs*' } | " +
+          "Select-Object -ExpandProperty ProcessId";
+        execFile(
+          "powershell.exe",
+          ["-NoProfile", "-NonInteractive", "-Command", ps],
+          { windowsHide: true, timeout: 8000 },
+          (err, stdout) => {
+            if (!err && stdout) {
+              for (const line of stdout.split(/\r?\n/)) {
+                const pid = parseInt(line.trim(), 10);
+                if (Number.isFinite(pid)) killPid(pid);
+              }
+            }
+            resolve();
+          }
+        );
+      } else {
+        // POSIX: pgrep -f matchea contra la cmdline completa.
+        execFile("pgrep", ["-f", "render-server.mjs"], { timeout: 8000 }, (err, stdout) => {
+          if (!err && stdout) {
+            for (const line of stdout.split(/\r?\n/)) {
+              const pid = parseInt(line.trim(), 10);
+              if (Number.isFinite(pid)) killPid(pid);
+            }
+          }
+          resolve();
+        });
+      }
+    } catch {
+      resolve(); // nunca debe romper el boot
+    }
+  });
+}
+
+/**
  * PRE-CALENTADO (#7) — arranca el render-server (y por ende arma el bundle webpack)
  * de forma best-effort, SIN bloquear ni propagar errores. Lo llama instrumentation.ts
  * al iniciar la app para que el primer render ya encuentre el bundle listo en vez de
  * pagar los 15-40s de bundle en caliente. Si está deshabilitado, es no-op.
+ *
+ * Antes de arrancar el nuestro, barre render-servers HUÉRFANOS de sesiones anteriores
+ * (Chrome zombie comiendo RAM). El sweep es best-effort y NO bloquea el warmup.
  */
 export function warmup(): void {
   if (!renderServerEnabled()) return;
   try {
-    // No await: arranque en segundo plano. Tragamos cualquier error (el fallback
-    // al camino viejo sigue intacto si el server no levanta).
-    void ensureServer().catch(() => {});
+    // Matar huérfanos primero, LUEGO arrancar el nuestro. Encadenamos pero tragamos
+    // cualquier error del sweep para que un fallo ahí no impida el arranque del server.
+    void sweepOrphanRenderServers()
+      .catch(() => {})
+      .then(() => ensureServer().catch(() => {}));
   } catch {
     /* nunca debe romper el arranque de la app */
   }

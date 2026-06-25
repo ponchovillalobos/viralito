@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PROJECTS_DIR, RENDERS_DIR, LF_ROOT, LF_RENDERS, DATA_ROOT } from "@/lib/paths";
 import { isSafeId } from "@/lib/safe-id";
+import { writeJsonFileAtomic } from "@/lib/atomic-write";
 
 export const dynamic = "force-dynamic";
 
@@ -50,13 +51,10 @@ async function loadProject(id: string): Promise<ProjectPayload | null> {
 }
 
 async function saveProject(id: string, data: ProjectPayload): Promise<void> {
-  await fs.mkdir(PROJECTS_DIR, { recursive: true });
   data.updatedAt = new Date().toISOString();
-  await fs.writeFile(
-    path.join(PROJECTS_DIR, `${id}.json`),
-    JSON.stringify(data, null, 2),
-    "utf-8"
-  );
+  // Escritura ATÓMICA (tmp + rename): un writeFile directo que se corta a mitad dejaba
+  // el project.json truncado/corrupto. writeJsonFileAtomic ya hace el mkdir del dir.
+  await writeJsonFileAtomic(path.join(PROJECTS_DIR, `${id}.json`), data);
 }
 
 export async function GET(

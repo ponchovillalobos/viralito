@@ -8,6 +8,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DATA_ROOT } from "./paths";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
+import { withSerialLock } from "@/lib/serial-lock";
 
 export interface UserSettings {
   handles: {
@@ -178,6 +179,11 @@ export async function readSettings(): Promise<UserSettings> {
 }
 
 export async function writeSettings(patch: Partial<UserSettings>): Promise<UserSettings> {
+  // Serializamos TODO el read-modify-write: dos callbacks OAuth concurrentes (ej.
+  // TikTok y LinkedIn conectándose a la vez) leían el mismo `current` y el último en
+  // escribir pisaba los tokens del otro. Con el lock, el segundo lee el archivo ya
+  // actualizado por el primero. La escritura final ya es atómica (writeJsonFileAtomic).
+  return withSerialLock("user-settings", async () => {
   const current = await readSettings();
   const next: UserSettings = {
     handles: {
@@ -226,6 +232,7 @@ export async function writeSettings(patch: Partial<UserSettings>): Promise<UserS
   };
   await writeJsonFileAtomic(SETTINGS_FILE, next);
   return next;
+  });
 }
 
 /** True si tenemos credenciales de app TikTok configuradas */

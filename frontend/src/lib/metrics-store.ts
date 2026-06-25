@@ -10,6 +10,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DATA_ROOT } from "@/lib/paths";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
+import { withSerialLock } from "@/lib/serial-lock";
 
 const STORE_FILE = path.join(path.dirname(DATA_ROOT), "metrics.json");
 
@@ -70,19 +71,11 @@ async function writeStore(store: Store): Promise<void> {
   await writeJsonFileAtomic(STORE_FILE, store);
 }
 
-let writeLock: Promise<void> = Promise.resolve();
-async function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const previous = writeLock;
-  let release!: () => void;
-  writeLock = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  try {
-    await previous;
-    return await fn();
-  } finally {
-    release();
-  }
+// Read-modify-write serializado con el helper compartido (serial-lock.ts): dos
+// requests concurrentes que agregan/actualizan métricas no se pisan el JSON. Antes
+// había un mutex casero acá; ahora usamos el lock global por clave "metrics".
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withSerialLock("metrics", fn);
 }
 
 export async function listEntries(): Promise<MetricEntry[]> {
