@@ -1700,18 +1700,41 @@ export function LongFormWizard() {
             <ChevronLeft className="mr-1.5 h-4 w-4" />
             Atrás
           </Button>
-          {step < TOTAL_STEPS && (
-            <Button
-              onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
-              disabled={
-                (step === 1 && selectedIds.size === 0) ||
-                (step === 2 && doRender && selectedStyles.length === 0)
-              }
-            >
-              Siguiente
-              <ChevronRight className="ml-1.5 h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Atajo "generar directo": con video + estilo elegidos, genera TODO de un saque
+                (modo full: analiza + recorta + renderiza, sin revisar paso por paso) usando
+                color/fuente por defecto. Lo que el usuario pidió: menos clicks. */}
+            {step < TOTAL_STEPS && doRender && selectedIds.size > 0 && selectedStyles.length > 0 && (
+              <Button
+                onClick={() => startPipeline("full")}
+                disabled={submitting}
+                className="bg-violet-500 text-white hover:bg-violet-400"
+                title="Genera todos los clips de una, sin revisarlos uno por uno (usa color y fuente por defecto)"
+              >
+                {submitting ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="mr-1.5">⚡</span>
+                )}
+                Generar todo ya
+              </Button>
+            )}
+            {step < TOTAL_STEPS && (
+              <Button
+                variant={
+                  doRender && selectedIds.size > 0 && selectedStyles.length > 0 ? "outline" : "default"
+                }
+                onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
+                disabled={
+                  (step === 1 && selectedIds.size === 0) ||
+                  (step === 2 && doRender && selectedStyles.length === 0)
+                }
+              >
+                Siguiente
+                <ChevronRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

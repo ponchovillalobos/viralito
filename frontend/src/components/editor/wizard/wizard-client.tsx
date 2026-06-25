@@ -2278,28 +2278,49 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               <ChevronLeft className="mr-1.5 h-4 w-4" />
               Atrás
             </Button>
-            {step < 4 && (
-              <Button
-                onClick={step === 1 ? advanceFromStep1 : () => setStep(step + 1)}
-                disabled={
-                  transcribing ||
-                  (step === 1 && selectedVideos.size === 0) ||
-                  (step === 2 && selectedStyles.length === 0)
-                }
-              >
-                {step === 1 && transcribing ? (
-                  <>
+            <div className="flex items-center gap-2">
+              {/* Atajo "crear ya": con video (ya transcrito en el paso 1) + estilo elegido,
+                  crea directo con color/opciones por defecto, sin pasar por los pasos
+                  siguientes. Lo que el usuario pidió: menos clicks. */}
+              {step >= 2 && step < 4 && selectedStyles.length > 0 && (
+                <Button
+                  onClick={() => handleBuild()}
+                  disabled={building || transcribing}
+                  className="bg-brand-pink text-white hover:bg-brand-pink/90"
+                  title="Crea el/los video(s) ya, con color y opciones por defecto"
+                >
+                  {building ? (
                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                    Escuchando tu video…
-                  </>
-                ) : (
-                  <>
-                    {step === 1 ? "Siguiente: elegir estilo" : "Siguiente"}
-                    <ChevronRight className="ml-1.5 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            )}
+                  ) : (
+                    <span className="mr-1.5">⚡</span>
+                  )}
+                  Crear ya
+                </Button>
+              )}
+              {step < 4 && (
+                <Button
+                  variant={step >= 2 && selectedStyles.length > 0 ? "outline" : "default"}
+                  onClick={step === 1 ? advanceFromStep1 : () => setStep(step + 1)}
+                  disabled={
+                    transcribing ||
+                    (step === 1 && selectedVideos.size === 0) ||
+                    (step === 2 && selectedStyles.length === 0)
+                  }
+                >
+                  {step === 1 && transcribing ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      Escuchando tu video…
+                    </>
+                  ) : (
+                    <>
+                      {step === 1 ? "Siguiente: elegir estilo" : "Siguiente"}
+                      <ChevronRight className="ml-1.5 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
