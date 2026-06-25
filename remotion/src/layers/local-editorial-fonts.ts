@@ -29,13 +29,34 @@ const VAR = "100 900"; // rango de pesos para fuentes variables [wght]
  * El render corre en navegador (Chrome headless) → FontFace/document existen. Si
  * por alguna razón el módulo se evalúa en Node (sin FontFace), es no-op.
  */
+// Tope por fuente: si una carga no resuelve en este tiempo, seguimos con fuente de
+// sistema en vez de COLGAR el render. Crítico bajo render concurrente de largos:
+// el browser limita ~6 conexiones por host y 24 fuentes + assets pueden saturarlas,
+// dejando una carga esperando indefinidamente. Sin este tope, ese delayRender no se
+// limpia y Remotion aborta el clip ("delayRender not cleared after 118000ms").
+const FONT_LOAD_TIMEOUT_MS = 12000;
+
 const F = (
   file: string,
   family: string,
   opts: { style?: "normal" | "italic"; weight?: string } = {}
 ): string => {
   if (typeof FontFace === "undefined" || typeof document === "undefined") return family;
-  const handle = delayRender(`local-font ${family} (${file})`);
+  const handle = delayRender(`local-font ${family} (${file})`, {
+    timeoutInMilliseconds: 60000,
+  });
+  let cleared = false;
+  const clear = () => {
+    if (cleared) return;
+    cleared = true;
+    try {
+      continueRender(handle);
+    } catch {
+      /* handle ya resuelto */
+    }
+  };
+  // Garantía DURA: pase lo que pase con la carga, el delayRender se limpia ≤12s.
+  const timer = setTimeout(clear, FONT_LOAD_TIMEOUT_MS);
   try {
     const face = new FontFace(family, `url('${staticFile(`fonts/${file}`)}') format('truetype')`, {
       style: opts.style ?? "normal",
@@ -50,9 +71,13 @@ const F = (
       .catch(() => {
         // .ttf faltante/corrupto → se ignora; cae a la fuente de sistema.
       })
-      .finally(() => continueRender(handle));
+      .finally(() => {
+        clearTimeout(timer);
+        clear();
+      });
   } catch {
-    continueRender(handle);
+    clearTimeout(timer);
+    clear();
   }
   return family;
 };

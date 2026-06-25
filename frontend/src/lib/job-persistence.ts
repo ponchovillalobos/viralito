@@ -40,16 +40,58 @@ export function loadSnapshot<T>(fileName: string): T[] {
   }
 }
 
-/** Escritura atómica síncrona (tmp + rename). No tira: loguea y sigue. */
+/** Pausa síncrona corta (sin busy-spin) — para el backoff del rename en Windows. */
+function sleepSync(ms: number): void {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    // SharedArrayBuffer deshabilitado (raro en Node server): degradar a busy-wait corto.
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      /* spin */
+    }
+  }
+}
+
+/**
+ * rename con reintentos. En Windows el rename atómico falla con EPERM/EBUSY/EACCES si
+ * OTRO proceso tiene el destino abierto un instante (antivirus/Defender escaneando el
+ * .json, el indexador, un lector concurrente). Reintentar tras una pausa corta resuelve
+ * el lock transitorio en vez de perder ese guardado. Mismo patrón que render-utils.
+ */
+function renameWithRetry(tmp: string, final: string, attempts = 6): void {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      renameSync(tmp, final);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const transient = code === "EPERM" || code === "EBUSY" || code === "EACCES";
+      if (transient && i < attempts - 1) {
+        sleepSync(100 + i * 80); // 100,180,260,340,420ms — total ~1.3s de margen
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/** Escritura atómica síncrona (tmp + rename con reintentos). No tira: loguea y sigue. */
 function writeAtomic(fileName: string, snapshot: unknown): void {
+  const tmp = path.join(JOBS_DIR, `${fileName}.tmp`);
+  const final = path.join(JOBS_DIR, fileName);
   try {
     mkdirSync(JOBS_DIR, { recursive: true });
-    const tmp = path.join(JOBS_DIR, `${fileName}.tmp`);
-    const final = path.join(JOBS_DIR, fileName);
     writeFileSync(tmp, JSON.stringify(snapshot), "utf-8");
-    renameSync(tmp, final);
+    renameWithRetry(tmp, final);
   } catch (err) {
-    console.error(`[job-persistence] no se pudo guardar ${fileName}:`, err);
+    // Último recurso: si el rename no destrabó, escribir DIRECTO sobre el final (no
+    // atómico, pero mejor persistir el estado que perderlo). Si también falla, loguear.
+    try {
+      writeFileSync(final, JSON.stringify(snapshot), "utf-8");
+    } catch {
+      console.error(`[job-persistence] no se pudo guardar ${fileName}:`, err);
+    }
   }
 }
 
