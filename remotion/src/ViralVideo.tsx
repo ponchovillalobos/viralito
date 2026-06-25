@@ -530,6 +530,22 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
     autoReframeZoomTranslateY = Math.max(-maxTy, Math.min(maxTy, desiredTy));
   }
 
+  // SEGUIMIENTO INTELIGENTE EN COVER-CROP (panel editorial) — objectPosition.
+  // Cuando el contenedor del video RECORTA (panel editorial angosto, o aspecto
+  // distinto del source), objectFit:cover muestra solo una franja; por defecto el
+  // centro → si el que habla está a un lado, SE PIERDE (queja real del usuario).
+  // Con trackPath movemos la franja visible hacia la cara (X e Y) → el speaker
+  // siempre encuadrado, sin recortar ni reescalar el material. Sin trackPath →
+  // undefined → "50% 50%" nativo (render byte-idéntico al histórico).
+  const faceObjectPosition =
+    trackPath.length > 0
+      ? `${(Math.min(1, Math.max(0, sampleTrackAxisSmooth(trackPath, currentTime, "x"))) * 100).toFixed(2)}% ` +
+        `${(Math.min(1, Math.max(0, sampleTrackAxisSmooth(trackPath, currentTime, "y"))) * 100).toFixed(2)}%`
+      : undefined;
+  // Solo en el panel editorial: ahí el recorte pierde la cara. En fullscreen el
+  // auto-reframe por transform ya sigue al sujeto en vertical → no se toca.
+  const panelObjectPosition = editorialLayout ? faceObjectPosition : undefined;
+
   const activeAnim = animations.find(
     (a) => currentTime >= a.at && currentTime <= a.at + 0.5
   );
@@ -818,6 +834,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
+                  objectPosition: panelObjectPosition,
                   filter: videoFilter,
                 }}
               />
@@ -829,6 +846,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: panelObjectPosition,
                 filter: videoFilter,
               }}
             />

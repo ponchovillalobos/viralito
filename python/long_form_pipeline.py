@@ -550,7 +550,10 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         if not project_path.exists():
             return
         data = json.loads(project_path.read_text(encoding="utf-8"))
-        if not data.get("tracking"):
+        # Corre tracking si el estilo lo pide (tracking=true) O si es EDITORIAL: el
+        # panel lateral recorta el video y, sin trackPath, pierde al que habla.
+        # ViralVideo usa el trackPath para mover objectPosition hacia la cara.
+        if not data.get("tracking") and not data.get("editorialLayout"):
             return
         # Resolver el clip extraído (normalmente .mp4)
         clip_video = None
