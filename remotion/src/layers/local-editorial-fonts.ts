@@ -1,4 +1,4 @@
-import { staticFile, delayRender, continueRender } from "remotion";
+import { staticFile } from "remotion";
 
 /**
  * Fuentes editoriales OFFLINE — antes se bajaban de fonts.gstatic.com EN CADA
@@ -20,64 +20,40 @@ import { staticFile, delayRender, continueRender } from "remotion";
 const VAR = "100 900"; // rango de pesos para fuentes variables [wght]
 
 /**
- * Registra una fuente local con red de seguridad DURA. A diferencia de
- * `@remotion/fonts.loadFont` (que en caso de fallo llama `cancelRender` y ABORTA
- * el render), aquí el path de error hace `continueRender`: si faltara/se corrompiera
- * el .ttf, el navegador cae a la fuente de sistema y el render IGUAL sale. Nunca
- * más un render abortado por una fuente (el bug que dejó "videos sin salir").
+ * Registra una fuente local en modo LAZY — el navegador la descarga SOLO cuando un
+ * glyph la usa (el tema activo usa 2-3 de estas, no las 24). Decisión clave de robustez:
  *
- * El render corre en navegador (Chrome headless) → FontFace/document existen. Si
- * por alguna razón el módulo se evalúa en Node (sin FontFace), es no-op.
+ *  - NUNCA usa `delayRender`. Antes, una `delayRender` por fuente bloqueaba el render
+ *    hasta que el .ttf cargara; bajo el render CONCURRENTE de largos (varios clips ×
+ *    varias pestañas) el browser satura sus ~6 conexiones por host —que la transmisión
+ *    de OffthreadVideo ya ocupa— y la descarga de UNA fuente quedaba esperando para
+ *    siempre → la delayRender nunca se limpiaba → Remotion ABORTABA el clip
+ *    ("delayRender 'local-font ...' not cleared after 58000ms"). (El `setTimeout` que
+ *    intenté NO sirve: Remotion controla los timers en el render y no lo dispara.)
+ *  - NO llama `.load()` eager: si bajara las 24 de golpe, competirían por las conexiones
+ *    con las fuentes que SÍ importan (las de editorial-ink/ViralVideo, que sí esperan).
+ *    En lazy, las no usadas NO se descargan → cero tormenta → el render nunca se cuelga.
+ *
+ * Las usadas se bajan on-demand (puede haber un parpadeo a fuente de sistema en los
+ * primeros frames de un título; aceptable y MUCHO mejor que un video que no sale).
+ *
+ * Corre en el browser del render (FontFace/document existen). En Node (sin FontFace) = no-op.
  */
-// Tope por fuente: si una carga no resuelve en este tiempo, seguimos con fuente de
-// sistema en vez de COLGAR el render. Crítico bajo render concurrente de largos:
-// el browser limita ~6 conexiones por host y 24 fuentes + assets pueden saturarlas,
-// dejando una carga esperando indefinidamente. Sin este tope, ese delayRender no se
-// limpia y Remotion aborta el clip ("delayRender not cleared after 118000ms").
-const FONT_LOAD_TIMEOUT_MS = 12000;
-
 const F = (
   file: string,
   family: string,
   opts: { style?: "normal" | "italic"; weight?: string } = {}
 ): string => {
   if (typeof FontFace === "undefined" || typeof document === "undefined") return family;
-  const handle = delayRender(`local-font ${family} (${file})`, {
-    timeoutInMilliseconds: 60000,
-  });
-  let cleared = false;
-  const clear = () => {
-    if (cleared) return;
-    cleared = true;
-    try {
-      continueRender(handle);
-    } catch {
-      /* handle ya resuelto */
-    }
-  };
-  // Garantía DURA: pase lo que pase con la carga, el delayRender se limpia ≤12s.
-  const timer = setTimeout(clear, FONT_LOAD_TIMEOUT_MS);
   try {
     const face = new FontFace(family, `url('${staticFile(`fonts/${file}`)}') format('truetype')`, {
       style: opts.style ?? "normal",
       weight: opts.weight ?? "400",
     });
-    face
-      .load()
-      .then((loaded) => {
-        // FontFaceSet es un Set<FontFace> por spec; el cast evita el lib DOM incompleto.
-        (document.fonts as unknown as Set<FontFace>).add(loaded);
-      })
-      .catch(() => {
-        // .ttf faltante/corrupto → se ignora; cae a la fuente de sistema.
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        clear();
-      });
+    // add() sin load(): registro lazy. FontFaceSet es un Set<FontFace> por spec.
+    (document.fonts as unknown as Set<FontFace>).add(face);
   } catch {
-    clearTimeout(timer);
-    clear();
+    // .ttf inválido / FontFace no disponible → se ignora; cae a fuente de sistema.
   }
   return family;
 };
