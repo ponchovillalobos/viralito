@@ -107,7 +107,7 @@ async function findRawFile(videoId: string): Promise<string | null> {
   return null;
 }
 
-async function processJob(
+export async function processJob(
   jobId: string,
   videoId: string,
   body: ProcessBody
@@ -333,9 +333,32 @@ async function processJob(
             .split(/\r?\n/)
             .reverse()
             .find((l) => /"clips"\s*:\s*\d+/.test(l));
-          const match = jsonLine?.match(/"clips"\s*:\s*(\d+)/);
-          if (match) {
-            setLongFormClipsCount(jobId, parseInt(match[1], 10));
+          const clipsMatch = jsonLine?.match(/"clips"\s*:\s*(\d+)/);
+          // Conteos de render REAL (clips renderizados vs extraídos). El pipeline los
+          // emite solo cuando hubo render; en modo análisis no vienen.
+          const renderedMatch = jsonLine?.match(/"rendered"\s*:\s*(\d+)/);
+          const tasksMatch = jsonLine?.match(/"render_tasks"\s*:\s*(\d+)/);
+          const failedMatch = jsonLine?.match(/"render_failed"\s*:\s*(\d+)/);
+
+          if (body.render && renderedMatch && tasksMatch) {
+            // Hubo render: el conteo "listos" debe reflejar lo RENDERIZADO (en disco),
+            // no lo extraído — si no, el panel decía "N listos" con videos faltantes.
+            const nDone = parseInt(renderedMatch[1], 10);
+            const nTotal = parseInt(tasksMatch[1], 10);
+            const nFail = failedMatch
+              ? parseInt(failedMatch[1], 10)
+              : Math.max(0, nTotal - nDone);
+            setLongFormClipsCount(jobId, nDone);
+            if (nFail > 0) {
+              // Parcial: terminó pero faltan clips. Avisar en vez de un "listo" liso.
+              updateLongFormStep(jobId, "render", {
+                status: "ok",
+                message: `Atención: ${nDone} de ${nTotal} clips se renderizaron — ${nFail} fallaron. Revisá el log y volvé a generar los faltantes.`,
+              });
+            }
+          } else if (clipsMatch) {
+            // Modo análisis (sin render): reportar clips extraídos como antes.
+            setLongFormClipsCount(jobId, parseInt(clipsMatch[1], 10));
           }
         } catch {
           // ignore
@@ -461,7 +484,7 @@ export async function POST(req: NextRequest) {
         useHeuristic: body.useHeuristic,
         styles: body.styles,
         mode,
-      });
+      }, { ...body, videoId, videoIds: undefined });
       enqueue("long_form", job.id, async () => {
         await processJob(job.id, videoId, body);
       });

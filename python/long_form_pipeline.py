@@ -1269,6 +1269,13 @@ def main() -> int:
         for c in clips_info:
             step_graphics(c["clip_id"], use_llm=not args.use_heuristic)
 
+    # Contadores de render para el resumen final (existen aunque no se renderice).
+    # Distinguen clips EXTRAÍDOS de clips realmente RENDERIZADOS: antes el JSON solo
+    # reportaba `clips` = extraídos, así que un render fallido per-clip se reportaba
+    # como éxito ("listo pero faltan videos"). Ahora la ruta puede avisar el parcial.
+    render_done = 0
+    render_total = 0
+
     # Step 7: render (opcional) — N estilos × M clips
     if args.render and clips_info:
         print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
@@ -1300,6 +1307,7 @@ def main() -> int:
             for ci, c in enumerate(clips_to_render, start=1)
             for si, style_id in enumerate(styles, start=1)
         ]
+        render_total = len(tasks)
         workers = min(_render_workers(), max(1, len(tasks)))
         # ── OLA 3 — POOL de render-servers (bundle UNA vez, reusado) ──────────
         # Arrancamos un pool de N=workers instancias del render-server.mjs ANTES del
@@ -1374,6 +1382,9 @@ def main() -> int:
                 except Exception:  # noqa: BLE001
                     pass
 
+        # Cuántos clips se renderizaron REALMENTE (vs solo extraídos) → resumen final.
+        render_done = done_count
+
     # #15: el explain corrió en paralelo al render. Para entonces casi siempre ya
     # terminó (el render tarda mucho más); le damos una espera acotada para que
     # alcance a escribir whyViral en el proposals. Es daemon: si no termina, no
@@ -1394,6 +1405,10 @@ def main() -> int:
         # En modo clips rápidos no se genera clean (se corta del raw).
         "clean": str(clean_path) if clean_path else None,
         "clips": len(clips_info),
+        # Render REAL (no solo extraídos): la ruta avisa si "terminó pero faltan".
+        "rendered": render_done,
+        "render_tasks": render_total,
+        "render_failed": max(0, render_total - render_done),
         "elapsed_min": round(elapsed / 60, 2),
     }))
     return 0

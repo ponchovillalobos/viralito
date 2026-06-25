@@ -85,6 +85,13 @@ export interface LongFormJob {
   log: string[];
   /** Cantidad de clips generados al final (poblado al terminar) */
   clipsCount?: number;
+  /**
+   * Body original del request (ProcessBody) — se persiste para REANUDAR el job si la
+   * app se reinició mientras estaba en cola. Tipado laxo para no acoplar con la ruta.
+   */
+  request?: unknown;
+  /** true si quedó interrumpido SOLO en cola (nunca arrancó) y puede reanudarse. */
+  resumable?: boolean;
 }
 
 const DEFAULT_STEPS: { key: LongFormStepKey; label: string }[] = [
@@ -139,15 +146,22 @@ function persist(): void {
  */
 function reconcileLongFormJob(job: LongFormJob): void {
   if (job.status !== "running" && job.status !== "queued") return;
+  // Un job que quedó SOLO en cola (nunca arrancó) y tiene su request guardado se puede
+  // re-correr de cero → resumable. Un "running" no se reanuda (el pipeline Python no
+  // retoma a medias), así que se marca failed como antes.
+  const resumable = job.status === "queued" && !!job.request;
   for (const step of job.steps) {
     if (step.status === "pending" || step.status === "running") {
       step.status = "fail";
-      step.message = "Interrumpido por reinicio del servidor — vuelve a empezar el proceso.";
+      step.message = resumable
+        ? "Pausado porque la app se reinició — se reanudará solo."
+        : "Interrumpido por reinicio del servidor — vuelve a empezar el proceso.";
       if (!step.finishedAt) step.finishedAt = Date.now();
     }
   }
   job.status = "failed";
   job.queuePosition = undefined;
+  if (resumable) job.resumable = true;
   if (!job.finishedAt) job.finishedAt = Date.now();
 }
 
@@ -162,7 +176,8 @@ if (isFreshBoot) {
 export function createLongFormJob(
   videoId: string,
   videoPath: string,
-  options: LongFormJob["options"]
+  options: LongFormJob["options"],
+  request?: unknown,
 ): LongFormJob {
   const id = `lfjob_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   // Pasos según el tipo de corrida (mode ausente o desconocido → los 7 clásicos).
@@ -181,6 +196,7 @@ export function createLongFormJob(
       status: "pending",
     })),
     log: [],
+    request,
   };
   if (!options.render) {
     // El step de render se marca skipped desde el arranque (si esta corrida lo tiene)

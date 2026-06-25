@@ -118,7 +118,7 @@ function hwLutVideoArgs(): { encoder: string; args: string[] } {
   }
 }
 
-async function processJob(job: Job, body: AutoBuildRequest) {
+export async function processJob(job: Job, body: AutoBuildRequest) {
   // Usar job.videoId (siempre string) en lugar de body.videoId (opcional ahora con batch)
   const videoId = job.videoId;
   const { accentColor, caption, captionMeta, platforms, day } = body;
@@ -741,10 +741,12 @@ export async function POST(req: NextRequest) {
   // Crear un Job por cada videoId y encolar (la cola serial los corre 1 a la vez)
   const jobs: Job[] = [];
   for (const vid of videoIdList) {
-    const job = createJob(vid, styles, accentColor);
-    jobs.push(job);
-    // El body que recibe processJob tiene que tener videoId del job — no el original
+    // El body que recibe processJob tiene que tener videoId del job — no el original.
+    // Se PERSISTE en el job (4º arg de createJob) para poder reanudarlo idéntico si la
+    // app se reinició mientras estaba en cola.
     const jobBody: AutoBuildRequest = { ...body, videoId: vid, videoIds: undefined };
+    const job = createJob(vid, styles, accentColor, jobBody);
+    jobs.push(job);
     enqueue("editor", job.id, async () => {
       await processJob(job, jobBody);
     });

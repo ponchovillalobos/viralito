@@ -50,6 +50,14 @@ export interface Job {
   status: "queued" | "running" | "done" | "failed";
   /** Posición en la cola (1-indexed). undefined cuando está running/done/failed. */
   queuePosition?: number;
+  /**
+   * Body original del request (AutoBuildRequest) — se persiste para poder REANUDAR
+   * el job si la app se reinició mientras estaba en cola. Tipado laxo a propósito
+   * para no acoplar el store con el tipo de la ruta (evita ciclos de import).
+   */
+  request?: unknown;
+  /** true si quedó interrumpido en cola por un reinicio y puede reanudarse (tiene request). */
+  resumable?: boolean;
 }
 
 declare global {
@@ -83,6 +91,11 @@ function recompute(job: Job): void {
  */
 function reconcileJob(job: Job): void {
   if (job.status !== "running" && job.status !== "queued") return;
+  // Un job que quedó SOLO en cola (nunca arrancó, status "queued") y tiene su request
+  // guardado se puede REANUDAR idéntico → lo marcamos resumable en vez de matarlo.
+  // Los "running" (a medias) sí se reconcilian por disco (no se reanuda un render
+  // partido de forma segura).
+  const wasQueued = job.status === "queued";
   for (const step of job.steps) {
     if (step.status === "ok" || step.status === "fail") continue;
     const projectId = `${job.videoId}_${step.styleId}`;
@@ -99,10 +112,14 @@ function reconcileJob(job: Job): void {
       step.output = outPath;
     } else {
       step.status = "fail";
-      step.error = "Se interrumpió porque la app se reinició — intenta generarlo de nuevo.";
+      step.error =
+        wasQueued && job.request
+          ? "Pausado porque la app se reinició — se reanudará solo."
+          : "Se interrumpió porque la app se reinició — intenta generarlo de nuevo.";
     }
   }
   job.queuePosition = undefined;
+  if (wasQueued && job.request) job.resumable = true;
   recompute(job);
 }
 
@@ -117,7 +134,12 @@ if (isFreshBoot) {
   saveNow(PERSIST_FILE, Array.from(STORE.values()));
 }
 
-export function createJob(videoId: string, styles: StyleId[], accentColor: string): Job {
+export function createJob(
+  videoId: string,
+  styles: StyleId[],
+  accentColor: string,
+  request?: unknown,
+): Job {
   const id = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const job: Job = {
     id,
@@ -128,6 +150,7 @@ export function createJob(videoId: string, styles: StyleId[], accentColor: strin
     overallProgress: 0,
     steps: styles.map((s) => ({ styleId: s, status: "pending", progress: 0 })),
     status: "running",
+    request,
   };
   STORE.set(id, job);
   saveNow(PERSIST_FILE, Array.from(STORE.values()));

@@ -126,6 +126,33 @@ export function QueuePanel() {
     });
   }
 
+  // Tras un reinicio de la app, reanudar los videos que quedaron SOLO en cola (la cola
+  // vive en memoria y se perdía al reiniciar → "se interrumpió porque la app se reinició").
+  // Una sola vez al montar (el panel vive en el layout → se monta 1 vez por arranque).
+  useEffect(() => {
+    let done = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/jobs/resume", { method: "POST" });
+        if (!r.ok || done) return;
+        const d = (await r.json()) as { resumed?: number };
+        if (d.resumed && d.resumed > 0) {
+          toast.info(
+            d.resumed === 1
+              ? "Reanudando 1 video que quedó en cola al reiniciar la app."
+              : `Reanudando ${d.resumed} videos que quedaron en cola al reiniciar la app.`
+          );
+          setCollapsed(false);
+        }
+      } catch {
+        // silencioso — si falla, los jobs quedan visibles como "pausados" igual
+      }
+    })();
+    return () => {
+      done = true;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
