@@ -144,6 +144,20 @@ function rectFor(
   const portrait = H > W;
   const tall = { w: pw * W, h: 0.88 * H, y: 0.06 * H, r: 18 };
   const s = Math.min(0.52 * H, 0.8 * W);
+  // SALIDA HORIZONTAL (16:9): el video va en su ASPECTO ORIGINAL (bloque landscape),
+  // SIN recortar. El panel vertical recortaba un 16:9 y cortaba cabezas, y obligaba a
+  // un seguimiento facial brusco que mareaba (feedback del usuario). Un bloque 16:9 a
+  // un lado + el texto al otro: se ve la toma completa, estable, sin reconocimiento.
+  if (!portrait && mode !== "full") {
+    const srcAR = sourceAspect && sourceAspect > 0 ? sourceAspect : 16 / 9;
+    const w = Math.min(0.56 * W, 0.9 * H * srcAR);
+    const h = w / srcAR;
+    const y = (H - h) / 2;
+    const onLeft = mode === "left" || mode === "square_left";
+    return onLeft
+      ? { x: 48, y, w, h, r: 18, cardsHidden: false, textSide: "right" }
+      : { x: W - 48 - w, y, w, h, r: 18, cardsHidden: false, textSide: "left" };
+  }
   switch (mode) {
     case "left":
       return { x: 36, ...tall, cardsHidden: false, textSide: "right" };

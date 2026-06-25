@@ -556,9 +556,12 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
     headX !== null && headY !== null
       ? `${(headX * 100).toFixed(2)}% ${(headY * 100).toFixed(2)}%`
       : undefined;
-  // Solo en el panel editorial: ahí el recorte pierde la cara. En fullscreen el
-  // auto-reframe por transform ya sigue al sujeto en vertical → no se toca.
-  const panelObjectPosition = editorialLayout ? faceObjectPosition : undefined;
+  // Seguimiento SOLO en salida VERTICAL (9:16): ahí el panel recorta fuerte un source
+  // horizontal y hace falta seguir la cara. En 16:9 el video se muestra en su aspecto
+  // ORIGINAL (sin recortar) → el seguimiento no es necesario y movía el panel de forma
+  // brusca (mareaba). Por eso en horizontal el panel queda ESTABLE (sin objectPosition).
+  const panelObjectPosition =
+    editorialLayout && compHeight > compWidth ? faceObjectPosition : undefined;
 
   const activeAnim = animations.find(
     (a) => currentTime >= a.at && currentTime <= a.at + 0.5

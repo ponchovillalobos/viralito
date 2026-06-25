@@ -593,6 +593,13 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         # el panel encuadraba el cuerpo y CORTABA la cabeza. Los estilos legacy con
         # tracking=true siguen en track_subject (paridad, sin cambios).
         use_blaze = bool(data.get("editorialLayout")) and not data.get("tracking")
+        # SALIDA 16:9: el video se muestra en su aspecto original (sin recortar), así
+        # que NO hace falta seguir la cara — y el seguimiento movía el panel de forma
+        # brusca (mareaba). Solo trackeamos editorial en VERTICAL (9:16), donde el
+        # panel sí recorta fuerte. (width >= height → horizontal → estable, sin track.)
+        if use_blaze and (data.get("width") or 0) >= (data.get("height") or 0):
+            print(f"[tracking] editorial 16:9 → video original, panel estable {clip_id}", file=sys.stderr)
+            return
         if use_blaze:
             points = _blaze_trackpath(clip_video)
         else:
