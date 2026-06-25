@@ -147,6 +147,26 @@ Verificar:
 
 Mismo error de comandos largos. Solución (ya implementada): el JSON se escribe a `remotion/props.json` y se pasa como `--props=props.json` (referenciando archivo, no inline).
 
+### El render falla sin internet (`ERR_NAME_NOT_RESOLVED` / `fonts.gstatic.com`)
+
+**Arreglado** (jun 2026). Antes el render bajaba ~24 tipografías de `fonts.gstatic.com`
+en CADA corrida (vía `@remotion/google-fonts`); sin internet abortaba con
+`Failed to load resource: net::ERR_NAME_NOT_RESOLVED` y el video "no salía" — y como
+esas fuentes se importaban siempre, fallaba **cualquier estilo**, no solo los editoriales.
+Ahora las fuentes se hornean a TTF locales (`remotion/public/fonts`, pobladas por
+`python/download_fonts.py`) y se cargan con `staticFile` → **el render funciona 100%
+offline**. Si una fuente faltara, cae a la del sistema en vez de abortar.
+
+```powershell
+# Re-bajar las fuentes locales (idempotente; necesita internet UNA vez)
+cd python
+.\venv\Scripts\python.exe download_fonts.py
+```
+
+Detalle técnico: `@remotion/fonts.loadFont` hace `cancelRender` si la fuente falla; el
+loader propio en `remotion/src/layers/local-editorial-fonts.ts` usa `continueRender` en
+el error → nunca aborta el render por una fuente.
+
 ## Pipeline long_form falla
 
 ### Ollama devuelve `{"clips": []}`
@@ -177,6 +197,14 @@ Si no responde:
 - Verificar que el modelo está instalado: `ollama list`
 - Pull de nuevo: `ollama pull qwen3:1.7b`
 
+### "Terminó pero faltan clips"
+
+El pipeline ahora reporta los clips **realmente renderizados** (no solo los extraídos):
+emite `rendered` / `render_tasks` / `render_failed` en el resumen final, y si algún clip
+falla al renderizar, el panel avisa "X de Y clips se renderizaron — Z fallaron" en vez de
+decir "listo" liso. Revisá el log del job (líneas `[fail] render clip …`) y volvé a generar
+los faltantes.
+
 ### Extract clips produce MP4 muy chico (1-2 KB)
 
 ffmpeg falló al extraer el rango. Posibles causas:
@@ -193,6 +221,22 @@ Para video de 1h tarda 15-25 min. Si quieres skipear esa parte en futuros runs, 
 ```powershell
 Remove-Item "C:\viral-data\videos\long_form\transcripts\D13_curso.from_clean"
 ```
+
+## "Edité varios videos y no salieron" / la cola se pierde al reiniciar
+
+Dos causas, ambas arregladas (jun 2026):
+
+1. **Falla de fuentes sin internet** — ver arriba [«El render falla sin internet»](#el-render-falla-sin-internet-err_name_not_resolved--fontsgstaticcom). Era la causa #1: offline, cualquier estilo abortaba.
+2. **La cola se perdía al reiniciar la app.** La cola vive en memoria; antes un reinicio
+   (cierre/reapertura del desktop, recompilación, crash) marcaba los videos **encolados**
+   como "se interrumpió porque la app se reinició" y NO los re-corría. Ahora cada job
+   persiste su configuración (`request`) y, al reabrir la app, los que quedaron **solo en
+   cola** (nunca arrancaron) **se reanudan solos** — lo dispara el panel de tareas vía
+   `POST /api/jobs/resume`. Un render a medias NO se reanuda (no es seguro retomarlo); ese
+   se relanza a mano desde el wizard.
+
+> Nota: los jobs que ya habían fallado *antes* de este arreglo no tienen la config guardada
+> → no se auto-reanudan. Relanzá esos una vez desde el wizard.
 
 ## Pexels no devuelve resultados
 

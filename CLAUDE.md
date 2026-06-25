@@ -147,6 +147,7 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 - **WhisperX en transcripts >15 min**: chunking obligatorio para que Ollama no se sature
 - **OneDrive locks files**: si Next.js hot reload no funciona, mover proyecto fuera de OneDrive
 - **Stickers SIEMPRE top-center**: ignorar el `position` del JSON viejo
+- **Fuentes del render = TTF LOCALES, NUNCA `@remotion/google-fonts`**: cargar fuentes por red (gstatic) rompe el render offline y aborta CUALQUIER estilo sin internet (fue la causa raíz de "los videos no salían"). Agregar fuentes vía `python/download_fonts.py` (TTF OFL/Apache → `remotion/public/fonts`) + registrarlas en `remotion/src/layers/local-editorial-fonts.ts` (loader propio con `continueRender` en fallo → nunca aborta). `@remotion/fonts.loadFont` hace `cancelRender` en fallo, por eso NO sirve para fuentes opcionales.
 
 ## Estado actual del proyecto
 
