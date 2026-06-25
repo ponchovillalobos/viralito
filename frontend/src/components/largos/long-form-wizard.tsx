@@ -1653,24 +1653,41 @@ export function LongFormWizard() {
           {/* Semáforo en rojo → reparación automática con un clic. */}
           {iaStatus && !iaStatus.running && <div className="mt-2"><IaFixPanel onReady={checkIaLocal} /></div>}
 
-          {/* Acto 1 del flujo REVISAR: primero solo el análisis; al terminar se
-              muestran los momentos para aprobar/descartar/ajustar antes de generar. */}
+          {/* Acción FINAL del wizard: ya elegiste video, estilo, color, tipografía y todo.
+              Un solo "Crear" hace TODO de un saque (encontrar los mejores momentos +
+              recortar + generar los videos), sin un segundo paso de revisar/aprobar. */}
           <Button
-            onClick={() => startPipeline("analyze")}
+            onClick={() => startPipeline("full")}
             disabled={submitting || selectedIds.size === 0}
             className="mt-4 w-full bg-violet-500 hover:bg-violet-400 text-white"
           >
             {submitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <span className="mr-2">🔍</span>
+              <span className="mr-2">✨</span>
             )}
-            {submitting ? "Arrancando…" : "Empezar a editar"}
+            {submitting
+              ? "Arrancando…"
+              : doRender
+                ? "Crear todos los videos"
+                : "Recortar los clips"}
           </Button>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Primero el análisis. Al terminar revisas los momentos propuestos y eliges
-            cuáles generar — nada se genera sin tu visto bueno.
+            Hace todo de una: encuentra los mejores momentos
+            {doRender ? " y genera los videos con tu estilo." : " y los recorta."} Podés cerrar
+            esta pantalla, sigue solo.
           </p>
+
+          {/* Alternativa (2 pasos): primero solo analizar, revisar los momentos propuestos y
+              elegir cuáles generar. Para quien prefiere aprobar antes de generar. */}
+          <Button
+            variant="outline"
+            onClick={() => startPipeline("analyze")}
+            disabled={submitting || selectedIds.size === 0}
+            className="mt-3 w-full"
+          >
+            🔍 Prefiero revisar los momentos antes de generar
+          </Button>
 
           {/* Entrada directa a la revisión si este video ya se analizó antes. */}
           {selectedIds.size === 1 && selectedList[0]?.hasProposals && (
@@ -1700,41 +1717,18 @@ export function LongFormWizard() {
             <ChevronLeft className="mr-1.5 h-4 w-4" />
             Atrás
           </Button>
-          <div className="flex items-center gap-2">
-            {/* Atajo "generar directo": con video + estilo elegidos, genera TODO de un saque
-                (modo full: analiza + recorta + renderiza, sin revisar paso por paso) usando
-                color/fuente por defecto. Lo que el usuario pidió: menos clicks. */}
-            {step < TOTAL_STEPS && doRender && selectedIds.size > 0 && selectedStyles.length > 0 && (
-              <Button
-                onClick={() => startPipeline("full")}
-                disabled={submitting}
-                className="bg-violet-500 text-white hover:bg-violet-400"
-                title="Genera todos los clips de una, sin revisarlos uno por uno (usa color y fuente por defecto)"
-              >
-                {submitting ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <span className="mr-1.5">⚡</span>
-                )}
-                Generar todo ya
-              </Button>
-            )}
-            {step < TOTAL_STEPS && (
-              <Button
-                variant={
-                  doRender && selectedIds.size > 0 && selectedStyles.length > 0 ? "outline" : "default"
-                }
-                onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
-                disabled={
-                  (step === 1 && selectedIds.size === 0) ||
-                  (step === 2 && doRender && selectedStyles.length === 0)
-                }
-              >
-                Siguiente
-                <ChevronRight className="ml-1.5 h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          {step < TOTAL_STEPS && (
+            <Button
+              onClick={() => setStep(step === 2 && !doRender ? 4 : step + 1)}
+              disabled={
+                (step === 1 && selectedIds.size === 0) ||
+                (step === 2 && doRender && selectedStyles.length === 0)
+              }
+            >
+              Siguiente
+              <ChevronRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
