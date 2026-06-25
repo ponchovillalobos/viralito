@@ -171,6 +171,14 @@ el oficial.
   Instagram y LinkedIn, listos para copiar y pegar.
 - **Timeline visual + previews**: mirá dónde cae cada efecto, y generá una vista
   previa real (foto o 3s en movimiento) antes de renderizar.
+- **100% offline de verdad**: el render ya no baja tipografías de internet (las trae
+  locales), así que un video sale **sin conexión** de principio a fin. Si te quedás
+  sin internet, la selección de clips y los copys los hace el modelo local (Ollama).
+- **Cola que no se pierde**: si encolás varios videos y reiniciás (o se cierra) la app,
+  los que estaban esperando se **reanudan solos** al volver a abrirla.
+- **Mis videos = lo que sí se reproduce**: la galería muestra solo los videos terminados
+  (los renders rotos se ocultan y vuelven al re-generarlos); los estilos del mismo clip
+  se agrupan en una tarjeta con chips para comparar sin duplicados.
 - **App de escritorio** (Tauri): ventana nativa, portable — descargá, descomprimí y listo.
 
 ## 🎨 Los 22 estilos

@@ -39,9 +39,8 @@ Lista **exhaustiva** de cada componente del stack con su repo GitHub, licencia y
 |---|---|---|---|---|
 | **remotion** | ^4.0.300 | https://github.com/remotion-dev/remotion | Remotion License (gratis <3 empleados) | Motor principal |
 | **@remotion/cli** | ^4.0.300 | (mismo repo) | igual | CLI para render |
-| **@remotion/google-fonts** | ^4.0.300 | (mismo repo) | igual | Carga Bebas Neue, Anton |
+| **@remotion/fonts** | ^4.0.462 | (mismo repo) | igual | Carga fuentes desde TTF LOCALES (`loadFont` + `staticFile`); Bebas Neue, Anton, etc. **Las fuentes ya NO se bajan de gstatic** → render 100% offline |
 | **@remotion/media-utils** | ^4.0.300 | (mismo repo) | igual | Utilidades media |
-| **@remotion/zod-types** | ^4.0.300 | (mismo repo) | igual | Schemas tipados |
 | **zod** | ^4.0.0 | https://github.com/colinhacks/zod | MIT | Validación de schemas |
 | **Chromium / Chrome Headless Shell** | https://github.com/chromium/chromium | BSD | Renderiza HTML → PNG (descarga automática de Remotion) |
 

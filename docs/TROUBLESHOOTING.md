@@ -153,9 +153,10 @@ Mismo error de comandos largos. Solución (ya implementada): el JSON se escribe 
 en CADA corrida (vía `@remotion/google-fonts`); sin internet abortaba con
 `Failed to load resource: net::ERR_NAME_NOT_RESOLVED` y el video "no salía" — y como
 esas fuentes se importaban siempre, fallaba **cualquier estilo**, no solo los editoriales.
-Ahora las fuentes se hornean a TTF locales (`remotion/public/fonts`, pobladas por
-`python/download_fonts.py`) y se cargan con `staticFile` → **el render funciona 100%
-offline**. Si una fuente faltara, cae a la del sistema en vez de abortar.
+Ahora las fuentes editoriales son **TTF locales** (`remotion/public/fonts`, pobladas por
+`python/download_fonts.py` — baja 43 fuentes OFL/Apache desde el repo oficial de Google
+Fonts) y se cargan con `staticFile` → **el render funciona 100% offline**. Si una fuente
+faltara, cae a la del sistema en vez de abortar.
 
 ```powershell
 # Re-bajar las fuentes locales (idempotente; necesita internet UNA vez)
@@ -163,9 +164,31 @@ cd python
 .\venv\Scripts\python.exe download_fonts.py
 ```
 
-Detalle técnico: `@remotion/fonts.loadFont` hace `cancelRender` si la fuente falla; el
-loader propio en `remotion/src/layers/local-editorial-fonts.ts` usa `continueRender` en
-el error → nunca aborta el render por una fuente.
+**Detalle técnico (importante para devs).** El loader propio en
+`remotion/src/layers/local-editorial-fonts.ts` registra cada fuente en **modo LAZY**:
+crea un `FontFace` y hace `document.fonts.add(face)` **SIN llamar `.load()`** — el
+navegador la baja sólo cuando un glyph la usa (el tema activo usa 2-3 de las 43, no
+todas). Por qué así y no de otra forma:
+
+- **NO usa `@remotion/fonts.loadFont` ni `@remotion/google-fonts`.** El primero hace
+  `cancelRender` si la fuente falla; los dos no sirven para fuentes opcionales.
+- **NO usa `delayRender`.** Antes una `delayRender` por fuente bloqueaba el render hasta
+  que el `.ttf` cargara; bajo el render CONCURRENTE de largos (varios clips × varias
+  pestañas) el browser satura sus ~6 conexiones por host —que el streaming de
+  `OffthreadVideo` ya ocupa— y la descarga de UNA fuente quedaba esperando para siempre
+  → la `delayRender` nunca se limpiaba → Remotion ABORTABA el clip
+  (`delayRender '...' not cleared after 58000ms`). **El `setTimeout` NO sirve como
+  parche**: Remotion controla los timers en el render y no lo dispara. El fix correcto es
+  el `document.fonts.add` lazy de arriba (sin `load`, sin `delayRender`).
+- **NO baja las 43 eager.** Si lo hiciera, competirían por las conexiones con las fuentes
+  que SÍ importan. En lazy, las no usadas no se descargan → cero tormenta → el render
+  nunca se cuelga. Puede haber un parpadeo a fuente de sistema en los primeros frames de
+  un título; aceptable y muchísimo mejor que un video que no sale.
+
+**Regla para devs: NUNCA usar `@remotion/google-fonts`** (carga a nivel de módulo desde
+`gstatic` → rompe el render offline). Para agregar una fuente: bajala vía
+`python/download_fonts.py` (TTF a `remotion/public/fonts`) y registrala con el helper `F`
+de `local-editorial-fonts.ts`.
 
 ## Pipeline long_form falla
 

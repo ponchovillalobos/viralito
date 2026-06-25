@@ -210,6 +210,21 @@ foreach ($k in $map.Keys) {
 }
 ```
 
+### (Manual / fallback) Fuentes editoriales locales — necesarias para el render offline
+
+El render carga las tipografías desde TTF LOCALES en `remotion/public/fonts` (NO de
+internet), así que el video sale 100% offline. `download_fonts.py` baja 43 fuentes
+OFL/Apache desde el repo oficial de Google Fonts (necesita internet UNA vez; es
+idempotente — salta las que ya existen):
+
+```powershell
+cd python
+.\venv\Scripts\python.exe download_fonts.py
+```
+
+> Si faltan, el render NO aborta: cada estilo cae a la fuente del sistema. Pero los
+> temas editoriales se ven como deben sólo con estas fuentes presentes.
+
 ## Descargar modelos Whisper (primera vez)
 
 WhisperX descarga los modelos automáticamente la primera vez que lo corres (~1.5 GB):

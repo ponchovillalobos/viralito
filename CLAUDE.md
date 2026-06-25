@@ -147,7 +147,7 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 - **WhisperX en transcripts >15 min**: chunking obligatorio para que Ollama no se sature
 - **OneDrive locks files**: si Next.js hot reload no funciona, mover proyecto fuera de OneDrive
 - **Stickers SIEMPRE top-center**: ignorar el `position` del JSON viejo
-- **Fuentes del render = TTF LOCALES, NUNCA `@remotion/google-fonts`**: cargar fuentes por red (gstatic) rompe el render offline y aborta CUALQUIER estilo sin internet (fue la causa raíz de "los videos no salían"). Agregar fuentes vía `python/download_fonts.py` (TTF OFL/Apache → `remotion/public/fonts`) + registrarlas en `remotion/src/layers/local-editorial-fonts.ts` (loader propio con `continueRender` en fallo → nunca aborta). `@remotion/fonts.loadFont` hace `cancelRender` en fallo, por eso NO sirve para fuentes opcionales.
+- **Fuentes del render = TTF LOCALES, NUNCA `@remotion/google-fonts`**: cargar fuentes por red (gstatic) rompe el render offline y aborta CUALQUIER estilo sin internet (fue la causa raíz de "los videos no salían"). Agregar fuentes vía `python/download_fonts.py` (baja 43 TTF OFL/Apache → `remotion/public/fonts`) + registrarlas con el helper `F` de `remotion/src/layers/local-editorial-fonts.ts`. Ese loader es **LAZY**: `new FontFace(...)` + `document.fonts.add(face)` **SIN `.load()`** → el browser baja la fuente sólo cuando un glyph la usa. NO usa `delayRender` (bajo render concurrente de largos una `delayRender` por fuente se quedaba sin limpiar → Remotion abortaba el clip con `delayRender ... not cleared after 58000ms`; el `setTimeout` NO sirve porque Remotion controla los timers del render). NO usa `@remotion/fonts.loadFont` (hace `cancelRender` en fallo) ni `@remotion/google-fonts` (carga a nivel de módulo desde gstatic). Si una fuente falta → cae a la del sistema, nunca aborta.
 
 ## Estado actual del proyecto
 
@@ -162,6 +162,12 @@ Documentado en `README.md`. Resumen:
 - ✅ 16 SFX CC0 curados (incluye `typewriter.wav` y `film_reel.wav` para `cine_clasico`)
 - ✅ Pexels integrado
 - ✅ 17 videos renderizados (D01-D12 + clips de D13)
+- ✅ **Render 100% offline**: fuentes editoriales horneadas a TTF locales (lazy load, sin red en render) — ver pitfall de fuentes arriba
+- ✅ **Cola reanudable**: los jobs que quedaron SOLO en cola (nunca arrancaron) sobreviven un reinicio de la app — el panel de tareas los re-encola vía `POST /api/jobs/resume` (cada store persiste su `request` y marca `resumable`). Un render a medias NO se reanuda (se relanza a mano)
+- ✅ **"Mis videos" (Producción)** muestra SOLO videos con render reproducible (>100 KB; los renders rotos/truncados quedan ocultos y reaparecen al re-generar — filtro en `frontend/src/lib/orphan-sweep.ts` → `/api/projects`). Las variantes de estilo del MISMO clip (ej. `..._editorial` + `..._supreme`) se AGRUPAN en una sola tarjeta con chips (`production-list.tsx`, agrupa por base-id quitando el sufijo `_{styleId}`)
+- ✅ **Pipeline largos resiliente**: export incremental (cada render se escribe a disco al terminar) + SKIP de clips ya renderizados al re-correr (default; `VIRAL_FORCE_RENDER=1` fuerza regenerar TODO). El resumen JSON final reporta `rendered` / `render_tasks` / `render_failed`
+- ✅ **Wizards** con barra de navegación FIJA al fondo (`fixed inset-x-0 bottom-0`, "Siguiente" siempre visible). El flujo recorre los pasos y un solo "Crear" final hace todo. En largos: "Crear todos los videos" (modo `full`, un jalón) o "revisar los momentos antes" (modo `analyze`, 2 pasos)
+- ✅ **Provider de clips/caption offline-aware**: `analyze_clips.py` y `generate_caption.py` chequean DNS (`_online()`); offline van DIRECTO a Ollama local en vez de colgarse intentando el provider OAuth (claude/codex)
 - ⏳ Pendiente opcional: skills `.claude` para invocar pipeline desde Claude Code
 
 ## Antes de hacer cambios al composition (`remotion/src/ViralVideo.tsx`)

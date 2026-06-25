@@ -189,6 +189,9 @@ Ver [STYLES.md](./STYLES.md) para qué combinaciones usar.
 | `/api/sfx/list` | GET | Lista los 14 SFX curados |
 | `/api/sfx/stream?file=...` | GET | Stream SFX (usado por Remotion) |
 | `/api/long_form/stream?file=...&source=raw\|clean\|clip\|render` | GET | Stream videos del long_form |
+| `/api/jobs/queue` | GET | Estado de la cola de trabajos en memoria (editor + long_form) |
+| `/api/jobs/resume` | POST | Re-encola los jobs que quedaron SOLO en cola tras un reinicio (lo dispara el panel de tareas al montar) |
+| `/api/projects/[id]/reveal-render` | POST | Abre el render final en el explorador |
 
 ## Pipeline de un short
 
@@ -242,6 +245,33 @@ long_form/projects/<id>_cNN_<slug>.json
 long_form/renders/<id>_cNN_<slug>_supreme.mp4 ← OUTPUT 2 (5-7 clips)
 ```
 
+### Reanudable y resiliente (largos)
+
+- **Export incremental**: cada render se escribe a su `.mp4` final apenas termina, así un
+  corte de luz o un fallo a mitad del lote NO pierde lo ya renderizado.
+- **Skip de lo ya renderizado**: al re-correr, los clips cuyo `.mp4` final ya existe y es
+  válido (>100 KB) se saltan. Para forzar regenerar TODO: `VIRAL_FORCE_RENDER=1`.
+- **Reporte real**: el resumen JSON final emite `rendered` / `render_tasks` / `render_failed`
+  (clips realmente renderizados, no solo extraídos) → la UI avisa "X de Y se renderizaron".
+- **Provider offline-aware**: `analyze_clips.py` y `generate_caption.py` chequean DNS antes de
+  intentar el provider OAuth (claude/codex); sin internet van directo a Ollama local sin colgarse.
+
+### Cola de trabajos (jobs)
+
+La cola vive en memoria (`globalThis`, no se persiste). Cada store de jobs (editor / long_form)
+persiste la `request` de cada job y, en un reinicio, marca `resumable: true` a los que quedaron
+SOLO en cola (nunca arrancaron). El panel de tareas, al montar, llama `POST /api/jobs/resume`,
+que los vuelve a encolar reusando el MISMO `processJob` de cada ruta. Un render a medias NO se
+reanuda (no es seguro retomarlo); ese se relanza a mano desde el wizard.
+
+### "Mis videos" (Producción)
+
+`GET /api/projects` une shorts + clips de largos y descarta los que ya no tienen video de
+respaldo. El checker (`frontend/src/lib/orphan-sweep.ts`) exige que el **render final exista y
+sea reproducible** (>100 KB) → un render roto/truncado queda oculto y reaparece al re-generarlo.
+En el cliente (`production-list.tsx`), las variantes de estilo del MISMO clip se agrupan por
+base-id (quitando el sufijo `_{styleId}`) en una sola tarjeta con chips para alternar entre estilos.
+
 ## Composición Remotion: capas (de atrás hacia adelante)
 
 ```
@@ -294,7 +324,12 @@ Cada elemento del JSON del proyecto tiene un schema validado:
 | Pexels API | $0 (200 req/h sin tarjeta) |
 | SFX CC0 | $0 |
 | FFmpeg | $0 |
-| Google Fonts | $0 |
+| Fuentes (TTF OFL/Apache locales) | $0 |
 | **Total** | **$0** |
+
+> Las tipografías ya **no** se bajan de `fonts.gstatic.com` en cada render: `python/download_fonts.py`
+> hornea 43 fuentes OFL/Apache a `remotion/public/fonts` (una vez, con internet) y el render las
+> carga locales en modo lazy → **cero red en el render**. Ver [TROUBLESHOOTING.md](./TROUBLESHOOTING.md#el-render-falla-sin-internet-err_name_not_resolved--fontsgstaticcom)
+> y `remotion/src/layers/local-editorial-fonts.ts`.
 
 Si decides usar OpenAI/Claude API en vez de Ollama: ~$0.50 por video largo procesado.
