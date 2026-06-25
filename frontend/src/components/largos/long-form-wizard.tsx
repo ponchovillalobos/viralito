@@ -1686,8 +1686,9 @@ export function LongFormWizard() {
         </Card>
       )}
 
-      {/* Navegación */}
-      <div className="flex items-center justify-between">
+      {/* Navegación — PEGADA al fondo (sticky) para que "Siguiente" esté SIEMPRE
+          visible sin scroll, aunque el paso sea largo. El contenido scrollea debajo. */}
+      <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-border bg-background/90 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <Button
           variant="ghost"
           // Sin render, el paso 3 (color/tipografía) no aplica: se salta en ambos sentidos.

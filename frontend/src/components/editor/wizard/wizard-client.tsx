@@ -2263,9 +2263,11 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
         </Card>
       )}
 
-      {/* Navegación */}
+      {/* Navegación — PEGADA al fondo de la pantalla (sticky) para que "Siguiente"
+          esté SIEMPRE visible sin tener que hacer scroll, aunque el paso sea largo.
+          El contenido del paso scrollea por debajo; el fondo + blur lo mantienen legible. */}
       {step < 5 && (
-        <div className="flex items-center justify-between">
+        <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 border-t border-border bg-background/90 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
           <Button
             variant="ghost"
             onClick={() => setStep(Math.max(1, step - 1))}
