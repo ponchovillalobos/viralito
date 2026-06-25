@@ -78,42 +78,44 @@ export function longFormOwner(filename: string): string {
   return stem;
 }
 
+/** Tamaño mínimo para considerar un render REPRODUCIBLE (uno fallido/truncado queda chico). */
+const MIN_RENDER_BYTES = 100 * 1024;
+
+/** Stems de renders que existen Y son válidos (>100KB) en `dir`. */
+async function validRenderStems(dir: string): Promise<Set<string>> {
+  const files = await listSafe(dir);
+  const stems = new Set<string>();
+  await Promise.all(
+    files
+      .filter((f) => f.toLowerCase().endsWith(".mp4") && !f.includes(".__rendering"))
+      .map(async (f) => {
+        try {
+          const st = await fs.stat(path.join(dir, f));
+          if (st.size > MIN_RENDER_BYTES) stems.add(path.basename(f, ".mp4"));
+        } catch {
+          /* ignore */
+        }
+      })
+  );
+  return stems;
+}
+
 /**
- * ¿Existe el video de respaldo de un proyecto de producción? Se usa para filtrar
- * el listado: si NO existe ni el render producido ni el raw fuente, está huérfano.
+ * ¿El proyecto tiene un video REPRODUCIBLE? Se usa para filtrar "Mis videos": un
+ * proyecto se muestra SOLO si su render final existe y es válido (>100KB). Antes se
+ * mostraba si existía el raw/clips aunque el render hubiera FALLADO → quedaban videos
+ * que "no se reproducen" en la lista (todos los renders rotos por el bug de fuentes).
+ * "Mis videos" = videos TERMINADOS, así que exigir el render reproducible es lo correcto.
  */
 export async function buildBackingChecker(): Promise<
   (id: string, videoId: string | undefined, source: "short" | "long_form") => boolean
 > {
-  const [shortRaw, lfRaw, lfRenders, lfClips] = await Promise.all([
-    rawStems(RAW_DIR),
-    rawStems(LF_RAW),
-    listSafe(LF_RENDERS),
-    listSafe(LF_CLIPS),
+  const [shortRenders, lfRenders] = await Promise.all([
+    validRenderStems(RENDERS_DIR),
+    validRenderStems(LF_RENDERS),
   ]);
-  const lfRenderStems = new Set(lfRenders.map((f) => path.basename(f, path.extname(f))));
-
-  return (id, videoId, source) => {
-    if (source === "long_form") {
-      const owner = videoId || longFormOwner(id);
-      if (lfRaw.has(owner)) return true; // raw fuente existe
-      if (lfRenderStems.has(id)) return true; // render producido existe
-      if (lfClips.some((c) => c === `${id}.mp4` || c.startsWith(`${owner}_c`))) return true;
-      return false;
-    }
-    // shorts: el proyecto se muestra SOLO si su video raw fuente sigue existiendo.
-    // ANTES bastaba con que existiera el render producido (shortRenderStems), lo que
-    // dejaba "pegados" en Producción los proyectos de videos ya BORRADOS por el usuario
-    // (el render queda en disco aunque el raw no). El usuario espera que al borrar el
-    // video, su proyecto desaparezca → exigimos que el raw exista.
-    let owner = videoId;
-    if (!owner) {
-      // Proyecto sin videoId en el JSON: derivar buscando un raw cuyo stem sea el id
-      // o un prefijo del id (id = `{videoStem}_{styleId}`). Evita ocultar válidos.
-      owner = [...shortRaw].find((s) => id === s || id.startsWith(`${s}_`));
-    }
-    return !!owner && shortRaw.has(owner);
-  };
+  return (id, _videoId, source) =>
+    source === "long_form" ? lfRenders.has(id) : shortRenders.has(id);
 }
 
 /**
