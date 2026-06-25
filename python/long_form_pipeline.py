@@ -60,6 +60,28 @@ def _render_workers() -> int:
     return render_workers()
 
 
+# ── SKIP de lo ya renderizado (re-run tras fallo parcial) ───────────────────
+# Tamaño mínimo (bytes) para considerar VÁLIDO un .mp4 final ya en disco. Un
+# render abortado deja archivos de pocos KB (header sin frames); pedimos >100 KB
+# para tratarlo como "ya hecho" y saltarlo.
+_RENDER_MIN_VALID_BYTES = 100 * 1024
+
+
+def _force_render() -> bool:
+    """¿Forzar regenerar TODO (ignorar lo ya renderizado)? VIRAL_FORCE_RENDER=1
+    desactiva el skip. Default: skip activo (no fuerza)."""
+    return os.environ.get("VIRAL_FORCE_RENDER", "0") == "1"
+
+
+def _render_already_done(out: Path) -> bool:
+    """True si el .mp4 final YA existe en disco y es válido (tamaño > umbral).
+    Best-effort: cualquier error de stat → False (se renderiza igual)."""
+    try:
+        return out.is_file() and out.stat().st_size > _RENDER_MIN_VALID_BYTES
+    except OSError:
+        return False
+
+
 def _offthread_cache_flag() -> str:
     """Flag de caché de OffthreadVideo para CADA clip de largos. El b-roll/mirror/clone
     se cachea para no dispararse "cache pruned" (re-decode lento). CLAVE en largos: se
@@ -1335,9 +1357,25 @@ def main() -> int:
             file=sys.stderr, flush=True,
         )
         done_count = 0
+        skipped_count = 0
+        # SKIP de lo ya renderizado: si NO se fuerza (VIRAL_FORCE_RENDER=1), los
+        # clips cuyo .mp4 final ya existe y es válido se saltan (no se regeneran).
+        force_render = _force_render()
+        if force_render:
+            print("[render] VIRAL_FORCE_RENDER=1 → regenero TODO (sin skip)", file=sys.stderr, flush=True)
 
         def _render_one(task: tuple) -> tuple:
             ci, c, si, style_id = task
+            # Ruta FINAL esperada — mismo naming que step_render_clip (clip_id+style).
+            clip_id = f"{args.video_id}_c{c['index']:02d}_{c['slug']}"
+            out = LF_RENDERS / f"{clip_id}_{style_id}.mp4"
+            # SKIP: el render final ya está en disco y es válido → contarlo como hecho.
+            if not force_render and _render_already_done(out):
+                print(
+                    f"[skip] clip {ci}/{n_clips} · estilo {style_id}: ya renderizado ({out.name})",
+                    file=sys.stderr, flush=True,
+                )
+                return (c["index"], style_id, out, True)
             # Marcador que la ruta surfacea en el panel: "clip 2/7 · estilo supreme (1/3)".
             print(
                 f"[render] clip {ci}/{n_clips} · estilo {style_id} ({si}/{len(styles)})",
@@ -1356,7 +1394,7 @@ def main() -> int:
                 editorial_theme=args.editorial_theme,
                 render_pool=render_pool,
             )
-            return (c["index"], style_id, out)
+            return (c["index"], style_id, out, False)
 
         try:
             with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -1364,17 +1402,26 @@ def main() -> int:
                 for fut in as_completed(futures):
                     ci, c, si, style_id = futures[fut]
                     try:
-                        _, _, out = fut.result()
+                        _, _, out, was_skipped = fut.result()
                         done_count += 1
-                        print(
-                            f"[ok] render -> {out} ({done_count}/{len(tasks)} listos)",
-                            file=sys.stderr, flush=True,
-                        )
+                        if was_skipped:
+                            skipped_count += 1
+                        else:
+                            print(
+                                f"[ok] render -> {out} ({done_count}/{len(tasks)} listos)",
+                                file=sys.stderr, flush=True,
+                            )
                     except subprocess.CalledProcessError as e:
                         print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
                     except Exception as e:  # noqa: BLE001 — un clip fallido no tumba el lote
                         print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
         finally:
+            if skipped_count:
+                print(
+                    f"[render] {skipped_count}/{len(tasks)} clip(s) saltado(s) (ya en disco); "
+                    f"{done_count - skipped_count} renderizado(s) en esta corrida",
+                    file=sys.stderr, flush=True,
+                )
             # Apagar el pool SIEMPRE: libera los N procesos Node + browser (RAM).
             if render_pool is not None:
                 try:

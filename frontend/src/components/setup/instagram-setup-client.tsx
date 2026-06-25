@@ -108,7 +108,8 @@ export function InstagramSetupClient() {
   }
 
   return (
-    <div className="space-y-6">
+    // pb-28 deja aire para la barra fija de acción del fondo (que no tape contenido).
+    <div className="space-y-6 pb-28">
       <header className="space-y-2">
         <p className="font-mono-tab text-xs uppercase tracking-wider text-muted-foreground">
           setup · instagram · graph api
@@ -260,6 +261,35 @@ export function InstagramSetupClient() {
           <li>• Si cambia la URL del túnel, actualízala aquí antes de publicar.</li>
           <li>• El redirect URI tiene que ser idéntico (sin barra final) o Meta lo rechaza.</li>
         </ul>
+      </div>
+
+      {/* Barra fija de acción: el botón principal accesible sin scroll. Reusa el
+          mismo handler/estado que el botón del paso 5 (aditivo, sin duplicar lógica). */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            {isConnected
+              ? "Instagram conectado ✓"
+              : "Pega tus credenciales (paso 5) y conecta tu cuenta."}
+          </p>
+          {isConnected ? (
+            <Link
+              href="/produccion"
+              className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-pink px-4 text-sm font-medium text-white hover:bg-brand-pink/90"
+            >
+              Ir a Producción <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          ) : (
+            <Button
+              onClick={saveAndConnect}
+              disabled={saving}
+              className="ml-auto bg-amber-500 hover:bg-amber-400 text-black"
+            >
+              {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              {saving ? "Guardando + conectando…" : "Guardar y autorizar en Meta"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

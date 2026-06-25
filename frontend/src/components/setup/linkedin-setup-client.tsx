@@ -205,7 +205,8 @@ export function LinkedInSetupClient() {
   const progress = Math.round((completedCount / STEPS.length) * 100);
 
   return (
-    <div className="space-y-6">
+    // pb-28 deja aire para la barra fija de acción del fondo (que no tape contenido).
+    <div className="space-y-6 pb-28">
       <header className="space-y-2">
         <p className="font-mono-tab text-xs uppercase tracking-wider text-muted-foreground">
           setup express · linkedin · ~2 minutos
@@ -531,6 +532,54 @@ export function LinkedInSetupClient() {
             • Los tokens duran 60 días — después la app te avisa y reconectas con un clic.
           </li>
         </ul>
+      </div>
+
+      {/* Barra fija de acción: el botón principal accesible sin scroll. Reusa el
+          mismo handler/estado que los pasos 5 y 6 (aditivo, sin duplicar lógica). */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            {isConnected
+              ? `LinkedIn conectado ✓${settings?.linkedin.connectedName ? ` (${settings.linkedin.connectedName})` : ""}`
+              : hasCreds
+                ? "Credenciales listas — conecta tu cuenta de LinkedIn."
+                : "Completa los pasos y pega tus credenciales para conectar."}
+          </p>
+          {isConnected ? (
+            <Link
+              href="/produccion"
+              className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-pink px-4 text-sm font-medium text-white hover:bg-brand-pink/90"
+            >
+              Ir a Producción <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          ) : hasCreds ? (
+            <Button
+              onClick={() => (window.location.href = "/api/auth/linkedin/login")}
+              className="ml-auto bg-sky-500 hover:bg-sky-400 text-white"
+            >
+              <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+              Conectar mi LinkedIn ahora
+            </Button>
+          ) : (
+            <Button
+              onClick={saveAndConnect}
+              disabled={
+                saving ||
+                !done.addRedirect ||
+                !clientId.trim() ||
+                (!clientSecret.trim() && !settings?.linkedin.hasClientSecret)
+              }
+              className="ml-auto bg-sky-500 hover:bg-sky-400 text-white"
+            >
+              {saving ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {saving ? "Guardando + conectando…" : "Guardar y autorizar en LinkedIn"}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

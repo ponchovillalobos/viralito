@@ -116,7 +116,8 @@ export function TikTokSetupClient() {
   const hasCreds = Boolean(settings?.tiktok.clientKey && settings?.tiktok.hasClientSecret);
 
   return (
-    <div className="space-y-6">
+    // pb-28 deja aire para la barra fija de acción del fondo (que no tape contenido).
+    <div className="space-y-6 pb-28">
       <header className="space-y-2">
         <p className="font-mono-tab text-xs uppercase tracking-wider text-muted-foreground">
           setup · tiktok content posting api
@@ -362,6 +363,42 @@ export function TikTokSetupClient() {
           y cambiarlas a público manualmente desde la app de TikTok.
         </p>
       </Card>
+
+      {/* Barra fija de acción: el botón principal accesible sin scroll. Reusa los
+          mismos handlers/estado que los pasos 4 y 5 (aditivo, sin duplicar lógica). */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            {isConnected
+              ? `TikTok conectado ✓${settings?.tiktok.connectedUsername ? ` (${settings.tiktok.connectedUsername})` : ""}`
+              : hasCreds
+                ? "Credenciales listas — conecta tu cuenta de TikTok."
+                : "Pega tu Client Key + Secret (paso 4) para continuar."}
+          </p>
+          {isConnected ? (
+            <Link
+              href="/produccion"
+              className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-pink px-4 text-sm font-medium text-white hover:bg-brand-pink/90"
+            >
+              Ir a Producción <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          ) : hasCreds ? (
+            <Button onClick={connect} className="ml-auto bg-pink-500 hover:bg-pink-400">
+              <Music2 className="mr-1.5 h-3.5 w-3.5" />
+              Conectar mi TikTok ahora
+            </Button>
+          ) : (
+            <Button
+              onClick={save}
+              disabled={saving || (!clientKey && !clientSecret)}
+              className="ml-auto"
+            >
+              {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Guardar credenciales
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
