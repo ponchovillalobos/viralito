@@ -352,8 +352,10 @@ export function LongFormWizard() {
   const [doRender, setDoRender] = useState(true);
   // Aspect ratio. Para largos default 9:16 también (extract_clips hace center-crop si el source es 16:9).
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9">("9:16");
-  // Face tracking: si el aspect cambia, ¿centrar el crop en la cara detectada?
-  const [faceTracking, setFaceTracking] = useState<"off" | "single" | "per-frame">("single");
+  // Face tracking: si el aspect cambia, ¿seguir la cara detectada al recortar?
+  // Default "per-frame": sigue al que habla cuadro a cuadro (no se sale del recuadro
+  // si se mueve). "single" centra una vez (rápido pero estático).
+  const [faceTracking, setFaceTracking] = useState<"off" | "single" | "per-frame">("per-frame");
 
   const pollRef = useRef<number | null>(null);
 
@@ -1199,8 +1201,8 @@ export function LongFormWizard() {
                       : "border-border hover:border-foreground/30"
                   )}
                 >
-                  <p className="text-xs font-medium">Sencillo (recomendado)</p>
-                  <p className="font-mono-tab text-[9px] text-muted-foreground">Encuadra la cara una vez (~1 s por clip)</p>
+                  <p className="text-xs font-medium">Sencillo</p>
+                  <p className="font-mono-tab text-[9px] text-muted-foreground">Centra la cara una vez, fijo (~1 s por clip)</p>
                 </button>
                 <button
                   type="button"
@@ -1212,8 +1214,8 @@ export function LongFormWizard() {
                       : "border-border hover:border-foreground/30"
                   )}
                 >
-                  <p className="text-xs font-medium">Preciso</p>
-                  <p className="font-mono-tab text-[9px] text-muted-foreground">Sigue la cara todo el tiempo (~5-10 s por clip)</p>
+                  <p className="text-xs font-medium">Preciso (recomendado)</p>
+                  <p className="font-mono-tab text-[9px] text-muted-foreground">Sigue al que habla cuadro a cuadro (~5-10 s por clip)</p>
                 </button>
               </div>
             </div>

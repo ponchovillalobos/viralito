@@ -35,15 +35,24 @@ from pathlib import Path
 
 try:
     import cv2
+except ImportError as exc:
+    print(f"[error] falta opencv-python: {exc}", file=sys.stderr)
+    print("Instalá con: pip install opencv-python", file=sys.stderr)
+    sys.exit(1)
+
+# MediaPipe BlazeFace es OPCIONAL: da mejor detección, pero si no está instalado
+# (o si falta el .tflite) caemos al detector Haar de OpenCV — que viene incluido
+# en cv2, no descarga nada y funciona offline. Así el reframe NUNCA se queda sin
+# detección silenciosamente (la causa raíz de "los videos salen cortados").
+try:
     import mediapipe as mp
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision as mp_vision
-except ImportError as exc:
-    print(f"[error] falta dependencia: {exc}", file=sys.stderr)
-    print("Instalá con: pip install mediapipe opencv-python", file=sys.stderr)
-    sys.exit(1)
+    _HAS_MEDIAPIPE = True
+except Exception:  # ImportError o fallo de carga de la lib nativa
+    _HAS_MEDIAPIPE = False
 
-# Modelo .tflite — se descarga en setup. ~225 KB.
+# Modelo .tflite — opcional, ~225 KB. Si falta, se usa Haar (ver arriba).
 MODEL_PATH = Path(__file__).parent / "models" / "blaze_face_short_range.tflite"
 
 
@@ -58,39 +67,81 @@ def smooth_ema(history: deque, alpha: float = 0.7) -> tuple[float, float, float,
     return smoothed
 
 
-def make_detector():
-    """Crea el FaceDetector de Tasks API."""
-    if not MODEL_PATH.exists():
-        raise RuntimeError(
-            f"Modelo .tflite no encontrado en {MODEL_PATH}. "
-            "Descargalo desde https://storage.googleapis.com/mediapipe-models/"
-            "face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
+class FaceDetector:
+    """Detector de rostros con dos backends. Preferencia BlazeFace (MediaPipe,
+    más preciso); fallback Haar (OpenCV, sin descargas, offline). El atributo
+    `.backend` dice cuál quedó activo ('blazeface' | 'haar')."""
+
+    def __init__(self) -> None:
+        self._mp = None
+        self._cascade = None
+        self.backend = ""
+
+        if _HAS_MEDIAPIPE and MODEL_PATH.exists():
+            try:
+                base_options = mp_python.BaseOptions(model_asset_path=str(MODEL_PATH))
+                options = mp_vision.FaceDetectorOptions(
+                    base_options=base_options,
+                    min_detection_confidence=0.4,
+                )
+                self._mp = mp_vision.FaceDetector.create_from_options(options)
+                self.backend = "blazeface"
+            except Exception as exc:  # noqa: BLE001
+                print(f"[face] BlazeFace no cargó ({exc}); uso Haar", file=sys.stderr)
+
+        if self._mp is None:
+            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            self._cascade = cv2.CascadeClassifier(cascade_path)
+            if self._cascade.empty():
+                raise RuntimeError(
+                    "No hay backend de detección disponible: ni BlazeFace .tflite "
+                    f"({MODEL_PATH}) ni el cascade Haar de OpenCV ({cascade_path})."
+                )
+            self.backend = "haar"
+
+    def detect(self, frame_rgb, frame_w: int, frame_h: int) -> tuple[float, float, float, float] | None:
+        """Devuelve (cx, cy, w, h) NORMALIZADO [0,1] del rostro dominante, o None."""
+        if self._mp is not None:
+            return self._detect_blaze(frame_rgb, frame_w, frame_h)
+        return self._detect_haar(frame_rgb, frame_w, frame_h)
+
+    def _detect_blaze(self, frame_rgb, frame_w: int, frame_h: int):
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
+        result = self._mp.detect(mp_image)
+        if not result.detections:
+            return None
+        # La cara con mayor score (típicamente el speaker dominante).
+        best = max(
+            result.detections,
+            key=lambda d: d.categories[0].score if d.categories else 0,
         )
-    base_options = mp_python.BaseOptions(model_asset_path=str(MODEL_PATH))
-    options = mp_vision.FaceDetectorOptions(
-        base_options=base_options,
-        min_detection_confidence=0.4,
-    )
-    return mp_vision.FaceDetector.create_from_options(options)
+        bbox = best.bounding_box  # En píxeles
+        cx = (bbox.origin_x + bbox.width / 2) / frame_w
+        cy = (bbox.origin_y + bbox.height / 2) / frame_h
+        return (cx, cy, bbox.width / frame_w, bbox.height / frame_h)
 
+    def _detect_haar(self, frame_rgb, frame_w: int, frame_h: int):
+        gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+        faces = self._cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(max(16, int(frame_w * 0.05)), max(16, int(frame_w * 0.05))),
+        )
+        if len(faces) == 0:
+            return None
+        # La cara más grande (el speaker dominante en plano).
+        fx, fy, fw, fh = max(faces, key=lambda f: int(f[2]) * int(f[3]))
+        cx = (fx + fw / 2.0) / frame_w
+        cy = (fy + fh / 2.0) / frame_h
+        return (cx, cy, fw / frame_w, fh / frame_h)
 
-def detect_face_in_frame(detector, frame_rgb, frame_w: int, frame_h: int) -> tuple[float, float, float, float] | None:
-    """Devuelve (cx, cy, w, h) NORMALIZADO [0,1] del rostro de mayor confianza, o None."""
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
-    result = detector.detect(mp_image)
-    if not result.detections:
-        return None
-    # Tomar la cara con mayor score (típicamente el speaker dominante)
-    best = max(
-        result.detections,
-        key=lambda d: d.categories[0].score if d.categories else 0,
-    )
-    bbox = best.bounding_box  # En píxeles
-    cx = (bbox.origin_x + bbox.width / 2) / frame_w
-    cy = (bbox.origin_y + bbox.height / 2) / frame_h
-    w = bbox.width / frame_w
-    h = bbox.height / frame_h
-    return (cx, cy, w, h)
+    def close(self) -> None:
+        if self._mp is not None:
+            try:
+                self._mp.close()
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def process_video(
@@ -110,7 +161,8 @@ def process_video(
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     duration = total_frames / fps if fps > 0 else 0.0
 
-    detector = make_detector()
+    detector = FaceDetector()
+    print(f"[face] backend={detector.backend}", file=sys.stderr)
 
     samples: list[dict] = []
     bbox_history: deque = deque(maxlen=5)
@@ -136,7 +188,7 @@ def process_video(
 
             sampled_count += 1
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-            detection = detect_face_in_frame(detector, frame_rgb, width, height)
+            detection = detector.detect(frame_rgb, width, height)
             t = frame_idx / fps
 
             if detection:
@@ -183,6 +235,7 @@ def process_video(
         "height": height,
         "fps": fps,
         "duration": round(duration, 3),
+        "backend": detector.backend,
         "single_frame": single_frame,
         "sample_every": sample_every if not single_frame else 0,
         "samples": samples,

@@ -168,6 +168,8 @@ _VALIDATIONS: dict[str, tuple[Path, tuple[str, ...], int]] = {
     "lottie": (ASSETS_LOTTIE, (".json",), 30),
     "iconos_editoriales": (ASSETS_ICONS, (".svg",), 5000),
     "fonts": (FONTS_DIR, (".ttf", ".otf"), 6),
+    # Modelo BlazeFace (.tflite) para el reframe que sigue la cara. 1 archivo basta.
+    "face_model": (HERE / "models", (".tflite",), 1),
     # MEJORAS extra. Validan la subcarpeta PROPIA del pack (no la compartida) para
     # detectar de verdad si bajó el set nuevo.
     # Material Symbols (~4,100) + Lucide (~1,700) → mín conservador por si una mitad
@@ -539,6 +541,9 @@ def main() -> int:
 
     # 2) MEJORAS — no abortan el setup si fallan (la app funciona sin ellas).
     _step("fonts", "fuentes tipográficas", ["download_fonts.py"], state)
+    # Modelo de detección de cara (reframe que sigue al que habla). Opcional: si no
+    # baja, face_tracking usa el Haar de OpenCV (sin red). ~225 KB.
+    _step("face_model", "modelo de detección de cara (reframe)", ["download_face_model.py"], state)
     _step("iconos_editoriales", "iconos editoriales", ["download_editorial_icons.py"], state)
     # Ilustraciones animadas: hay DOS sets y NO son acumulativos. Sin --all baja el
     # set CURADO por concepto (noto/*.json: money, rocket, fire…) que es lo que el

@@ -138,8 +138,15 @@ def needs_reframe(clean_path: Path, target_aspect: str | None) -> bool:
     return abs(src_ratio - target_ratio) > 0.05
 
 
+def _esc(expr: str) -> str:
+    """Escapa las comas para el parser de filtergraph de ffmpeg (`,` separa filtros;
+    dentro de una expresión hay que pasarla como `\\,`). Los `:` estructurales del
+    crop NO se tocan (separan las 4 opciones w:h:x:y)."""
+    return expr.replace(",", "\\,")
+
+
 def build_crop_filter(target_aspect: str, face_bbox: tuple[float, float, float, float] | None) -> str:
-    """Devuelve el filtro -vf crop para ffmpeg.
+    """Devuelve el filtro -vf crop ESTÁTICO para ffmpeg.
 
     Si face_bbox = (cx, cy, w, h) normalizado, centra el crop en esa posición.
     Si no, center crop estándar.
@@ -155,23 +162,31 @@ def build_crop_filter(target_aspect: str, face_bbox: tuple[float, float, float, 
         if face_bbox:
             cx, _, _, _ = face_bbox
             # Usar 'min/max' de ffmpeg para clampear sin que se salga del frame.
-            x_expr = f"max(0,min(iw-ih*9/16,({cx:.4f})*iw-(ih*9/16)/2))"
+            x_expr = _esc(f"max(0,min(iw-ih*9/16,({cx:.4f})*iw-(ih*9/16)/2))")
             return f"crop=ih*9/16:ih:{x_expr}:0"
         return "crop=ih*9/16:ih"
     elif target_aspect == "16:9":
         # Output dim: width = iw, height = iw*9/16.
         if face_bbox:
             _, cy, _, _ = face_bbox
-            y_expr = f"max(0,min(ih-iw*9/16,({cy:.4f})*ih-(iw*9/16)/2))"
+            y_expr = _esc(f"max(0,min(ih-iw*9/16,({cy:.4f})*ih-(iw*9/16)/2))")
             return f"crop=iw:iw*9/16:0:{y_expr}"
         return "crop=iw:iw*9/16"
     raise ValueError(f"target_aspect inválido: {target_aspect}")
 
 
-def run_face_tracking(clip_path: Path, out_json: Path, single_frame: bool = True) -> tuple[float, float, float, float] | None:
-    """Ejecuta face_tracking.py sobre clip_path. Devuelve el bbox del medio (o promedio).
+# Máximo de keyframes en la expresión de crop temporal. La trayectoria se
+# submuestrea a este tope para que la expresión ffmpeg quede acotada (un clip
+# largo muestreado cada 5 frames puede dar cientos de puntos).
+_MAX_CROP_KEYFRAMES = 60
 
-    single_frame=True → detecta solo en el frame del medio (rápido, ~1s por clip).
+
+def run_face_tracking(clip_path: Path, out_json: Path, single_frame: bool = True) -> list[dict] | None:
+    """Ejecuta face_tracking.py sobre clip_path. Devuelve la lista de samples
+    {t, cx, cy, w, h} (trayectoria), o None si no se detectó cara.
+
+    single_frame=True → detecta solo en el frame del medio (1 sample, crop estático).
+    single_frame=False → detecta cada N frames (trayectoria → crop que SIGUE la cara).
     """
     cmd = [
         str(VENV_PYTHON),
@@ -199,18 +214,73 @@ def run_face_tracking(clip_path: Path, out_json: Path, single_frame: bool = True
     if not samples:
         print(f"[face] sin samples — no se detectó cara en {clip_path.name}", file=sys.stderr)
         return None
+    return samples
 
-    if single_frame:
-        s = samples[0]
-        return (s["cx"], s["cy"], s["w"], s["h"])
 
-    # Per-frame: promediar cx/cy (más estable que tomar solo el medio)
-    n = len(samples)
-    cx_avg = sum(s["cx"] for s in samples) / n
-    cy_avg = sum(s["cy"] for s in samples) / n
-    w_avg = sum(s["w"] for s in samples) / n
-    h_avg = sum(s["h"] for s in samples) / n
-    return (cx_avg, cy_avg, w_avg, h_avg)
+def _mean_bbox(samples: list[dict]) -> tuple[float, float, float, float]:
+    """Promedio cx/cy/w/h de los samples (para metadata y crop estático)."""
+    n = max(1, len(samples))
+    return (
+        sum(s["cx"] for s in samples) / n,
+        sum(s["cy"] for s in samples) / n,
+        sum(s["w"] for s in samples) / n,
+        sum(s["h"] for s in samples) / n,
+    )
+
+
+def _downsample_keyframes(samples: list[dict], axis: str) -> list[tuple[float, float]]:
+    """(t, valor[axis]) submuestreado a <= _MAX_CROP_KEYFRAMES, conservando 1º y último.
+    `axis` es 'cx' (reframe 9:16) o 'cy' (reframe 16:9)."""
+    pts = [(float(s["t"]), float(s[axis])) for s in samples]
+    pts.sort(key=lambda p: p[0])
+    if len(pts) <= _MAX_CROP_KEYFRAMES:
+        return pts
+    stride = (len(pts) + _MAX_CROP_KEYFRAMES - 1) // _MAX_CROP_KEYFRAMES
+    kept = pts[::stride]
+    if kept[-1][0] != pts[-1][0]:
+        kept.append(pts[-1])
+    return kept
+
+
+def _piecewise_expr(keyframes: list[tuple[float, float]]) -> str:
+    """Expresión ffmpeg de la trayectoria como interpolación lineal por tramos en `t`.
+    Fuera del rango: se mantiene el primer/último valor (sin extrapolar)."""
+    if not keyframes:
+        return "0.5"
+    if len(keyframes) == 1:
+        return f"{keyframes[0][1]:.5f}"
+    chain = f"{keyframes[-1][1]:.5f}"  # t >= t_last → último valor
+    for i in range(len(keyframes) - 2, -1, -1):
+        t0, c0 = keyframes[i]
+        t1, c1 = keyframes[i + 1]
+        span = max(1e-6, t1 - t0)
+        seg = f"({c0:.5f}+({(c1 - c0):.5f})*(t-{t0:.5f})/{span:.5f})"
+        chain = f"if(lt(t,{t1:.5f}),{seg},{chain})"
+    t_first, c_first = keyframes[0]
+    return f"if(lt(t,{t_first:.5f}),{c_first:.5f},{chain})"
+
+
+def build_tracked_crop_filter(target_aspect: str, samples: list[dict]) -> str:
+    """Filtro -vf crop que SIGUE la cara cuadro a cuadro (expresión en `t`).
+
+    Para 9:16 mueve el offset X según cx(t); para 16:9 mueve el offset Y según cy(t).
+    Clampeado a [0, dim-crop] para no descubrir borde. Si hay <2 keyframes degrada a
+    crop estático (idéntico a build_crop_filter)."""
+    if target_aspect == "9:16":
+        kf = _downsample_keyframes(samples, "cx")
+        if len(kf) < 2:
+            return build_crop_filter(target_aspect, (kf[0][1], 0.0, 0.0, 0.0) if kf else None)
+        cx_expr = _piecewise_expr(kf)
+        x_expr = _esc(f"max(0,min(iw-ih*9/16,({cx_expr})*iw-(ih*9/16)/2))")
+        return f"crop=ih*9/16:ih:{x_expr}:0"
+    elif target_aspect == "16:9":
+        kf = _downsample_keyframes(samples, "cy")
+        if len(kf) < 2:
+            return build_crop_filter(target_aspect, (0.0, kf[0][1], 0.0, 0.0) if kf else None)
+        cy_expr = _piecewise_expr(kf)
+        y_expr = _esc(f"max(0,min(ih-iw*9/16,({cy_expr})*ih-(iw*9/16)/2))")
+        return f"crop=iw:iw*9/16:0:{y_expr}"
+    raise ValueError(f"target_aspect inválido: {target_aspect}")
 
 
 def extract_clip(
@@ -306,12 +376,20 @@ def extract_clip(
     LF_FACE_TRACKS.mkdir(parents=True, exist_ok=True)
     face_json = LF_FACE_TRACKS / f"{clip_id or out_path.stem}.json"
     single_frame = face_tracking == "single"
-    bbox = run_face_tracking(tmp_path, face_json, single_frame=single_frame)
-    metadata["face_detected"] = bbox is not None
-    metadata["face_bbox"] = list(bbox) if bbox else None
+    samples = run_face_tracking(tmp_path, face_json, single_frame=single_frame)
+    metadata["face_detected"] = bool(samples)
+    mean_bbox = _mean_bbox(samples) if samples else None
+    metadata["face_bbox"] = list(mean_bbox) if mean_bbox else None
+    metadata["face_tracked"] = bool(samples) and not single_frame and len(samples) >= 2
 
-    # Pase 2: reframe con face-aware crop (o center fallback si no detectó cara)
-    crop_filter = build_crop_filter(target_aspect, bbox)
+    # Pase 2: reframe.
+    #   - per-frame con >=2 samples → crop que SIGUE la cara cuadro a cuadro (expr en t).
+    #   - single (o per-frame con 1 sample) → crop estático centrado en la cara.
+    #   - sin cara → center crop ciego.
+    if metadata["face_tracked"]:
+        crop_filter = build_tracked_crop_filter(target_aspect, samples)
+    else:
+        crop_filter = build_crop_filter(target_aspect, mean_bbox)
     # Pase 2: lleva -vf crop (CPU) → NO inyectar decode hwaccel (input_path=None),
     # solo encoder adaptativo + faststart.
     ff2 = ffmpeg_full_args(input_path=None, quality="final")
@@ -334,9 +412,14 @@ def extract_clip(
     except OSError:
         pass
 
-    if bbox:
+    if metadata["face_tracked"]:
         print(
-            f"[face] {out_path.name} centrado en cx={bbox[0]:.2f} cy={bbox[1]:.2f}",
+            f"[face] {out_path.name} SIGUE la cara · {len(samples)} samples",
+            file=sys.stderr,
+        )
+    elif mean_bbox:
+        print(
+            f"[face] {out_path.name} centrado en cx={mean_bbox[0]:.2f} cy={mean_bbox[1]:.2f}",
             file=sys.stderr,
         )
     else:
