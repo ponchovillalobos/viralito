@@ -1400,7 +1400,7 @@ def main() -> int:
             "cinematic_pro", "broll_full", "broll_pip", "text_behind", "pop_reels",
             "graphics_pro", "graphics_max",
             "motion_pro", "motion_beat", "motion_grid",
-            "editorial", "editorial_broll",
+            "editorial", "editorial_broll", "editorial_full",
             "kinetic_type", "lottie_pop", "paper_cut", "cine_clasico",
         }
         invalid = [s for s in styles if s not in VALID_STYLES]

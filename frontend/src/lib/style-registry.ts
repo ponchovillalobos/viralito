@@ -61,6 +61,7 @@ export const STYLE_IDS = [
   "motion_beat",
   "motion_grid",
   "editorial",
+  "editorial_full",
   "editorial_broll",
   "graphics_max",
   "kinetic_type",

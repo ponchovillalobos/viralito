@@ -887,6 +887,18 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         />
       )}
       </div>
+      {/* EDITORIAL FULL BLEED — degradado inferior para que la tipografía (lower-third)
+          y los subtítulos se lean sobre el video. Va ENCIMA del video, DEBAJO de las
+          tarjetas. Solo en fullBleed; el resto de estilos queda byte-idéntico. */}
+      {editorialLayout?.fullBleed && (
+        <AbsoluteFill
+          style={{
+            pointerEvents: "none",
+            background:
+              "linear-gradient(to top, rgba(8,9,8,0.94) 0%, rgba(8,9,8,0.74) 20%, rgba(8,9,8,0.30) 40%, rgba(8,9,8,0) 60%)",
+          }}
+        />
+      )}
 
       {/* A4 — Speed ramps: ventanas donde se overlay-ea el source a rate < 1 (slow-mo)
           o > 1 (acelerado), tapando el base 1x debajo. Audio mute para no doblar. */}

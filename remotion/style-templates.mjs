@@ -785,6 +785,35 @@ export function buildProjectForStyle(ctx, styleId) {
     );
   }
 
+  // ─── EDITORIAL PANTALLA COMPLETA (documental): el video ORIGINAL ocupa todo el
+  //     frame (sin panel lateral, sin recortar) y la tipografía editorial + el grade
+  //     van SUPERPUESTOS como lower-third sobre un degradado. Ideal 16:9 horizontal:
+  //     mantiene el formato original del material y suma el look editorial. ───
+  if (styleId === "editorial_full") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton",
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "right",        // ignorado en fullBleed
+          panelWidth: 0.4,
+          accent: ctx.accentColor,
+          texture: "none",       // sin textura de papel ENCIMA del video
+          fps12: true,
+          cohesion: false,       // sin gate-weave: el video manda, el texto firme
+          fullBleed: true,       // PANTALLA COMPLETA + tipografía superpuesta
+        },
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   // ─── EDITORIAL CON ARCHIVO (paridad con shorts): look editorial + b-roll de archivo
   //     (Pexels) en cortinillas PIP. En largos el b-roll automático NO está cableado,
   //     pero el editorialLayout renderiza idéntico; el bloque existe para la paridad. ───

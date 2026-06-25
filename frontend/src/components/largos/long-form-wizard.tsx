@@ -113,7 +113,7 @@ type StyleId =
   | "cinematic_pro"
   | "graphics_pro" | "graphics_max"
   | "motion_pro" | "motion_beat" | "motion_grid"
-  | "editorial" | "editorial_broll"
+  | "editorial" | "editorial_broll" | "editorial_full"
   | "kinetic_type" | "lottie_pop" | "paper_cut"
   | "cine_clasico";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
@@ -217,6 +217,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = 
   { id: "motion_beat", name: "Motion Beat", tagline: "El fondo late con la música", emoji: "🎧" },
   { id: "motion_grid", name: "Motion Grid", tagline: "Retro-tech: cuadrícula + gráficas", emoji: "🌐" },
   { id: "editorial", name: "Editorial", tagline: "Documental: panel + titulares serif + line-art dorado", emoji: "📰" },
+  { id: "editorial_full", name: "Editorial pantalla completa", tagline: "El video original COMPLETO (sin recortar) + tipografía editorial encima. Para 16:9: mantiene tu formato horizontal", emoji: "🖥️" },
   { id: "editorial_broll", name: "Editorial con archivo", tagline: "Editorial + videos de archivo (Pexels) que ilustran lo que dices", emoji: "🎞️" },
   { id: "kinetic_type", name: "Tipografía cinética", tagline: "Subtítulos gigantes + fondo que late, sin emojis", emoji: "⌨️" },
   { id: "lottie_pop", name: "Animado con stickers", tagline: "Stickers animados + íconos + fondo aurora", emoji: "✨" },
@@ -615,7 +616,7 @@ export function LongFormWizard() {
       };
       if (maxClips.trim()) body.maxClips = parseInt(maxClips, 10);
       if (ollamaModel.trim()) body.model = ollamaModel.trim();
-      if (selectedStyles.some((s) => s === "editorial" || s === "editorial_broll")) {
+      if (selectedStyles.some((s) => s === "editorial" || s === "editorial_broll" || s === "editorial_full")) {
         const t = EDITORIAL_THEMES.find((x) => x.id === editorialTheme);
         if (t) body.editorialTheme = { font: t.font, background: t.background, theme: t.theme || undefined };
       }
@@ -684,7 +685,7 @@ export function LongFormWizard() {
         faceTracking,
       };
       if (ollamaModel.trim()) body.model = ollamaModel.trim();
-      if (selectedStyles.some((s) => s === "editorial" || s === "editorial_broll")) {
+      if (selectedStyles.some((s) => s === "editorial" || s === "editorial_broll" || s === "editorial_full")) {
         const t = EDITORIAL_THEMES.find((x) => x.id === editorialTheme);
         if (t) body.editorialTheme = { font: t.font, background: t.background, theme: t.theme || undefined };
       }
@@ -778,7 +779,7 @@ export function LongFormWizard() {
   // Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía/colores
   // vienen del tema. Si solo hay estilos editoriales, los selectores de texto de
   // subtítulos no aplican y se ocultan.
-  const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll"];
+  const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll", "editorial_full"];
   const hasEditorial = selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
   const editorialOnly =
     hasEditorial && selectedStyles.every((s) => EDITORIAL_LAYOUT_STYLES.includes(s));

@@ -107,6 +107,11 @@ export const editorialLayoutSchema = z.object({
    *  "grabado", "constructivista", "bauhaus", "swiss", "brutal", "mincho",
    *  "stripe", "docu", "ft". "" = clásico (font+background de arriba). */
   theme: z.string().default(""),
+  /** FULL BLEED (editorial documental): el video va a PANTALLA COMPLETA, sin panel
+   *  lateral ni recorte. Las tarjetas tipográficas + subtítulos se superponen en la
+   *  franja inferior sobre un degradado (legibilidad). El lienzo oscuro y la
+   *  decoración ambiental se atenúan (van encima del video). Para 16:9 horizontal. */
+  fullBleed: z.boolean().default(false),
 });
 export type EditorialLayout = z.infer<typeof editorialLayoutSchema>;
 
@@ -234,6 +239,12 @@ export function editorialPanelAt(
   H: number,
   sourceAspect?: number
 ): PanelRect {
+  // FULL BLEED: video a pantalla completa todo el tiempo; las tarjetas se muestran
+  // (no se ocultan) y se posicionan como lower-third sobre el degradado (ver
+  // EditorialCardLayer, que detecta layout.fullBleed).
+  if (layout.fullBleed) {
+    return { x: 0, y: 0, w: W, h: H, r: 0, cardsHidden: false, textSide: "left", textBelow: false };
+  }
   const pw = layout.panelWidth ?? 0.4;
   const baseMode: PanelMode = (layout.panel ?? "right") as PanelMode;
   const scenes = (layout.scenes ?? []).filter((s) => typeof s?.at === "number");
@@ -354,6 +365,10 @@ export const EditorialAmbient: React.FC<{
   width: number;
   height: number;
 }> = ({ layout, currentTime, width, height }) => {
+  // FULL BLEED: la decoración (grilla de puntos, círculos, reglas) iría ENCIMA del
+  // video → ruido. Se omite; el video es el protagonista y la tipografía + el
+  // degradado inferior bastan para el look editorial.
+  if (layout.fullBleed) return null;
   const look = resolveEditorialLook(layout);
   const GOLD = layout.accent ?? look.themeAccent ?? "#f0b429";
   const theme = look.canvas;
@@ -613,24 +628,50 @@ export const EditorialCardLayer: React.FC<{
   // En 9:16 (cuadrado/cierre) el texto va DEBAJO del panel a lo ancho — al
   // costado se encimaba con el video (bug visto en producción).
   const textBelow = Boolean(panel?.textBelow);
-  const zoneWidth = textBelow
-    ? width - 112
-    : panel
-      ? Math.max(width * 0.3, width - panel.w - 140)
-      : width * (1 - (layout.panelWidth ?? 0.4)) - 90;
+  // FULL BLEED: el video ocupa todo el frame; la tipografía va como LOWER-THIRD a la
+  // izquierda-abajo, sobre el degradado de legibilidad (lo dibuja ViralVideo).
+  const fullBleed = Boolean(layout.fullBleed);
+  const zoneWidth = fullBleed
+    ? width * 0.62
+    : textBelow
+      ? width - 112
+      : panel
+        ? Math.max(width * 0.3, width - panel.w - 140)
+        : width * (1 - (layout.panelWidth ?? 0.4)) - 90;
   const isStat = Boolean(card.statValue);
-  const hasIcon = Boolean(card.icon);
+  // FULL BLEED: el VIDEO es el visual; las ilustraciones line-art encima compiten y
+  // ensucian. Se ocultan (la tipografía + grade son el look editorial sobre el video).
+  const hasIcon = Boolean(card.icon) && !fullBleed;
   // Tarjeta VISUAL: sin titular/stat/capítulo → la ILUSTRACIÓN es la protagonista
   // (se usa para rellenar huecos entre frases fuertes; el lienzo nunca queda vacío).
   const isVisual = hasIcon && !card.title && !card.statValue && !card.number;
+  // En fullBleed las tarjetas SOLO-ilustración no aportan (no hay texto) → se saltan.
+  if (fullBleed && Boolean(card.icon) && !card.title && !card.statValue && !card.number) {
+    return null;
+  }
   // Escala tipográfica relativa al alto del frame (sirve igual en 9:16 y 16:9).
-  const titleSize = Math.min(zoneWidth * (textBelow ? 0.082 : 0.135), height * 0.075);
+  const titleSize = fullBleed
+    ? Math.min(zoneWidth * 0.085, height * 0.062)
+    : Math.min(zoneWidth * (textBelow ? 0.082 : 0.135), height * 0.075);
   const variant = illoVariantFor(card, index);
   const iconSize = isVisual
     ? Math.min(zoneWidth * (textBelow ? 0.4 : 0.62), height * (textBelow ? 0.22 : 0.36))
     : Math.min(zoneWidth * (textBelow ? 0.24 : 0.46), height * (textBelow ? 0.15 : 0.26));
-  const zoneStyle: React.CSSProperties =
-    textBelow && panel
+  const zoneStyle: React.CSSProperties = fullBleed
+    ? {
+        position: "absolute",
+        left: width * 0.055,
+        right: width * 0.30,
+        top: height * 0.54,
+        bottom: height * 0.11,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        gap: height * 0.01,
+        // Sombra para legibilidad extra de cualquier texto sobre el video.
+        textShadow: "0 2px 18px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.95)",
+      }
+    : textBelow && panel
       ? {
           position: "absolute",
           left: 56,

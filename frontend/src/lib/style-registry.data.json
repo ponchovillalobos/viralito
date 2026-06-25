@@ -161,6 +161,17 @@
     "illustrations": true
   },
   {
+    "id": "editorial_full",
+    "name": "Editorial pantalla completa",
+    "tagline": "El video original COMPLETO sin recortar + tipografía editorial superpuesta. Para 16:9 mantiene tu formato horizontal",
+    "emoji": "🖥️",
+    "shortLabel": "EditorialFull",
+    "families": ["music"],
+    "longForm": true,
+    "hasGraphics": true,
+    "illustrations": true
+  },
+  {
     "id": "editorial_broll",
     "name": "Editorial con archivo",
     "tagline": "Editorial documental: panel + titulares serif gigantes + videos de archivo (Pexels) que ilustran lo que dices",

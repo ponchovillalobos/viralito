@@ -1073,6 +1073,37 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     );
   }
 
+  // ─── EDITORIAL PANTALLA COMPLETA (documental): el video ORIGINAL ocupa todo el frame
+  // (sin panel lateral, sin recortar) y la tipografía editorial + el grade van
+  // SUPERPUESTOS como lower-third sobre un degradado inferior. Pensado para 16:9
+  // horizontal: mantiene el formato original del material y suma el look editorial.
+  // El render lo activa editorialLayout.fullBleed (video fullscreen + scrim + cards
+  // como lower-third). ───
+  if (styleId === "editorial_full") {
+    return applyCapcutFx(
+      {
+        ...base,
+        graphics: true,
+        subtitleStyle: "anton" as const,
+        vignette: false,
+        captionBounce: false,
+        musicTrack: pickRandomMusicTrack(ctx.videoId),
+        musicVolume: 0.06,
+        editorialLayout: {
+          panel: "right" as const, // ignorado en fullBleed
+          panelWidth: 0.4,
+          accent: ctx.accentColor,
+          texture: "none" as const, // sin textura de papel ENCIMA del video
+          fps12: true,
+          cohesion: false, // sin gate-weave: el video manda, el texto firme
+          fullBleed: true, // PANTALLA COMPLETA + tipografía superpuesta
+        },
+      },
+      ctx,
+      { lut: "kodak_warm.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   // ─── EDITORIAL CON ARCHIVO: el look editorial (panel + titulares serif + line-art)
   // COMBINADO con b-roll de archivo (Pexels) que ilustra lo que se dice. El sujeto
   // vive en el panel editorial; el lado oscuro muestra las tarjetas serif; y los clips

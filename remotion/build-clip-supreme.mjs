@@ -75,6 +75,8 @@ const VALID_STYLES = [
   "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
   "graphics_pro", "graphics_max",
   "motion_pro", "motion_beat", "motion_grid", "editorial",
+  // Editorial pantalla completa (documental): video original full + tipografía encima.
+  "editorial_full",
   // Estilos de archivo: buildProjectForStyle ya los maneja; el b-roll lo puebla
   // el pipeline (_apply_broll → /api/long_form/broll). Antes faltaban acá, así que
   // elegirlos en largos fallaba con "style_id inválido".
