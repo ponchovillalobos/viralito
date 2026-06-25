@@ -1,6 +1,6 @@
 import { AbsoluteFill } from "remotion";
 import { z } from "zod";
-import { loadFont as loadPlayfair } from "@remotion/google-fonts/PlayfairDisplay";
+import { PLAYFAIR, PLAYFAIR_IT, DMSERIF, DMSERIF_IT, LORA, LORA_IT, ABRIL } from "./local-editorial-fonts";
 import { LineArtIcon, LineArtLucide, LINE_ART_KINDS, type LineArtKind } from "./line-art-icons";
 import { stepTime, gateWeave } from "./editorial-texture";
 import {
@@ -20,23 +20,8 @@ import { resolveEditorialLook, MotifLayer, EDITORIAL_THEME_DEFS } from "./editor
  * acento en dorado-itálica, subtítulo gris, capítulos numerados (01 · 01/04),
  * stats enormes ($300 al día) e ilustraciones line-art animadas.
  */
-const { fontFamily: PLAYFAIR } = loadPlayfair("normal", {
-  weights: ["500", "700", "900"],
-  subsets: ["latin", "latin-ext"],
-});
-const { fontFamily: PLAYFAIR_IT } = loadPlayfair("italic", {
-  weights: ["500", "700", "900"],
-  subsets: ["latin", "latin-ext"],
-});
-// Temas tipográficos extra (todas Google Fonts gratis).
-import { loadFont as loadDMSerif } from "@remotion/google-fonts/DMSerifDisplay";
-import { loadFont as loadLora } from "@remotion/google-fonts/Lora";
-import { loadFont as loadAbril } from "@remotion/google-fonts/AbrilFatface";
-const { fontFamily: DMSERIF } = loadDMSerif("normal", { weights: ["400"], subsets: ["latin", "latin-ext"] });
-const { fontFamily: DMSERIF_IT } = loadDMSerif("italic", { weights: ["400"], subsets: ["latin", "latin-ext"] });
-const { fontFamily: LORA } = loadLora("normal", { weights: ["500", "700"], subsets: ["latin", "latin-ext"] });
-const { fontFamily: LORA_IT } = loadLora("italic", { weights: ["500", "700"], subsets: ["latin", "latin-ext"] });
-const { fontFamily: ABRIL } = loadAbril("normal", { weights: ["400"], subsets: ["latin", "latin-ext"] });
+// Tipografías (Playfair/DMSerif/Lora/Abril) ahora son TTF locales (cero red en
+// render). Mismos family CSS → FONT_THEMES queda idéntico. Ver local-editorial-fonts.
 
 /** Familia (normal, itálica) por tema de fuente. Abril no tiene itálica → reusa.
  *  Las VARIABLES (fraunces/bodoni/robotoserif/bricolage/newsreader) vienen de

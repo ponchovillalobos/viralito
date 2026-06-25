@@ -12,55 +12,15 @@ import { drawProps } from "./line-art-icons";
  * Compat: sin layout.theme todo resuelve a los lienzos clásicos (dark/ink/cream).
  */
 
-// ─── Tipografías por tema (Google Fonts OFL — se cargan una vez por render) ───
-import { loadFont as loadOldStandard } from "@remotion/google-fonts/OldStandardTT";
-import { loadFont as loadCormorant } from "@remotion/google-fonts/CormorantGaramond";
-import { loadFont as loadKarla } from "@remotion/google-fonts/Karla";
-import { loadFont as loadArchivoBlack } from "@remotion/google-fonts/ArchivoBlack";
-import { loadFont as loadSpaceMono } from "@remotion/google-fonts/SpaceMono";
-import { loadFont as loadIMFell } from "@remotion/google-fonts/IMFellEnglish";
-import { loadFont as loadOswald } from "@remotion/google-fonts/Oswald";
-import { loadFont as loadJosefin } from "@remotion/google-fonts/JosefinSans";
-import { loadFont as loadDMSans } from "@remotion/google-fonts/DMSans";
-import { loadFont as loadInterTight } from "@remotion/google-fonts/InterTight";
-import { loadFont as loadSpaceGrotesk } from "@remotion/google-fonts/SpaceGrotesk";
-import { loadFont as loadPlexMono } from "@remotion/google-fonts/IBMPlexMono";
-import { loadFont as loadShippori } from "@remotion/google-fonts/ShipporiMincho";
-import { loadFont as loadZenKaku } from "@remotion/google-fonts/ZenKakuGothicNew";
-import { loadFont as loadLibreFranklin } from "@remotion/google-fonts/LibreFranklin";
-import { loadFont as loadSpectral } from "@remotion/google-fonts/Spectral";
-import { loadFont as loadCinzel } from "@remotion/google-fonts/Cinzel";
-import { loadFont as loadJetBrainsMono } from "@remotion/google-fonts/JetBrainsMono";
-import { loadFont as loadPlayfairDisplay } from "@remotion/google-fonts/PlayfairDisplay";
-import { loadFont as loadSpecialElite } from "@remotion/google-fonts/SpecialElite";
-
-const { fontFamily: OLDSTD } = loadOldStandard("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: OLDSTD_IT } = loadOldStandard("italic", { weights: ["400"], subsets: ["latin"] });
-const { fontFamily: CORMORANT } = loadCormorant("normal", { weights: ["400", "600"], subsets: ["latin"] });
-const { fontFamily: CORMORANT_IT } = loadCormorant("italic", { weights: ["400", "600"], subsets: ["latin"] });
-const { fontFamily: KARLA } = loadKarla("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: ARCHIVO_BLACK } = loadArchivoBlack("normal", { weights: ["400"], subsets: ["latin"] });
-const { fontFamily: SPACE_MONO } = loadSpaceMono("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: IMFELL } = loadIMFell("normal", { weights: ["400"], subsets: ["latin"] });
-const { fontFamily: IMFELL_IT } = loadIMFell("italic", { weights: ["400"], subsets: ["latin"] });
-const { fontFamily: OSWALD } = loadOswald("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: JOSEFIN } = loadJosefin("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: JOSEFIN_IT } = loadJosefin("italic", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: DM_SANS } = loadDMSans("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: INTER_TIGHT } = loadInterTight("normal", { weights: ["400", "700", "900"], subsets: ["latin"] });
-const { fontFamily: SPACE_GROTESK } = loadSpaceGrotesk("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: PLEX_MONO } = loadPlexMono("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: SHIPPORI } = loadShippori("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: ZEN_KAKU } = loadZenKaku("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: FRANKLIN } = loadLibreFranklin("normal", { weights: ["400", "700", "900"], subsets: ["latin"] });
-const { fontFamily: FRANKLIN_IT } = loadLibreFranklin("italic", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: SPECTRAL } = loadSpectral("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: SPECTRAL_IT } = loadSpectral("italic", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: CINZEL } = loadCinzel("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: JETBRAINS } = loadJetBrainsMono("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: PLAYFAIR_D } = loadPlayfairDisplay("normal", { weights: ["400", "700", "900"], subsets: ["latin"] });
-const { fontFamily: PLAYFAIR_D_IT } = loadPlayfairDisplay("italic", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: SPECIAL_ELITE } = loadSpecialElite("normal", { weights: ["400"], subsets: ["latin"] });
+// ─── Tipografías por tema — TTF locales (CERO red en render; ver local-editorial-fonts) ───
+// Antes: @remotion/google-fonts/* cargaba ~20 familias de fonts.gstatic.com en CADA
+// render → sin internet abortaba TODO. Ahora los family son idénticos pero locales.
+import {
+  OLDSTD, OLDSTD_IT, CORMORANT, CORMORANT_IT, KARLA, ARCHIVO_BLACK, SPACE_MONO,
+  IMFELL, IMFELL_IT, OSWALD, JOSEFIN, JOSEFIN_IT, DM_SANS, INTER_TIGHT, SPACE_GROTESK,
+  PLEX_MONO, SHIPPORI, ZEN_KAKU, FRANKLIN, FRANKLIN_IT, SPECTRAL, CINZEL, JETBRAINS,
+  PLAYFAIR_D, PLAYFAIR_D_IT, SPECIAL_ELITE,
+} from "./local-editorial-fonts";
 
 export type MotifId =
   | "none" | "prensa" | "vogue" | "kinfolk" | "riso" | "grabado"
