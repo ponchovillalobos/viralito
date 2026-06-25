@@ -64,6 +64,8 @@ export function ProductionList() {
   // Confirmación de borrado con nuestro propio diálogo (nada de confirm() nativo).
   const [deleteTarget, setDeleteTarget] = useState<ProjectExt | null>(null);
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  // Variante de estilo activa por grupo (clip con varios estilos): key del grupo → id del proyecto.
+  const [activeVariant, setActiveVariant] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -77,6 +79,30 @@ export function ProductionList() {
       return true;
     });
   }, [projects, search, filterStatus, filterPlatform]);
+
+  // Agrupa las VARIANTES de estilo del MISMO clip en un solo grupo → una tarjeta en vez
+  // de N "repetidas". El base se obtiene quitando el sufijo `_{styleId}` del id (un clip de
+  // largos `..._editorial` y `..._supreme` comparten base). Los cortos suelen quedar solos
+  // (sus ids no terminan en `_{styleId}`). El orden se preserva: la 1ª variante (la más
+  // reciente, por el sort de /api/projects) fija la posición del grupo.
+  const groups = useMemo(() => {
+    const baseKey = (p: ProjectExt) =>
+      p.styleId && p.id.endsWith(`_${p.styleId}`)
+        ? p.id.slice(0, -(p.styleId.length + 1))
+        : p.id;
+    const out: { key: string; variants: ProjectExt[] }[] = [];
+    const idx = new Map<string, number>();
+    for (const p of filtered) {
+      const k = baseKey(p);
+      const i = idx.get(k);
+      if (i != null) out[i].variants.push(p);
+      else {
+        idx.set(k, out.length);
+        out.push({ key: k, variants: [p] });
+      }
+    }
+    return out;
+  }, [filtered]);
 
   const hasActiveFilters = search !== "" || filterStatus !== "all" || filterPlatform !== "all";
 
@@ -415,9 +441,12 @@ export function ProductionList() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-2">
-        {filtered.map((p) => (
+        {groups.map((g) => {
+          // Variante activa del grupo: la elegida con los chips, o la 1ª (más reciente).
+          const p = g.variants.find((v) => v.id === activeVariant[g.key]) ?? g.variants[0];
+          return (
           <Card
-            key={p.id}
+            key={g.key}
             className={`group overflow-hidden bg-card p-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10 ${
               selectMode && selectedIds.has(p.id)
                 ? "border-red-500 ring-2 ring-red-500/50"
@@ -476,9 +505,31 @@ export function ProductionList() {
               <div className="space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-sm font-semibold leading-tight">{p.title ?? p.id}</h3>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                    {STYLE_LABEL[p.styleId ?? ""] ?? p.styleId ?? "—"}
-                  </span>
+                  {g.variants.length > 1 ? (
+                    // Varios estilos del mismo clip → chips para cambiar entre ellos (una sola
+                    // tarjeta, sin "repetidos"). El chip activo es el que se ve/reproduce.
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                      {g.variants.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setActiveVariant((m) => ({ ...m, [g.key]: v.id }))}
+                          className={`rounded-full px-2 py-0.5 text-[10px] transition-colors ${
+                            v.id === p.id
+                              ? "bg-brand-pink/20 text-brand-pink ring-1 ring-inset ring-brand-pink/40"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                          title={`Ver la versión ${STYLE_LABEL[v.styleId ?? ""] ?? v.styleId}`}
+                        >
+                          {STYLE_LABEL[v.styleId ?? ""] ?? v.styleId ?? "—"}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      {STYLE_LABEL[p.styleId ?? ""] ?? p.styleId ?? "—"}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-1">
@@ -718,7 +769,8 @@ export function ProductionList() {
               </div>
             </div>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer — recordatorio de dónde viven los archivos. */}
