@@ -46,8 +46,13 @@ function isUsable(file) {
 }
 
 /** Descarga `url` a `dest` (stream, sin cargar todo en memoria). */
+// User-Agent de navegador: el CDN de Pexels (tras Cloudflare) puede rechazar
+// descargas sin UA con 403. Mandamos uno real.
+const DL_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 async function download(url, dest) {
-  const res = await fetch(url, { redirect: "follow" });
+  const res = await fetch(url, { redirect: "follow", headers: { "User-Agent": DL_UA } });
   if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} al bajar ${url}`);
   await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
 }

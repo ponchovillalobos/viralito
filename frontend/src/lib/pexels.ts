@@ -13,6 +13,9 @@
  */
 
 const PEXELS_API = "https://api.pexels.com";
+// User-Agent de navegador: Pexels (tras Cloudflare) rechaza clientes sin UA con 403.
+const PEXELS_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 export interface BrollClip {
   start: number;
@@ -128,7 +131,9 @@ export async function autoMatchBroll(
     try {
       const res = await fetch(
         `${PEXELS_API}/videos/search?query=${encodeURIComponent(q)}&per_page=3&orientation=${orientation}`,
-        { headers: { Authorization: key } }
+        // Pexels está detrás de Cloudflare: un cliente sin User-Agent de navegador
+        // recibe 403 (error 1010, "browser integrity check"). Mandamos un UA real.
+        { headers: { Authorization: key, "User-Agent": PEXELS_UA } }
       );
       if (!res.ok) continue;
       const data = (await res.json()) as { videos?: Array<{ video_files?: PexelsVideoFile[]; image?: string }> };

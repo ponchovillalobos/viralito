@@ -24,6 +24,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -533,6 +534,53 @@ def step_extract(
         return []
 
 
+# Estilos de largos que ILUSTRAN con videos de archivo (b-roll).
+_BROLL_STYLES = {"editorial_broll", "broll_full", "broll_pip"}
+
+
+def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str) -> None:
+    """Para estilos de archivo: pide clips de b-roll al endpoint Next
+    (/api/long_form/broll) y parchea project.bRoll. El endpoint busca en Pexels con
+    orientación LANDSCAPE para 16:9 (portrait para 9:16); sin PEXELS_API_KEY cae a CC0.
+
+    Antes los largos NUNCA poblaban b-roll (build-clip-supreme no lo hace), así que
+    editorial_broll/broll_full/broll_pip renderizaban sin archivo. Esto lo cablea.
+
+    Best-effort: si no hay endpoint/red/clips, deja bRoll vacío y el render sigue
+    (idéntico a antes). El video de archivo se baja en build-clip-props (localize)."""
+    if style_id not in _BROLL_STYLES:
+        return
+    try:
+        project_path = LF_PROJECTS / f"{clip_id}_{style_id}.json"
+        if not project_path.exists():
+            return
+        api = os.environ.get("VIRAL_API_HOST") or "http://localhost:3000"
+        payload = json.dumps({"clipId": clip_id, "aspectRatio": aspect_ratio}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{api.rstrip('/')}/api/long_form/broll",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        print(f"[broll] buscando archivo ({aspect_ratio}) para {clip_id}…", file=sys.stderr, flush=True)
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        broll = data.get("bRoll") or []
+        if not broll:
+            print(f"[broll] sin clips para {clip_id} (source={data.get('source')})", file=sys.stderr)
+            return
+        proj = json.loads(project_path.read_text(encoding="utf-8"))
+        proj["bRoll"] = broll
+        project_path.write_text(json.dumps(proj, indent=2), encoding="utf-8")
+        print(
+            f"[broll] {len(broll)} clips ({data.get('source')}/{data.get('orientation')}) "
+            f"→ {clip_id}_{style_id}",
+            file=sys.stderr,
+        )
+    except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
+        print(f"[broll] skipped: {e}", file=sys.stderr)
+
+
 def _blaze_trackpath(clip_video: Path) -> list[dict]:
     """Detección de cara per-frame con BlazeFace (face_tracking.py) → trackPath
     [{t,x,y,w,h}] en coords normalizadas. Más fiable que el Haar de track_subject
@@ -941,6 +989,9 @@ def step_render_clip(
     # 1.5) motion tracking opt-in (estilos que lo declaran, ej. hype): parchea trackPath
     #      sobre el clip antes de armar los props. Best-effort.
     _apply_tracking(clip_id, style_id)
+    # 1.55) B-ROLL de archivo (editorial_broll/broll_full/broll_pip): busca clips en
+    #       Pexels (landscape para 16:9) y parchea project.bRoll. Best-effort.
+    _apply_broll(clip_id, style_id, aspect_ratio)
     # 1.6) F1 — director emocional: ducking de música + zooms en picos. Best-effort.
     _apply_emotion(clip_id, style_id)
     # 2) build props — archivo ÚNICO por clip+estilo: con render paralelo, dos workers
