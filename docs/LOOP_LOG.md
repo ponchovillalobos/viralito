@@ -197,3 +197,24 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Lección:** AskUserQuestion ANTES de tocar UI que el usuario ya valoraba — el loop 2 reemplazó la animación sin confirmar y rompió la UX.
 
 **Docs tocados:** style-mini-demo.tsx, generate-style-thumbs.mjs, long-form-wizard.tsx, LOOP_LOG.md.
+
+---
+
+## Loop 8 — 2026-06-30 — PHASE N — batch de mejoras del wizard (plan aprobado por el usuario)
+
+**Foco:** lote de feedback del usuario sobre el wizard. Plan aprobado: A (bugs) → C → B → D. Ejecutado tras esperar que terminara su flujo "Mario".
+
+**Cambios (todos verificados tsc 0 / 124 tests / paridad OK; commits abajo):**
+- **A1** (2683f4d): subtipos editoriales no aparecían → `stopPropagation` en "Ver ejemplo" (el click subía al `<div role="button">` y deseleccionaba el estilo).
+- **A2** (2683f4d): botón "Atrás" `variant="ghost"`→`outline size=lg` (era invisible).
+- **C5** (2683f4d): quitada la casilla "Generar los videos al terminar de recortar"; `doRender` → constante true.
+- **Editorial panel** (12d0e44): el usuario pidió editorial = video en movimiento + texto/ilustraciones AL COSTADO en V y H. Revisa el loop 5: editorial/editorial_broll/paper_cut → `fullBleed: false` (panel siempre); editorial_full sigue fullscreen. Verificado con render: 16:9 = video en panel + texto al costado.
+- **B** (721719c): generador saca v+h (`{id}_v_1..3` + `{id}_h_1..3`, 138 PNG); "Ver ejemplo" muestra el set del formato elegido.
+- **D8** (721719c): 4 botones del home GRANDES (grid 2×2, p-8, iconos 16, título 2xl).
+- **C6** (b53cd8e): slider de volumen con botón "▶ Escuchar" (/api/music/stream) + volumen en vivo.
+- **D7** (b53cd8e): resumen final visual (miniatura real por estilo en el formato elegido).
+- **D9** (b53cd8e): barra de progreso h-1→h-2.5 con gradiente + brillo + %.
+
+**Pendiente para cerrar:** terminar la generación de los 138 PNG (en curso) → quitar los `{id}_1..3.png` viejos de 1 escena → commit de PNGs → rebuild único + restart para que todo quede en vivo.
+
+**Docs tocados:** long-form-wizard.tsx, page.tsx, queue-panel.tsx, style-templates.mjs/.ts, generate-style-thumbs.mjs, LOOP_LOG.md.
