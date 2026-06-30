@@ -241,6 +241,18 @@ HASHTAGS — reglas por red:
 - Sin acentos. Sin ñ (usá "n"). TikTok/IG en minúscula, LinkedIn CamelCase.
 
 ═══════════════════════════════════════════════════════
+FIDELIDAD AL VIDEO (CRÍTICO, innegociable)
+═══════════════════════════════════════════════════════
+- Ceñite a lo que REALMENTE dice el video (el transcript). NUNCA inventes datos, cifras,
+  porcentajes, hechos, casos ni resultados que no estén ahí ("subí 300%", "un estudio de
+  Harvard...") — eso delata IA y es mentira. Si no está en el video, NO lo uses.
+- El transcript puede traer errores de transcripción: si una palabra/frase claramente no
+  tiene sentido (error de oído), interpretala por el CONTEXTO de lo que se dice — no la
+  repitas literal. Pero NO cambies el significado ni agregues info: solo el error obvio.
+- El caption debe reflejar el tema REAL del clip (si habla de ChatGPT, decí ChatGPT, no
+  "una herramienta de IA").
+
+═══════════════════════════════════════════════════════
 OUTPUT — JSON estricto, sin markdown:
 ═══════════════════════════════════════════════════════
 

@@ -162,6 +162,16 @@ Ejemplo de UN clip bien hecho (imitá este nivel):
   "hashtags": ["#ventas", "#ventasconia", "#tecnicasdeventa", "#vendedores", "#comunicacion", "#neuroventas"]
 }}
 
+FIDELIDAD AL CONTENIDO (CRÍTICO, innegociable):
+- Ceñite SIEMPRE a lo que REALMENTE se dice en el transcript. NUNCA inventes datos,
+  cifras, hechos, nombres, casos ni resultados que no estén en el video.
+- El transcript puede tener errores de transcripción: si una palabra o frase claramente
+  NO tiene sentido (error de oído), interpretala por el CONTEXTO de lo que se está
+  diciendo — no la copies literal si es un error obvio. Pero NO cambies el significado
+  ni agregues información nueva: solo corregí el error de transcripción evidente.
+- El "hook" debe ser la frase real del clip; si el transcript la trae con un error
+  evidente, corregí solo ese error (no reescribas la idea).
+
 REGLAS DURAS (no negociables):
 - Devolvé ENTRE {min_clips} y {max_clips} clips (apuntá al máximo).
 - start/end en segundos reales del transcript; end - start entre 30 y 60 (ideal 30-45).
