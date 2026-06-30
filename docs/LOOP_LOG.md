@@ -260,3 +260,20 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Pendiente (menor):** _ollama_explain (contexto+retry); analyze_clips forzar cantidad; cinematic clamp de timestamps; instrumento WER (e, necesita ground-truth).
 
 **Docs tocados:** hw_profile.py, generate_caption.py, analyze_clips.py, match_sfx_to_transcript.py, README/CLAUDE/STYLES.md, test.yml, LOOP_LOG.md.
+
+---
+
+## Loop 11 — 2026-06-30 — PHASE N — SFX cinematic reconciliado + validación HDI
+
+**HDI (job real del usuario):** terminó, 23 clips editorial 16:9. Reusó transcript `small` viejo (no large-v3 — el pipeline salta si existe). Validado a ojo: editorial = **panel (video a la derecha + texto/ilustración line-art al costado izquierdo)** — el layout del loop 8 funciona perfecto en su video real, sin texto repetido.
+
+**SFX cinematic reconciliado (commits):**
+- (c470b46) `match_sfx_to_transcript._SFX_REAL`: los 23 nombres lógicos `.mp3` (inexistentes) → archivos REALES de la lib curada. Verificado: la salida solo emite archivos que existen. Las 20 keys kenney ya existían (en github/).
+- (1d488cb) `cinematic_assembly.SOUND_PROMPT`: reescrito con los 16 SFX REALES (no los ~30 ficticios) + "fuera de la lista = descarta".
+- (434aa6f) `step_transcribe`: avisa cuando reusa un transcript de modelo peor que el actual.
+
+**Estado:** las dos fuentes de SFX del cinematic ya resuelven. Transcripción/clips/captions/SFX/editorial/wizard medibles y mejorados.
+
+**Pendiente (necesita input o es de bajo impacto):** WER (e) necesita un transcript ground-truth del usuario; re-transcribir videos viejos a large-v3 es destructivo (rehace clips); `_ollama_explain` (menor); analyze_clips forzar cantidad (HDI dio 23 clips OK).
+
+**Docs tocados:** match_sfx_to_transcript.py, cinematic_assembly.py, long_form_pipeline.py, LOOP_LOG.md.
