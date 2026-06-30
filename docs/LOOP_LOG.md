@@ -239,3 +239,23 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Pendiente (punch-list de la auditoría, riesgoso → con cuidado):** enum cerrado de SFX + clamp de timestamps en cinematic_assembly; forzar cantidad de clips + dedup entre chunks; reglas de hashtags PRE-LLM; mejorar _ollama_explain con contexto+retry; instrumento WER (objetivo e).
 
 **Docs tocados:** hw_profile.py, analyze_clips.py, generate_caption.py, LOOP_LOG.md.
+
+---
+
+## Loop 10 — 2026-06-30 — PHASE N — tanda autónoma ("sigue hasta perfecto, no preguntes")
+
+**Cerrados/avanzados (commits):**
+- **(s) Transcripción → large-v3** (c475af7): decidir por VRAM total, no libre. Verificado.
+- **(g) Fidelidad** (5f15c8a): cláusulas anti-invención + adaptar-por-contexto en caption/clips.
+- **(h) SFX negación** (6de2ba2): SFX positivos (bling/fanfare/chime) NO se disparan con cue de negación cerca. Verificado: "perdí dinero"→sin bling.
+- **(q) Docs** (57bb1f1): "22 estilos"→23 + editorial_full en README/CLAUDE/STYLES.
+- **(l) CI gates** (73be034): remotion-tsc + py_compile agregados a .github/workflows/test.yml.
+
+**(b) _fxfused:** NO es bug — son temporales que `fused.replace(rendered)` consume; 0 persistidos en renders. Sano.
+
+**FLAGGED (para sesión dedicada, no parche apurado):**
+- **Inconsistencia de nombres de SFX en 3 lugares:** `match_sfx_to_transcript.py` usa `bling1.mp3/fanfare1.mp3`; `cinematic_assembly.SOUND_PROMPT` usa `whoosh-short.mp3/camera-shutter.mp3`; el disco tiene `bloop.ogg/swoosh.wav/whoosh.ogg` + libs kenney. `resolveSfx` (sfx-index.ts) NO hace fuzzy (solo ruta exacta + basename) → varios nombres NO resuelven → 404 → SFX faltantes (cinematic_pro sin SFX seguro; verificar el matcher principal). Requiere trazar el flujo SFX completo + tests, no un fix ciego.
+
+**Pendiente (menor):** _ollama_explain (contexto+retry); analyze_clips forzar cantidad; cinematic clamp de timestamps; instrumento WER (e, necesita ground-truth).
+
+**Docs tocados:** hw_profile.py, generate_caption.py, analyze_clips.py, match_sfx_to_transcript.py, README/CLAUDE/STYLES.md, test.yml, LOOP_LOG.md.
