@@ -180,3 +180,20 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Resultado:** wizard más limpio; el seguimiento de cara sigue funcionando por defecto.
 
 **Docs tocados:** long-form-wizard.tsx, LOOP_LOG.md.
+
+---
+
+## Loop 7 — 2026-06-30 — PHASE N — corregir miniaturas: animación + "Ver ejemplo" (pedido del usuario)
+
+**Foco:** el usuario reportó que las miniaturas quedaron feas y se perdió la animación. Aclaró el diseño: animación en las tarjetas (como antes) + miniaturas reales en una EXPANSIÓN "Ver ejemplo" por estilo, con 2-3 escenas + descripción.
+
+**Cambios:**
+- `style-mini-demo.tsx` (commit 0e1f4ab): REVERT de mi error del loop 2 — StyleMiniDemo vuelve a ser SOLO el demo CSS animado (no PNG estático). Animación restaurada en las tarjetas.
+- `generate-style-thumbs.mjs` (commit d3abbff): genera **3 escenas por estilo** (≈28/50/72% de la duración) → `style-thumbs/{id}_1..3.png` (69 PNG). Reemplaza los PNG de 1 escena (quitados).
+- `long-form-wizard.tsx` (d3abbff): cada tarjeta de estilo es `<div role="button">` (no botón anidado) con un botón **"Ver ejemplo ▼"** que despliega las 3 escenas (9:16) + el tagline.
+
+**Evidencia:** 23/23 estilos × 3 escenas válidas (69); tsc 0 · 124 tests · paridad OK; build estable verificado (animación sin PNG, "Ver ejemplo" presente, 69 escenas en standalone); server reiniciado, escena servida HTTP 200.
+
+**Lección:** AskUserQuestion ANTES de tocar UI que el usuario ya valoraba — el loop 2 reemplazó la animación sin confirmar y rompió la UX.
+
+**Docs tocados:** style-mini-demo.tsx, generate-style-thumbs.mjs, long-form-wizard.tsx, LOOP_LOG.md.
