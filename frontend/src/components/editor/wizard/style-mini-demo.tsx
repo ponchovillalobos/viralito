@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 /**
- * MINI-DEMO animada de cada estilo (UI súper visual, pedido del dueño): una
- * pantallita 9:16 que SE MUEVE mostrando qué hace el estilo — sin necesidad de
- * leer nada (apta para quien no habla español). CSS puro: cero costo de render.
+ * MINI-DEMO de cada estilo. Prefiere una MINIATURA REAL pre-generada del estilo
+ * sobre el video base (frontend/public/style-thumbs/{id}.png, generada dev-time por
+ * remotion/generate-style-thumbs.mjs); si el PNG falta, cae a un demo animado CSS
+ * (pantallita 9:16 que SE MUEVE, cero costo de render, apta para quien no lee español).
  */
 const KEYFRAMES = `
 @keyframes smd-pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); } }
@@ -62,6 +65,18 @@ export function StyleMiniDemo({
   const SMALL_W = 48;
   const BIG_W = 288;
   const scale = BIG_W / SMALL_W;
+  // Miniatura REAL pre-generada (objetivo j del scorecard). Si el PNG no existe en
+  // este build, onError marca el fallo y caemos al demo CSS de abajo.
+  const [pngError, setPngError] = useState(false);
+  const thumb = (
+    <img
+      src={`/style-thumbs/${styleId}.png`}
+      alt=""
+      onError={() => setPngError(true)}
+      className="shrink-0 rounded-md border border-white/10 object-cover"
+      style={big ? { width: BIG_W, height: BIG_W * (80 / 48) } : { width: 48, height: 80 }}
+    />
+  );
   const content = (
     <>
       <style dangerouslySetInnerHTML={{ __html: KEYFRAMES }} />
@@ -378,6 +393,9 @@ export function StyleMiniDemo({
       })()}
     </>
   );
+
+  // Miniatura real primero; demo CSS como fallback si el PNG falta.
+  if (!pngError) return thumb;
 
   if (!big) return content;
 
