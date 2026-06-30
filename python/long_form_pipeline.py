@@ -285,10 +285,44 @@ def run_capture(cmd: list[str], cwd: Path | None = None) -> str:
     return proc.stdout
 
 
+def _whisper_rank(name: str) -> int:
+    """Orden de calidad de modelos Whisper para avisar cuando un transcript cacheado
+    es de un modelo PEOR que el actual (small < medium < large)."""
+    n = (name or "").lower()
+    if "large" in n:
+        return 4
+    if "medium" in n:
+        return 3
+    if "small" in n:
+        return 2
+    return 1  # base/tiny/desconocido
+
+
 def step_transcribe(video_path: Path, video_id: str, chunked: bool = False) -> Path:
     out = LF_TRANSCRIPTS / f"{video_id}.json"
     if out.exists():
-        print(f"[skip] transcribe (existe {out})", file=sys.stderr)
+        # Aviso de fidelidad: el pipeline NO re-transcribe si ya existe (re-transcribir
+        # desincronizaría clips/proyectos ya derivados). Pero si el transcript cacheado es
+        # de un modelo MENOS preciso que el actual (ej. small viejo y ahora large-v3),
+        # avisamos cómo forzar el upgrade.
+        try:
+            cached_model = json.loads(out.read_text(encoding="utf-8")).get("model", "?")
+        except Exception:  # noqa: BLE001
+            cached_model = "?"
+        try:
+            from config import WHISPER_MODEL as _cur_model
+        except Exception:  # noqa: BLE001
+            _cur_model = ""
+        if _cur_model and _whisper_rank(cached_model) < _whisper_rank(_cur_model):
+            print(
+                f"[transcribe] AVISO: reusando transcript de modelo '{cached_model}'; el "
+                f"actual '{_cur_model}' es MÁS preciso. Para re-transcribir con el mejor "
+                f"modelo, borrá {out} y los derivados ({video_id} en cuts/proposals/clips) "
+                f"y re-procesá el video.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[skip] transcribe (existe {out}, modelo {cached_model})", file=sys.stderr)
         return out
     cmd = [
         str(VENV_PYTHON),
