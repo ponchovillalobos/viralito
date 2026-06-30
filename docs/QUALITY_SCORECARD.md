@@ -94,6 +94,15 @@ Promedio auto-declarado del repo: **5.6/10**, meta "supremo" ≥8.5 (`docs/AUDIT
 
 ---
 
+## K. Nuevos objetivos (pedido del usuario 2026-06-29)
+
+| # | Objetivo | Métrica | Instrumento | Baseline | Bueno | Excelente | Perfecto | Peso | Experto |
+|---|---|---|---|---|---|---|---|---|---|
+| r | Sin textos repetidos | 0 textos duplicados en el video (titular/card/subtítulo no repiten la misma frase; cards no repiten entre clips) | revisión de frames + auditar la heurística de `editorialCards`/headlines en `python/generate_graphics.py` | **bug reportado** en "ciertos estilos" (a identificar) | 0 repetidos en el estilo reportado | 0 en todos los estilos con texto | + test que lo previene | 8 | 4/5/9 |
+| s | Transcripción + traducción coherentes | WER (ver e) + 0 incoherencias de sentido en traducción | (e) `eval_wer.py` + **a construir** chequeo de coherencia de `translate.py` (back-translation / muestra revisada) | sin medir | instrumento + muestra | ≤ umbral de incoherencias | calidad pro | 8 | 3 |
+| t | **Volumen de música en el wizard** ✅ | slider 0–100% que baja la música (factor sobre el del estilo) end-to-end | slider en `long-form-wizard.tsx` → `--music-volume` → `build-clip-supreme.mjs` (argv[10] × factor) | **HECHO** (loop 3): verificado motion_grid 0.14→0.042 (×0.3) | slider funcional | + en wizard de shorts | + preview del nivel | 6 | 6 |
+| u | Todos los estilos con descripción o imagen | 23 estilos con tagline + miniatura | conteo de taglines en wizard + 23 PNG (objetivo j) | 23 miniaturas (j) + taglines; **verificar completitud** | 100% con imagen | + 100% con descripción | + tooltip/“ver ejemplo” | 5 | 6 |
+
 ## Guardas heredadas del prompt (recordatorio para PHASE N)
 Aditivo / 1 cambio por loop · gate verde + render real cada loop · offline jamás se rompe (TTF lazy, nunca @remotion/google-fonts; IA→Ollama) · `.env.local` nunca se commitea · assets SOLO CC0/OFL/Apache · **reglas virales intactas: subtítulos siempre visibles, stickers SIEMPRE top-center, mono-color por video, sin emojis al inicio del caption, hashtags en español sin acentos** · push solo si el usuario lo pide.
 

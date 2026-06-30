@@ -46,6 +46,8 @@ interface ProcessBody {
   subtitleFont?: string;
   /** Color del TEXTO de subtítulos ("auto" = el del estilo). */
   subtitleColor?: string;
+  /** Volumen de música 0..1 (factor sobre el del estilo). Del slider del wizard; 1 = sin override. */
+  musicVolume?: number;
   /** Tema del estilo Editorial (fuente serif + fondo + sub-tema). Solo aplica si styles incluye "editorial". */
   editorialTheme?: { font?: string; background?: string; theme?: string };
   /** Plataformas destino (informativo, se persiste en project JSON). */
@@ -137,6 +139,10 @@ export async function processJob(
   }
   if (body.subtitleColor && body.subtitleColor !== "auto") {
     args.push("--subtitle-color", body.subtitleColor);
+  }
+  // Volumen de música: solo se pasa si el usuario lo bajó (≠ 1). Clamp 0..1.
+  if (typeof body.musicVolume === "number" && body.musicVolume >= 0 && body.musicVolume < 1) {
+    args.push("--music-volume", String(Math.max(0, Math.min(1, body.musicVolume))));
   }
   if (
     body.editorialTheme &&

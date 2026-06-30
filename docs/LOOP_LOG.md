@@ -85,3 +85,32 @@ Verificado a ojo: `hype_max_sfx.png` = la mujer del video con stickers rosados (
 **Próximo foco:** (q) Documentación — corregir "22→23 estilos", reconciliar paridad 20 vs 23, completar INDEX.
 
 **Docs tocados:** QUALITY_SCORECARD.md (objetivo j + próximos focos), LOOP_LOG.md (esta entrada), INDEX.md (generador + style-thumbs).
+
+---
+
+## Loop 3 — 2026-06-29 — PHASE N — objetivo (t) Volumen de música en el wizard (BAJO riesgo, auto)
+
+**Foco:** el usuario pidió bajar el volumen de la música para que no tape el audio original. Nuevos objetivos r/s/t/u agregados al scorecard.
+
+**Cambio (aditivo, bajo riesgo) — factor multiplicador (preserva el tuning por estilo):**
+- `long-form-wizard.tsx`: slider "Volumen de música" 0–100% (`musicVolumePct`, default 100) en el Step 3; se envía `musicVolume: pct/100` en ambos bodies.
+- `process/route.ts`: `musicVolume?` en el body; pushea `--music-volume <0..1>` solo si <1.
+- `long_form_pipeline.py`: arg `--music-volume` (float) → `build_one_clip(music_volume=...)` → build_args argv[10].
+- `build-clip-supreme.mjs`: lee argv[10]; tras `buildProjectForStyle`, `project.musicVolume *= factor` (clamp 0..1). El ducking (musicVolumeCurve) sigue operando sobre el nuevo base.
+
+**Evidencia (prueba funcional real):**
+```
+build-clip-supreme motion_grid SIN factor   -> musicVolume 0.14
+build-clip-supreme motion_grid con "0.3"    -> musicVolume 0.042  (= 0.14 × 0.3) ✓
+cd frontend && npx tsc --noEmit             -> 0
+cd frontend && npm test                     -> 124 tests, paridad OK
+python -m py_compile long_form_pipeline.py  -> OK
+```
+
+**Resultado:** objetivo (t) **HECHO** ✅. Live en el wizard tras rebuild del standalone.
+
+**Veredicto QA:** gate verde, sin regresión, additive. Aprobado para commit autónomo.
+
+**Próximo foco:** (r) textos repetidos — INVESTIGAR (es fix de render → propuesta + pausa para aprobación). Luego (s) validación transcripción/traducción, (u) descripciones.
+
+**Docs tocados:** QUALITY_SCORECARD.md (nuevos objetivos r/s/t/u), LOOP_LOG.md (esta entrada).

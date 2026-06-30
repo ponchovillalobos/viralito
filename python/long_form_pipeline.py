@@ -955,6 +955,7 @@ def step_render_clip(
     subtitle_font: str | None = None,
     subtitle_color: str | None = None,
     editorial_theme: str | None = None,
+    music_volume: float | None = None,
     render_pool=None,
 ) -> Path:
     """Genera proyecto + props + render con Remotion para un (clip, style) específico.
@@ -984,6 +985,8 @@ def step_render_clip(
         subtitle_color or "",
         # Tema editorial "font:background" (solo lo usa el estilo editorial).
         editorial_theme or "",
+        # Factor de volumen de música del wizard (0..1; "" = sin override → el del estilo).
+        ("" if music_volume is None else str(music_volume)),
     ]
     run(build_args, cwd=REMOTION_DIR)
     # 1.5) motion tracking opt-in (estilos que lo declaran, ej. hype): parchea trackPath
@@ -1147,6 +1150,12 @@ def main() -> int:
         "--editorial-theme",
         default=None,
         help="Tema del estilo editorial como 'font:background' (ej. playfair:dark). Solo aplica al estilo editorial",
+    )
+    parser.add_argument(
+        "--music-volume",
+        type=float,
+        default=None,
+        help="Factor 0..1 de volumen de música (multiplica el del estilo). Del slider del wizard; None = sin override.",
     )
     parser.add_argument(
         "--platforms",
@@ -1482,6 +1491,7 @@ def main() -> int:
                 subtitle_font=args.subtitle_font,
                 subtitle_color=args.subtitle_color,
                 editorial_theme=args.editorial_theme,
+                music_volume=args.music_volume,
                 render_pool=render_pool,
             )
             return (c["index"], style_id, out, False)

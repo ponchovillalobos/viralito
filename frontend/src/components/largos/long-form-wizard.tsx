@@ -343,6 +343,9 @@ export function LongFormWizard() {
   // Fuente + color del TEXTO de subtítulos (paridad con el wizard de shorts).
   const [subtitleFont, setSubtitleFont] = useState<string>("auto");
   const [subtitleColor, setSubtitleColor] = useState<string>("auto");
+  // Volumen de música 0–100% (factor sobre el del estilo). 100 = sin override; bajalo
+  // para que la música no tape el audio original del video.
+  const [musicVolumePct, setMusicVolumePct] = useState<number>(100);
   // Tema del estilo Editorial (fuente serif + fondo). Solo aplica si eliges 📰.
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
@@ -610,6 +613,7 @@ export function LongFormWizard() {
         accentColor: accent,
         subtitleFont,
         subtitleColor,
+        musicVolume: musicVolumePct / 100,
         platforms: selectedPlatforms,
         aspectRatio,
         faceTracking,
@@ -680,6 +684,7 @@ export function LongFormWizard() {
         accentColor: accent,
         subtitleFont,
         subtitleColor,
+        musicVolume: musicVolumePct / 100,
         platforms: selectedPlatforms,
         aspectRatio,
         faceTracking,
@@ -1480,6 +1485,27 @@ export function LongFormWizard() {
           </div>
             </>
           )}
+
+          {/* Volumen de música — aplica a TODOS los estilos (también editorial). */}
+          <h3 className="mb-1 mt-6 text-sm font-medium">Volumen de música</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Bajalo si la música tapa el audio original del video. 100% = el volumen del estilo.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={musicVolumePct}
+              onChange={(e) => setMusicVolumePct(Number(e.target.value))}
+              className="flex-1 accent-foreground"
+              aria-label="Volumen de música"
+            />
+            <span className="w-12 text-right font-mono-tab text-sm tabular-nums">
+              {musicVolumePct}%
+            </span>
+          </div>
         </Card>
       )}
 

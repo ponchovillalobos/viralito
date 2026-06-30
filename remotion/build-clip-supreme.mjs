@@ -56,6 +56,12 @@ const subtitleColorOverride =
     : null;
 // Tema editorial "font:background" (ej. "playfair:dark"). Solo aplica al estilo editorial.
 const editorialThemeArg = (process.argv[9] && process.argv[9].trim()) || null;
+// Factor 0..1 de volumen de música del slider del wizard (multiplica el del estilo).
+// "" / ausente = sin override → se respeta el musicVolume del estilo.
+const musicVolumeFactor =
+  process.argv[10] && process.argv[10].trim() !== "" && Number.isFinite(parseFloat(process.argv[10]))
+    ? Math.max(0, Math.min(1, parseFloat(process.argv[10])))
+    : null;
 
 if (!videoId || !clipIndex) {
   console.error("Uso: node build-clip-supreme.mjs <video_id> <clip_index> [style_id] [accent_color] [aspect_ratio]");
@@ -192,6 +198,13 @@ if (editorialThemeArg && project.editorialLayout) {
   if (themeFont) project.editorialLayout.font = themeFont;
   if (themeBg) project.editorialLayout.background = themeBg;
   if (subTheme) project.editorialLayout.theme = subTheme;
+}
+
+// Volumen de música del wizard: factor multiplicador sobre el del estilo (preserva
+// el tuning por estilo y deja BAJARLO para que no tape el audio original). El ducking
+// (musicVolumeCurve, director emocional) sigue operando sobre este nuevo base.
+if (musicVolumeFactor != null && typeof project.musicVolume === "number") {
+  project.musicVolume = +(project.musicVolume * musicVolumeFactor).toFixed(4);
 }
 
 // PRUEBA GRATUITA — marcar el project si no hay licencia activada. El props
