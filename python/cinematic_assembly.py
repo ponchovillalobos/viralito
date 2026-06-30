@@ -162,47 +162,38 @@ SOUND_PROMPT = """Sos sound designer cinematográfico. Decidís CADA SFX del vid
 
 Recibís: visión del director + acts + pacing decisions + transcript con palabras y timestamps.
 
-SFX disponibles en la biblioteca local (usar SOLO estos nombres exactos):
+SFX disponibles en la biblioteca local (usar SOLO estos nombres EXACTOS — YA existen en
+disco; cualquier otro nombre se DESCARTA, no inventes archivos):
 
-  ── Whooshes (transiciones, movimientos):
-     whoosh-short.mp3, whoosh-long.mp3, whoosh-up.mp3, whoosh-down.mp3,
-     swoosh-cinematic.mp3, reverse-whoosh.mp3
+  ── Whooshes / transiciones / movimientos:
+     whoosh.ogg, swoosh.wav, swoosh_quick.wav, swoosh_soft.wav
 
-  ── Cámaras (overlays de imágenes):
-     camera-shutter.mp3, old-camera.mp3
+  ── Acentos / palabras clave / UI:
+     pop.ogg, pop_short.ogg, click.ogg, ding.ogg, ding_bell.ogg,
+     notification.ogg, typewriter.wav
 
-  ── VHS / TV (recuerdos, flashbacks):
-     vhs-static-on.mp3, vhs-static-off.mp3, vhs-rewind.mp3,
-     tape-stop.mp3, static-burst.mp3
+  ── Dramáticos / impacto / revelación / tensión:
+     thud.wav (golpe/impacto/boom), ding_bell.ogg (revelación/cierre),
+     splash.ogg, water_drop.ogg (gota de tensión), bloop.ogg (glitch/error)
 
-  ── Acentos / palabras clave:
-     pop.mp3, click-select.mp3, typewriter-key.mp3,
-     ding.mp3, paper-rustle.mp3
-
-  ── Dramáticos (revelaciones, tensión):
-     drum-hit.mp3, heartbeat.mp3, deep-boom.mp3,
-     impact-hit.mp3, riser-short.mp3, reveal-chime.mp3, breath-in.mp3,
-     glitch-short.mp3
-
-  ── Transiciones tonales:
-     transition-up.mp3, transition-down.mp3
+  ── Retro / textura:
+     film_reel.wav, typewriter.wav
 
 REGLAS DE USO:
-  1. CADA imageOverlay debe tener UN sfx al inicio (camera-shutter para fotos,
-     vhs-static-on para recuerdos, paper-rustle para documentos, static-burst para impacto).
-  2. CADA jump_cut del pacing debe tener un whoosh corto o pop.
+  1. CADA imageOverlay → un sfx al inicio (click.ogg para fotos, film_reel.wav para
+     recuerdos/retro, typewriter.wav para documentos, thud.wav para impacto).
+  2. CADA jump_cut del pacing → whoosh.ogg / swoosh_quick.wav / pop.ogg.
   3. Momentos clave del transcript ("¿sabías que…?", cifras dramáticas, pausa antes de
-     revelación) → drum-hit, impact-hit, reveal-chime, heartbeat (intimidad),
-     riser-short (1-2s ANTES del momento clave).
-  4. Inicio del video (primeros 3s) → whoosh-up o swoosh-cinematic.
-  5. Cierre/CTA → ding o reveal-chime.
+     revelación) → thud.wav, ding_bell.ogg, splash.ogg, water_drop.ogg (1-2s ANTES).
+  4. Inicio del video (primeros 3s) → whoosh.ogg o swoosh.wav.
+  5. Cierre/CTA → ding.ogg o ding_bell.ogg.
 
 Devolvé JSON:
 {
   "audioDecisions": [
     {
       "at": <sec exacto del transcript>,
-      "sfx": "<archivo.mp3 exacto de la lista>",
+      "sfx": "<nombre EXACTO de la lista de arriba (.ogg o .wav)>",
       "volume": <0.15-0.55>,
       "trigger": "<word|overlay|cut|act_start|climax>",
       "reason": "<por qué ESTE SFX en ESTE momento>"
