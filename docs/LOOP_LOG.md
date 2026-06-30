@@ -164,3 +164,19 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Pendiente docs (objetivo q):** notar este comportamiento en STYLES.md / EDITORIAL-NEXT.md.
 
 **Docs tocados:** style-templates.mjs, style-templates.ts, LOOP_LOG.md.
+
+---
+
+## Loop 6 — 2026-06-30 — PHASE N — limpieza de 2 casillas del wizard (BAJO riesgo)
+
+**Foco:** el usuario notó un par de casillas que no sabía si eran necesarias. Se quitan 2 redundantes/confusas (las identifiqué en el reporte previo).
+
+**Cambio (`long-form-wizard.tsx`, aditivo/limpieza):**
+- Quitado el toggle **"Modo Gráficos & Motion"** — redundante con los estilos `graphics_pro`/`graphics_max`. `graphicsMode` pasa a constante `false`.
+- Quitada la casilla **"Encuadre inteligente (seguir la cara)"** (off/single/per-frame) — en 16:9 no aplica (video completo) y en 9:16 el default `per-frame` ya es el mejor. `faceTracking` pasa a constante `"per-frame"` (el seguimiento sigue activo, sin elección manual).
+
+**Evidencia:** tsc frontend 0 · 124 tests · paridad OK · `setGraphicsMode`/`setFaceTracking` = 0 refs.
+
+**Resultado:** wizard más limpio; el seguimiento de cara sigue funcionando por defecto.
+
+**Docs tocados:** long-form-wizard.tsx, LOOP_LOG.md.

@@ -334,7 +334,7 @@ export function LongFormWizard() {
   // Cortar sin análisis no sirve, así que ya no hay paso para elegir el modo: la
   // constante se sigue mandando al backend como `false` (= modo inteligente).
   const useHeuristic = false;
-  const [graphicsMode, setGraphicsMode] = useState(false); // Modo Gráficos & Motion (charts + titulares)
+  const graphicsMode = false; // toggle quitado del wizard (redundante con graphics_pro/max)
   const [maxClips, setMaxClips] = useState<string>("");
   const [ollamaModel, setOllamaModel] = useState<string>("");
   const [skipTranscribe, setSkipTranscribe] = useState(false);
@@ -359,7 +359,7 @@ export function LongFormWizard() {
   // Face tracking: si el aspect cambia, ¿seguir la cara detectada al recortar?
   // Default "per-frame": sigue al que habla cuadro a cuadro (no se sale del recuadro
   // si se mueve). "single" centra una vez (rápido pero estático).
-  const [faceTracking, setFaceTracking] = useState<"off" | "single" | "per-frame">("per-frame");
+  const faceTracking: "off" | "single" | "per-frame" = "per-frame"; // casilla quitada; default fijo (sigue la cara)
 
   const pollRef = useRef<number | null>(null);
 
@@ -1097,32 +1097,8 @@ export function LongFormWizard() {
         <Card className="border-border bg-card p-6">
           <h2 className="mb-2 text-lg font-medium">2. Estilo(s) de edición y formato</h2>
 
-          {/* Modo Gráficos & Motion — opt-in, aditivo sobre el estilo elegido */}
-          <button
-            type="button"
-            onClick={() => setGraphicsMode((v) => !v)}
-            className={cn(
-              "mb-5 w-full rounded-lg border p-4 text-left transition-all",
-              graphicsMode
-                ? "border-fuchsia-500/50 bg-fuchsia-500/5 ring-1 ring-fuchsia-400/40"
-                : "border-border hover:border-foreground/30"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📊</span>
-              <span className="font-medium">Modo Gráficos &amp; Motion</span>
-              <span className="rounded bg-fuchsia-500/20 px-1.5 py-0.5 text-[9px] font-medium text-fuchsia-300">
-                NUEVO
-              </span>
-              {graphicsMode && <CheckCircle2 className="ml-auto h-4 w-4 text-fuchsia-400" />}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Suma gráficas animadas (contador, barras, línea, dona) y titulares poderosos
-              (glitch, shimmer, draw-on…) generados <strong className="text-foreground">automáticamente</strong>{" "}
-              desde lo que se dice en cada clip. Las gráficas solo aparecen cuando hay datos reales
-              (%, &ldquo;3 veces&rdquo;, &ldquo;de 23 a 78&rdquo;). Se combina con el estilo que elijas abajo.
-            </p>
-          </button>
+          {/* (Quitado: toggle "Modo Gráficos & Motion" — redundante con los estilos
+              graphics_pro / graphics_max. Para gráficas, elegí esos estilos.) */}
 
           {/* Aspect ratio toggle */}
           <div className="mb-5">
@@ -1174,57 +1150,9 @@ export function LongFormWizard() {
               </button>
             </div>
 
-            {/* Face tracking — solo útil si el aspect cambia respecto al source */}
-            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-              <p className="mb-2 font-mono-tab text-[10px] uppercase tracking-wider text-amber-300">
-                Encuadre inteligente (seguir la cara)
-              </p>
-              <p className="mb-2 text-[11px] text-muted-foreground">
-                Si tu video no coincide con el formato elegido, ¿centrar el recorte en la cara
-                detectada en vez del recorte centrado automático?
-              </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFaceTracking("off")}
-                  className={cn(
-                    "rounded-md border p-2 text-left transition-all",
-                    faceTracking === "off"
-                      ? "border-foreground/40 bg-foreground/5"
-                      : "border-border hover:border-foreground/30"
-                  )}
-                >
-                  <p className="text-xs font-medium">Apagado</p>
-                  <p className="font-mono-tab text-[9px] text-muted-foreground">Recorta el centro (puede cortar caras)</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFaceTracking("single")}
-                  className={cn(
-                    "rounded-md border p-2 text-left transition-all",
-                    faceTracking === "single"
-                      ? "border-amber-400/40 bg-amber-500/10"
-                      : "border-border hover:border-foreground/30"
-                  )}
-                >
-                  <p className="text-xs font-medium">Sencillo</p>
-                  <p className="font-mono-tab text-[9px] text-muted-foreground">Centra la cara una vez, fijo (~1 s por clip)</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFaceTracking("per-frame")}
-                  className={cn(
-                    "rounded-md border p-2 text-left transition-all",
-                    faceTracking === "per-frame"
-                      ? "border-amber-400/40 bg-amber-500/10"
-                      : "border-border hover:border-foreground/30"
-                  )}
-                >
-                  <p className="text-xs font-medium">Preciso (recomendado)</p>
-                  <p className="font-mono-tab text-[9px] text-muted-foreground">Sigue al que habla cuadro a cuadro (~5-10 s por clip)</p>
-                </button>
-              </div>
-            </div>
+            {/* (Quitado: casilla "Encuadre inteligente (seguir la cara)" — en 16:9 no
+                aplica (video completo) y en 9:16 el default "per-frame" ya es el mejor.
+                El seguimiento de cara sigue activo por defecto, sin elección manual.) */}
           </div>
 
           <p className="mb-4 text-xs text-muted-foreground">
