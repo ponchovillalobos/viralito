@@ -355,7 +355,9 @@ export function LongFormWizard() {
   // Redes fijas: los captions por red se generan SOLOS (visibles en /produccion).
   // Ya no hay botones de redes en el wizard.
   const selectedPlatforms: PlatformId[] = ["instagram", "linkedin"];
-  const [doRender, setDoRender] = useState(true);
+  // Casilla quitada del wizard: SIEMPRE se generan los videos (constante true).
+  // Para solo-recortar está el modo "revisar momentos antes".
+  const doRender = true;
   // Aspect ratio. Para largos default 9:16 también (extract_clips hace center-crop si el source es 16:9).
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9">("9:16");
   // Face tracking: si el aspect cambia, ¿seguir la cara detectada al recortar?
@@ -1203,13 +1205,19 @@ export function LongFormWizard() {
                       (frontend/public/style-thumbs/{id}_1..3.png) + la descripción. */}
                   <button
                     type="button"
-                    onClick={() => setExampleStyle(open ? null : s.id)}
+                    onClick={(e) => {
+                      // stopPropagation: sin esto el click sube al <div role="button">
+                      // de la tarjeta y DESELECCIONA el estilo → desaparecían los
+                      // subtipos editoriales al abrir "Ver ejemplo".
+                      e.stopPropagation();
+                      setExampleStyle(open ? null : s.id);
+                    }}
                     className="w-full border-t border-border/60 py-1.5 text-[11px] text-muted-foreground transition hover:text-foreground"
                   >
                     {open ? "▲ Ocultar ejemplo" : "▼ Ver ejemplo"}
                   </button>
                   {open && (
-                    <div className="px-3 pb-3">
+                    <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[1, 2, 3].map((n) => (
                           <img
@@ -1287,21 +1295,9 @@ export function LongFormWizard() {
               : `${selectedStyles.length} estilo${selectedStyles.length === 1 ? "" : "s"} seleccionado${selectedStyles.length === 1 ? "" : "s"}`}
           </p>
 
-          <label className="mt-4 flex items-start gap-3 cursor-pointer rounded-md border border-border bg-muted/20 p-3">
-            <input
-              type="checkbox"
-              checked={doRender}
-              onChange={(e) => setDoRender(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-border bg-muted accent-brand-violet"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Generar los videos al terminar de recortar</p>
-              <p className="text-xs text-muted-foreground">
-                Si lo apagas, solo se recortan los clips sin editar. Puedes generar los videos
-                después desde Mis videos.
-              </p>
-            </div>
-          </label>
+          {/* (Quitada la casilla "Generar los videos al terminar de recortar": confunde
+              y casi siempre se quiere generar. Ahora SIEMPRE genera; para solo-recortar
+              está el modo "revisar momentos antes".) */}
 
           {allSelectedHaveTranscript && (
             <label className="mt-4 flex items-start gap-3 cursor-pointer rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
@@ -1712,9 +1708,11 @@ export function LongFormWizard() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
           <Button
-            variant="ghost"
-            // Sin render, el paso 3 (color/tipografía) no aplica: se salta en ambos sentidos.
-            onClick={() => setStep(step === 4 && !doRender ? 2 : Math.max(1, step - 1))}
+            // variant="outline" (no "ghost"): el ghost no tenía borde ni fondo y se
+            // perdía en el fondo oscuro. Outline = borde visible. Tamaño lg para parejo.
+            variant="outline"
+            size="lg"
+            onClick={() => setStep(Math.max(1, step - 1))}
             disabled={step === 1 || submitting}
           >
             <ChevronLeft className="mr-1.5 h-4 w-4" />
