@@ -346,6 +346,45 @@ export function LongFormWizard() {
   // Volumen de música 0–100% (factor sobre el del estilo). 100 = sin override; bajalo
   // para que la música no tape el audio original del video.
   const [musicVolumePct, setMusicVolumePct] = useState<number>(100);
+  // Preview de audio: la barra sola no se oye → un <audio> compartido toca un sample al
+  // volumen elegido y se actualiza EN VIVO al mover la barra (pedido del usuario).
+  const volAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [volTracks, setVolTracks] = useState<string[]>([]);
+  const [volPreviewOn, setVolPreviewOn] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/music/list")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && Array.isArray(d.tracks)) {
+          setVolTracks(
+            d.tracks.filter((t: { url?: string }) => t.url).map((t: { url: string }) => t.url)
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    if (volAudioRef.current) {
+      volAudioRef.current.volume = Math.max(0, Math.min(1, musicVolumePct / 100));
+    }
+  }, [musicVolumePct]);
+  function toggleVolPreview() {
+    const a = volAudioRef.current;
+    if (!a) return;
+    if (volPreviewOn) {
+      a.pause(); // onPause limpia volPreviewOn
+      return;
+    }
+    if (volTracks.length === 0) return;
+    a.src = volTracks[Math.floor(volTracks.length / 2)] ?? volTracks[0];
+    a.volume = Math.max(0, Math.min(1, musicVolumePct / 100));
+    a.currentTime = 0;
+    a.play().then(() => setVolPreviewOn(true)).catch(() => {});
+  }
   // Tema del estilo Editorial (fuente serif + fondo). Solo aplica si eliges 📰.
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
@@ -1473,6 +1512,15 @@ export function LongFormWizard() {
             Bajalo si la música tapa el audio original del video. 100% = el volumen del estilo.
           </p>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleVolPreview}
+              disabled={volTracks.length === 0}
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium transition hover:border-foreground/40 disabled:opacity-40"
+              title="Escuchar una pista a este volumen (se actualiza al mover la barra)"
+            >
+              {volPreviewOn ? "⏸ Pausar" : "▶ Escuchar"}
+            </button>
             <input
               type="range"
               min={0}
@@ -1487,6 +1535,14 @@ export function LongFormWizard() {
               {musicVolumePct}%
             </span>
           </div>
+          {/* <audio> compartido del preview: loop para poder ajustar mientras suena. */}
+          <audio
+            ref={volAudioRef}
+            loop
+            onPause={() => setVolPreviewOn(false)}
+            onEnded={() => setVolPreviewOn(false)}
+            className="hidden"
+          />
         </Card>
       )}
 
@@ -1545,16 +1601,36 @@ export function LongFormWizard() {
                   </div>
                 </div>
 
-                {/* ESTILOS */}
+                {/* ESTILOS — resumen VISUAL: la miniatura REAL de cada estilo elegido en
+                    el formato seleccionado (los ejemplos que el usuario aprobó), no solo
+                    un chip. Da claridad de cómo quedará el output antes de generar. */}
                 <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 sm:col-span-2">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Estilo{selectedStyles.length === 1 ? "" : "s"} ({selectedStyles.length})
+                    Estilo{selectedStyles.length === 1 ? "" : "s"} ({selectedStyles.length}) ·{" "}
+                    {aspectRatio === "16:9" ? "Horizontal" : "Vertical"}
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-3">
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {selectedStyles.map((sid) => (
-                      <div key={sid} className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-2.5">
-                        <StyleMiniDemo styleId={sid} accent={accent} />
-                        <span className="text-sm font-semibold">{styleName(sid)}</span>
+                      <div key={sid} className="overflow-hidden rounded-lg border border-border bg-card">
+                        <img
+                          src={`/style-thumbs/${sid}_${aspectRatio === "16:9" ? "h" : "v"}_1.png`}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => {
+                            // Fallback: si falta el PNG, mostramos el mini-demo animado.
+                            e.currentTarget.style.display = "none";
+                            const demo = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (demo) demo.style.display = "flex";
+                          }}
+                          className={cn(
+                            "w-full object-cover",
+                            aspectRatio === "16:9" ? "aspect-video" : "aspect-[9/16]"
+                          )}
+                        />
+                        <div className="hidden items-center justify-center bg-card p-2">
+                          <StyleMiniDemo styleId={sid} accent={accent} />
+                        </div>
+                        <p className="px-2 py-1.5 text-center text-sm font-semibold">{styleName(sid)}</p>
                       </div>
                     ))}
                   </div>

@@ -385,13 +385,21 @@ function QueueRow({ entry, onDismiss }: { entry: QueueEntryView; onDismiss: () =
           )}
         </div>
       </div>
-      {/* Barra de progreso (sólo en curso) */}
+      {/* Barra de progreso (sólo en curso) — más grande y visual: gruesa, con gradiente,
+          brillo animado y el porcentaje a la vista, para que la espera se sienta viva. */}
       {entry.status === "running" && (
-        <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-amber-400 transition-all duration-500"
-            style={{ width: `${entry.progress}%` }}
-          />
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="relative h-full rounded-full bg-gradient-to-r from-amber-400 to-pink-500 transition-all duration-500"
+              style={{ width: `${Math.max(4, entry.progress)}%` }}
+            >
+              <span className="absolute inset-0 animate-pulse bg-white/25" />
+            </div>
+          </div>
+          <span className="shrink-0 font-mono-tab text-[10px] font-semibold tabular-nums text-amber-300">
+            {Math.round(entry.progress)}%
+          </span>
         </div>
       )}
     </div>
