@@ -253,8 +253,9 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 
 **(b) _fxfused:** NO es bug — son temporales que `fused.replace(rendered)` consume; 0 persistidos en renders. Sano.
 
-**FLAGGED (para sesión dedicada, no parche apurado):**
-- **Inconsistencia de nombres de SFX en 3 lugares:** `match_sfx_to_transcript.py` usa `bling1.mp3/fanfare1.mp3`; `cinematic_assembly.SOUND_PROMPT` usa `whoosh-short.mp3/camera-shutter.mp3`; el disco tiene `bloop.ogg/swoosh.wav/whoosh.ogg` + libs kenney. `resolveSfx` (sfx-index.ts) NO hace fuzzy (solo ruta exacta + basename) → varios nombres NO resuelven → 404 → SFX faltantes (cinematic_pro sin SFX seguro; verificar el matcher principal). Requiere trazar el flujo SFX completo + tests, no un fix ciego.
+**SFX — trazado (severidad corregida tras verificar):**
+- **Flujo PRINCIPAL (no-cinematic): SANO.** sfxMarks se arman desde `SFX_POOL` en `style-templates.ts` (`swoosh.wav, pop.ogg, ding.ogg, bloop.ogg, notification.ogg, thud.wav…` — REALES). Verificado en un project editorial real: `['bloop.ogg','ding.ogg','notification.ogg','pop.ogg','swoosh.wav']` → resuelven OK.
+- **CINEMATIC (opt-in): roto.** `match_sfx_to_transcript.py` (solo `ctx.autoSfxMarks` para cinematic) tiene 23 keys `.mp3` (`bling1/punch1/whoosh1…`) inexistentes (solo 5 `.mp3` en toda la lib) → 404; `cinematic_assembly.SOUND_PROMPT` igual (`whoosh-short.mp3`). `resolveSfx` no hace fuzzy. FIX (sesión dedicada): reconciliar esos nombres a archivos reales del pool. La guarda de negación (6de2ba2) queda lista para cuando se arreglen.
 
 **Pendiente (menor):** _ollama_explain (contexto+retry); analyze_clips forzar cantidad; cinematic clamp de timestamps; instrumento WER (e, necesita ground-truth).
 
