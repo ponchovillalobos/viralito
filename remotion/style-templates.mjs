@@ -772,10 +772,10 @@ export function buildProjectForStyle(ctx, styleId) {
         editorialLayout: {
           panel: "right",
           panelWidth: ctx.width > ctx.height ? 0.34 : 0.46,
-          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
-          // como editorial_full. En salida VERTICAL: panel (queda bien). Aplica a todos
-          // los estilos editoriales (pedido del usuario).
-          fullBleed: ctx.width > ctx.height,
+          // Editorial = PANEL en vertical Y horizontal: el video original (sin recortar,
+          // en movimiento) vive en un panel y el texto + ilustraciones line-art animadas
+          // van al COSTADO (pedido del usuario). El fullscreen es el estilo editorial_full.
+          fullBleed: false,
           // El color del wizard pinta TODO el tema: acentos, capítulos, line-art.
           accent: ctx.accentColor,
           // Motor de look (Ola 1) — paridad con shorts.
@@ -835,10 +835,10 @@ export function buildProjectForStyle(ctx, styleId) {
         editorialLayout: {
           panel: "right",
           panelWidth: ctx.width > ctx.height ? 0.34 : 0.46,
-          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
-          // como editorial_full. En salida VERTICAL: panel (queda bien). Aplica a todos
-          // los estilos editoriales (pedido del usuario).
-          fullBleed: ctx.width > ctx.height,
+          // Editorial = PANEL en vertical Y horizontal: el video original (sin recortar,
+          // en movimiento) vive en un panel y el texto + ilustraciones line-art animadas
+          // van al COSTADO (pedido del usuario). El fullscreen es el estilo editorial_full.
+          fullBleed: false,
           accent: ctx.accentColor,
           texture: "paper",
           fps12: true,
@@ -1001,10 +1001,10 @@ export function buildProjectForStyle(ctx, styleId) {
         editorialLayout: {
           panel: "left",
           panelWidth: ctx.width > ctx.height ? 0.34 : 0.46,
-          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
-          // como editorial_full. En salida VERTICAL: panel (queda bien). Aplica a todos
-          // los estilos editoriales (pedido del usuario).
-          fullBleed: ctx.width > ctx.height,
+          // Editorial = PANEL en vertical Y horizontal: el video original (sin recortar,
+          // en movimiento) vive en un panel y el texto + ilustraciones line-art animadas
+          // van al COSTADO (pedido del usuario). El fullscreen es el estilo editorial_full.
+          fullBleed: false,
           accent: ctx.accentColor,
           theme: "riso",
           texture: "paper",
