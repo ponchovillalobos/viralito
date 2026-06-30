@@ -1058,6 +1058,10 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
           panel: "right" as const,
           // 16:9 → panel angosto tipo documental; 9:16 → casi media pantalla.
           panelWidth: (ctx.width ?? 1080) > (ctx.height ?? 1920) ? 0.34 : 0.46,
+          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
+          // como editorial_full. En salida VERTICAL: panel. Aplica a todos los
+          // estilos editoriales (pedido del usuario).
+          fullBleed: (ctx.width ?? 1080) > (ctx.height ?? 1920),
           // El color del wizard pinta TODO el tema: acentos, capítulos, line-art.
           accent: ctx.accentColor,
           // Motor de look (Ola 1): papel procedural + gráficos a 12 fps + capa
@@ -1126,6 +1130,10 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         editorialLayout: {
           panel: "right" as const,
           panelWidth: (ctx.width ?? 1080) > (ctx.height ?? 1920) ? 0.34 : 0.46,
+          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
+          // como editorial_full. En salida VERTICAL: panel. Aplica a todos los
+          // estilos editoriales (pedido del usuario).
+          fullBleed: (ctx.width ?? 1080) > (ctx.height ?? 1920),
           accent: ctx.accentColor,
           texture: "paper" as const,
           fps12: true,
@@ -1304,6 +1312,10 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
           panel: "left" as const,
           // 16:9 → panel angosto; 9:16 → casi media pantalla (igual que editorial).
           panelWidth: (ctx.width ?? 1080) > (ctx.height ?? 1920) ? 0.34 : 0.46,
+          // En salida HORIZONTAL: video ORIGINAL a pantalla completa (sin recortar),
+          // como editorial_full. En salida VERTICAL: panel. Aplica a todos los
+          // estilos editoriales (pedido del usuario).
+          fullBleed: (ctx.width ?? 1080) > (ctx.height ?? 1920),
           accent: ctx.accentColor,
           // Tema collage + papel procedural: el motor de look del editorial-layer.
           theme: "riso" as const,

@@ -141,3 +141,26 @@ tsc remotion 0 · tsc frontend 0 · 124 tests · paridad OK
 **Próximo foco:** (s) validación transcripción/traducción (construir instrumento) · (u) descripciones (verificar completitud).
 
 **Docs tocados:** ViralVideo.tsx, check_text_overlap.py, QUALITY_SCORECARD.md (r 31→1), LOOP_LOG.md.
+
+---
+
+## Loop 5 — 2026-06-29 — PHASE N — Editorial respeta el aspecto en horizontal (pedido del usuario)
+
+**Foco:** al usuario le encantó editorial_full (video original a pantalla completa cuando entrada+salida son horizontales). Pidió que TODOS los estilos editoriales hagan lo mismo: salida HORIZONTAL → video original full (sin recortar); salida VERTICAL → panel (queda bien). Entrada vertical + salida horizontal → el extract ya recorta siguiendo la cara → clip 16:9 → full.
+
+**Cambio (render/estilos):**
+- `style-templates.mjs` + `style-templates.ts` (paridad): editorial / editorial_broll / paper_cut ahora setean `editorialLayout.fullBleed = (salida horizontal)` (ctx.width > ctx.height). editorial_full sigue fullBleed siempre. Regla: salida horizontal = fullBleed (fullscreen); vertical = panel.
+
+**Evidencia:**
+```
+build editorial 16:9 -> editorialLayout.fullBleed = True  (1920×1080)
+build editorial 9:16 -> editorialLayout.fullBleed = False (1080×1920, panel)
+still editorial 16:9: video original FULLSCREEN (videollamada completa) + tipografía overlay
+tsc remotion/frontend 0 · 124 tests · paridad 20↔20
+```
+
+**Resultado:** todos los estilos editoriales respetan el aspecto horizontal (video original sin recortar) en salida 16:9. Refuerza objetivo (i)/(h2) calidad editorial.
+
+**Pendiente docs (objetivo q):** notar este comportamiento en STYLES.md / EDITORIAL-NEXT.md.
+
+**Docs tocados:** style-templates.mjs, style-templates.ts, LOOP_LOG.md.
