@@ -373,6 +373,19 @@ def find_sfx_for_word(word: str) -> tuple[str | None, float]:
     return best_sfx, best_score
 
 
+# Categorías de SFX "positivos/celebratorios": NO deben dispararse en contexto NEGATIVO.
+# Bug clásico: "perdí dinero" disparaba el *bling* alegre porque el match es por palabra
+# aislada, sin sentido. Si hay una cue de negación cerca, se SUPRIME el SFX positivo.
+_POSITIVE_CATEGORIES = {"bling", "fanfare", "chime"}
+_NEGATION_CUES = {
+    "no", "ni", "nunca", "jamas", "sin", "tampoco", "nada", "nadie",
+    "perdi", "perdio", "perdimos", "perder", "pierde", "pierden", "perdida", "perdidas",
+    "fracaso", "fracaso", "fracasar", "fracasa", "fallo", "falla", "fallar", "fallido",
+    "error", "errores", "mal", "peor", "menos", "deuda", "deudas", "quiebra",
+    "problema", "problemas", "caro", "costoso", "riesgo", "miedo", "cuesta", "costo",
+}
+
+
 def match_sfx_to_transcript(
     transcript_words: list[dict[str, Any]],
     duration: float,
@@ -392,13 +405,21 @@ def match_sfx_to_transcript(
     sfx_marks: list[dict[str, Any]] = []
 
     # ─── 1. SFX matched por palabra ────────────────────────────────────────────
+    # Palabras normalizadas (una vez) para chequear contexto/negación por ventana.
+    _norm_words = [normalize(w.get("word", "")) for w in transcript_words]
     matched_count = 0
-    for w in transcript_words:
+    for i, w in enumerate(transcript_words):
         word_text = w.get("word", "")
         sfx_name, score = find_sfx_for_word(word_text)
         if not sfx_name:
             continue
         sfx_cfg = SFX_KEYWORDS[sfx_name]
+        # Guarda de sentido: un SFX positivo (dinero/win/reveal) NO se dispara si hay una
+        # negación en la ventana [-4, +2] palabras ("perdí dinero", "no es éxito"…).
+        if sfx_cfg.get("category") in _POSITIVE_CATEGORIES:
+            window = _norm_words[max(0, i - 4): i + 3]
+            if any(t in _NEGATION_CUES for t in window):
+                continue
         at = float(w.get("start", 0)) + sfx_cfg.get("offset", 0)
         if at < 0:
             at = 0
