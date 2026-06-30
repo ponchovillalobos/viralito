@@ -218,3 +218,24 @@ tsc remotion/frontend 0 · 124 tests · paridad 20↔20
 **Pendiente para cerrar:** terminar la generación de los 138 PNG (en curso) → quitar los `{id}_1..3.png` viejos de 1 escena → commit de PNGs → rebuild único + restart para que todo quede en vivo.
 
 **Docs tocados:** long-form-wizard.tsx, page.tsx, queue-panel.tsx, style-templates.mjs/.ts, generate-style-thumbs.mjs, LOOP_LOG.md.
+
+---
+
+## Loop 9 — 2026-06-30 — PHASE N — transcripción precisa + auditoría de prompts (objetivos s/e/g)
+
+**Foco:** el usuario pidió transcripción la más precisa + revisar el prompt de cada sección (a prueba de fallas) + fidelidad + adaptar por contexto.
+
+**Transcripción (c475af7):** causa raíz = hw_profile decidía el modelo por VRAM LIBRE (transitoria) y cacheaba `small` con la GPU ocupada. Fix: decidir por VRAM TOTAL → `large-v3` (Systran, ya descargado, máxima fidelidad ES) en GPU ≥5 GB. Verificado: carga en cuda/float16 y transcribe fiel. Nota: large-v3 es más lento que el turbo (costo 1 vez/video); override por VIRAL_WHISPER_MODEL.
+
+**Auditoría de prompts (2 agentes Explore, read-only):** 6 archivos.
+- generate_graphics.py: SIN prompts LLM (heurística determinista) → seguro.
+- adapt_script.py: ya tiene REGLA #0 anti-invención fuerte + array sources[] + fallback de error.
+- generate_caption.py / analyze_clips.py: prompts buenos pero con huecos (ruegos en vez de instrucciones, sin cláusula de fidelidad explícita, hashtags normalizados post-LLM).
+- cinematic_assembly.py (8 prompts): sin validación de nombres exactos de SFX, sin clamping de timestamps a la duración.
+- long_form_pipeline._ollama_explain: prompt genérico, sin retry/contexto.
+
+**Hardening hecho (5f15c8a):** sección FIDELIDAD en caption + clips: "ceñite a lo REAL, NUNCA inventes datos/cifras/casos" + "si una palabra del transcript no tiene sentido, interpretala por CONTEXTO (no literal) sin cambiar el significado". Ataca alucinaciones y aprovecha contexto sin tocar timestamps.
+
+**Pendiente (punch-list de la auditoría, riesgoso → con cuidado):** enum cerrado de SFX + clamp de timestamps en cinematic_assembly; forzar cantidad de clips + dedup entre chunks; reglas de hashtags PRE-LLM; mejorar _ollama_explain con contexto+retry; instrumento WER (objetivo e).
+
+**Docs tocados:** hw_profile.py, analyze_clips.py, generate_caption.py, LOOP_LOG.md.
