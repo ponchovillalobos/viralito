@@ -114,3 +114,30 @@ python -m py_compile long_form_pipeline.py  -> OK
 **Próximo foco:** (r) textos repetidos — INVESTIGAR (es fix de render → propuesta + pausa para aprobación). Luego (s) validación transcripción/traducción, (u) descripciones.
 
 **Docs tocados:** QUALITY_SCORECARD.md (nuevos objetivos r/s/t/u), LOOP_LOG.md (esta entrada).
+
+---
+
+## Loop 4 — 2026-06-29 — PHASE N — objetivo (r) Textos repetidos ("revisalos todos")
+
+**Foco:** el usuario pidió revisar TODOS los estilos por textos repetidos.
+
+**Instrumento (bajo riesgo, ya commiteado 7a0cb0a):** `python/check_text_overlap.py` mide repeticiones en pantalla (overlay ≈ subtítulo hablado / overlays solapados / títulos duplicados). **Baseline: 31 repeticiones en 19/30 clips.** Patrón dominante: editorial `card.title` ≈ el subtítulo baseline (similitud hasta 1.00) → el titular serif y el subtítulo de abajo muestran la misma frase.
+
+**Fix (render — el usuario aprobó con "revisalos todos" + "haz pruebas"):**
+- `remotion/src/ViralVideo.tsx`: nuevo `activeEditorialCardWithText`; el `EditorialSubtitleBaseline` se OMITE mientras una tarjeta editorial con título/subtítulo está activa (el titular ya muestra esa frase → las palabras siguen visibles; entre tarjetas el baseline reaparece). Respeta "subtítulos siempre visibles" (el texto está en el titular).
+- `python/check_text_overlap.py`: check #1 ahora salta `card.*` (el baseline se suprime durante tarjetas → no co-ocurren).
+
+**Evidencia (medida + visual):**
+```
+check_text_overlap --limit 30   ANTES: 31 repeticiones / 19 clips
+                                 DESPUÉS: 1 / 1 clip   (−97%)
+still editorial c08 @5s: el subtítulo "Número tres…" que duplicaba el titular "Número dos…" DESAPARECIÓ
+still @26s (sin tarjeta): baseline "podamos ser más entendibles" SÍ visible (no se eliminó global)
+tsc remotion 0 · tsc frontend 0 · 124 tests · paridad OK
+```
+
+**Resultado:** objetivo (r) **31 → 1 = Excelente** ✅. Residual: 1 caso `card.subtitle+dataViz` (borde; ⚠️ rendimiento decreciente para llegar a 0).
+
+**Próximo foco:** (s) validación transcripción/traducción (construir instrumento) · (u) descripciones (verificar completitud).
+
+**Docs tocados:** ViralVideo.tsx, check_text_overlap.py, QUALITY_SCORECARD.md (r 31→1), LOOP_LOG.md.

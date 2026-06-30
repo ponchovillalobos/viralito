@@ -83,8 +83,13 @@ def scan_clip(clip_id: str, sim_th: float) -> list[str]:
         return []
     ov = _overlays(g)
     issues: list[str] = []
-    # 1) overlay vs SUBTÍTULO hablado en su ventana
+    # 1) overlay vs SUBTÍTULO hablado en su ventana.
+    #    Las tarjetas editoriales (card.*) NO cuentan: ViralVideo suprime el subtítulo
+    #    baseline mientras una tarjeta con texto está activa (fix objetivo r), así que
+    #    el titular NO co-ocurre con el baseline → no hay duplicación en pantalla.
     for o in ov:
+        if o["kind"].startswith("card."):
+            continue
         spoken = _spoken_tokens(words, o["at"], o["end"])
         s = _jaccard(_toks(o["text"]), spoken)
         if s >= sim_th:

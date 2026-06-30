@@ -769,6 +769,23 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   const activeEditorialViz = editorialLayout
     ? dataViz.find((v) => currentTime >= v.at && currentTime <= v.at + (v.duration ?? 4)) ?? null
     : null;
+  // EDITORIAL — ¿hay una tarjeta con TEXTO (titular/subtítulo) activa ahora? El titular
+  // serif ya muestra esa frase; mostrarla TAMBIÉN como subtítulo baseline abajo la
+  // duplicaba en pantalla (bug "textos repetidos", objetivo r: card.title ≈ subtítulo).
+  // Si la hay, se omite el baseline ese instante (las palabras siguen visibles vía el
+  // titular). Las tarjetas solo-ilustración/stat (sin texto) NO ocultan el baseline.
+  const activeEditorialCardWithText = Boolean(
+    editorialLayout &&
+      editorialPanel &&
+      !editorialPanel.cardsHidden &&
+      !activeEditorialViz &&
+      editorialCards.some(
+        (c) =>
+          currentTime >= c.at &&
+          currentTime <= c.at + (c.duration ?? 5) &&
+          (((c.title ?? "").trim().length > 0) || ((c.subtitle ?? "").trim().length > 0))
+      )
+  );
   // EDITORIAL — collage activo (Ola 6): igual que el chart, manda él solo.
   const cutoutActive = Boolean(
     editorialLayout &&
@@ -1072,7 +1089,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           (frase activa según la voz, look del tema). Va por DEBAJO de las
           tarjetas/charts y NO se oculta en "big"/"full": así nunca hay pantalla
           sin texto, ni siquiera cuando las tarjetas ceden el cuadro al video. */}
-      {editorialLayout && editorialPanel && words.length > 0 && (
+      {editorialLayout && editorialPanel && words.length > 0 && !activeEditorialCardWithText && (
         <EditorialSubtitleBaseline
           words={words}
           currentTime={currentTime}
