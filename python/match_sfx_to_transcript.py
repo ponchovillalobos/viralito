@@ -385,6 +385,26 @@ _NEGATION_CUES = {
     "problema", "problemas", "caro", "costoso", "riesgo", "miedo", "cuesta", "costo",
 }
 
+# Los nombres lógicos `.mp3` del vocabulario NO existen en disco (la lib tiene .ogg/.wav)
+# y `resolveSfx` no hace fuzzy → daban 404 (SFX faltantes en cinematic). Mapa a archivos
+# REALES de la librería curada. Se aplica a la salida; los nombres ya reales pasan igual.
+_SFX_REAL = {
+    "punch1.mp3": "thud.wav", "punch2.mp3": "thud.wav", "cannon1.mp3": "thud.wav",
+    "splash1.mp3": "splash.ogg",
+    "whoosh1.mp3": "whoosh.ogg", "whoosh2.mp3": "swoosh_quick.wav",
+    "whoosh3.mp3": "swoosh.wav", "whoosh4.mp3": "whoosh.ogg",
+    "slide1.mp3": "swoosh_soft.wav",
+    "chime1.mp3": "ding_bell.ogg", "chime2.mp3": "ding.ogg",
+    "resonance1.mp3": "thud.wav",
+    "fanfare1.mp3": "ding_bell.ogg",
+    "bling1.mp3": "ding.ogg", "bling2.mp3": "notification.ogg",
+    "click1.mp3": "click.ogg", "click2.mp3": "pop_short.ogg",
+    "beep1.mp3": "notification.ogg", "alarm1.mp3": "notification.ogg",
+    "error1.mp3": "bloop.ogg",
+    "throw1.mp3": "swoosh_quick.wav", "scale1.mp3": "swoosh.wav",
+    "jingle1.mp3": "ding_bell.ogg",
+}
+
 
 def match_sfx_to_transcript(
     transcript_words: list[dict[str, Any]],
@@ -544,6 +564,10 @@ def match_sfx_to_transcript(
         "density": target_density,
         "layered": sum(1 for s in deduped if s.get("trigger", "").startswith("layer_")),
     }
+    # Resolver nombres lógicos .mp3 → archivos REALES (los reales pasan sin cambio).
+    for _m in deduped:
+        _m["sound"] = _SFX_REAL.get(_m.get("sound", ""), _m.get("sound", ""))
+
     return {"sfxMarks": deduped, "stats": stats}
 
 
