@@ -26,3 +26,15 @@ jobs:
       - name: Tests + paridad de estilos
         run: npm test
         working-directory: frontend
+      - name: Instalar dependencias (remotion)
+        run: npm ci
+        working-directory: remotion
+      - name: Tipos remotion (tsc)
+        run: npx tsc --noEmit
+        working-directory: remotion
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Sintaxis Python (py_compile)
+        run: python -m compileall -q -x "venv|__pycache__" python
