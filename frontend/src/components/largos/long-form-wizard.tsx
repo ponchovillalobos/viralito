@@ -1218,21 +1218,32 @@ export function LongFormWizard() {
                   </button>
                   {open && (
                     <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      {/* Las escenas matchean el FORMATO elegido: horizontal (16:9) muestra
+                          los {id}_h_n apilados; vertical (9:16) los {id}_v_n lado a lado. */}
+                      <div
+                        className={cn(
+                          "grid gap-1.5",
+                          aspectRatio === "16:9" ? "grid-cols-1" : "grid-cols-3"
+                        )}
+                      >
                         {[1, 2, 3].map((n) => (
                           <img
-                            key={n}
-                            src={`/style-thumbs/${s.id}_${n}.png`}
+                            key={`${aspectRatio}-${n}`}
+                            src={`/style-thumbs/${s.id}_${aspectRatio === "16:9" ? "h" : "v"}_${n}.png`}
                             alt=""
                             loading="lazy"
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
                             }}
-                            className="aspect-[9/16] w-full rounded-md border border-white/10 object-cover"
+                            className={cn(
+                              "w-full rounded-md border border-white/10 object-cover",
+                              aspectRatio === "16:9" ? "aspect-video" : "aspect-[9/16]"
+                            )}
                           />
                         ))}
                       </div>
                       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                        {aspectRatio === "16:9" ? "Horizontal · " : "Vertical · "}
                         {s.tagline}
                       </p>
                     </div>

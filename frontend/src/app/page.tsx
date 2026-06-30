@@ -69,13 +69,14 @@ export default function Home() {
         </p>
       </header>
 
-      {/* Menú principal — tarjetas, cada una con su color de identidad. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Menú principal — solo 4 acciones: tarjetas GRANDES y visuales (2×2), cada una
+          con su color de identidad. Llenan la pantalla para que se elija sin dudar. */}
+      <div className="grid gap-5 sm:grid-cols-2">
         {ACTIONS.map(({ href, title, desc, icon: Icon, color }) => (
           <Link
             key={href}
             href={href}
-            className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            className="group relative flex min-h-[220px] flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
             style={{ borderColor: `${color}40`, backgroundColor: `${color}0d` }}
           >
             {/* Glow del color de la tarjeta al pasar el mouse. */}
@@ -91,21 +92,21 @@ export default function Home() {
             />
 
             <span
-              className="relative flex h-11 w-11 items-center justify-center rounded-lg text-white transition-transform duration-300 group-hover:scale-110"
+              className="relative flex h-16 w-16 items-center justify-center rounded-2xl text-white transition-transform duration-300 group-hover:scale-110"
               style={{ backgroundColor: color, boxShadow: `0 8px 24px -8px ${color}` }}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-8 w-8" />
             </span>
-            <div className="relative space-y-1">
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <p className="text-sm text-muted-foreground">{desc}</p>
+            <div className="relative space-y-1.5">
+              <h2 className="text-2xl font-semibold">{title}</h2>
+              <p className="text-base text-muted-foreground">{desc}</p>
             </div>
             <span
-              className="relative mt-auto flex items-center gap-1 text-sm font-medium"
+              className="relative mt-auto flex items-center gap-1.5 text-base font-medium"
               style={{ color }}
             >
               Empezar
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
             </span>
           </Link>
         ))}

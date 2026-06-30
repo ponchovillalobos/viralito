@@ -95,50 +95,56 @@ const ctxBase = {
   duration,
   keywords,
   accentColor: DEFAULT_ACCENT,
-  width: 1080,
-  height: 1920, // 9:16, igual que las theme-thumbs (still --scale=0.25 → 270×480)
   caption: "",
 };
+// Dos orientaciones: el layout de cada estilo depende de width/height (ej. editorial
+// panel, reencuadre), así que se construye un project por aspecto. Archivos:
+// {id}_v_1..3.png (vertical 9:16) y {id}_h_1..3.png (horizontal 16:9). El "Ver ejemplo"
+// del wizard muestra el set que matchea el formato elegido.
+const ASPECTS = [
+  { tag: "v", width: 1080, height: 1920 },
+  { tag: "h", width: 1920, height: 1080 },
+];
 
 const npxExe = process.platform === "win32" ? "npx.cmd" : "npx";
 const results = [];
 for (const styleId of idsToRun) {
-  const projectPath = path.join(TMP_DIR, `project_${styleId}.json`);
-  const propsName = `props_sthumb_${styleId}.json`;
   try {
-    const project = buildProjectForStyle({ ...ctxBase }, styleId);
-    project.id = `style_thumb_${styleId}`;
-    project.musicTrack = null; project.musicVolume = 0; project.enableJumpCuts = false;
-    writeFileSync(projectPath, JSON.stringify(project, null, 2), "utf-8");
-
-    // props una sola vez (mismo build-props.mjs que style-preview); las 3 escenas
-    // comparten props y solo cambian de --frame.
-    execFileSync("node", ["build-props.mjs", VIDEO_ID, projectPath, propsName], {
-      cwd: __dirname, stdio: "pipe", timeout: 120_000,
-    });
-
     let okScenes = 0;
-    for (let i = 0; i < sceneFrames.length; i++) {
-      const outPng = path.join(TMP_DIR, `${styleId}_${i + 1}.png`);
-      const finalPng = path.join(OUT_DIR, `${styleId}_${i + 1}.png`);
-      rmSync(outPng, { force: true });
-      execFileSync(npxExe, [
-        "remotion", "still", "src/index.ts", "ViralVideo",
-        outPng, `--frame=${sceneFrames[i]}`, `--props=${propsName}`, "--scale=0.25", "--timeout=120000",
-      ], { cwd: __dirname, stdio: "pipe", timeout: 300_000, shell: true });
-      const size = existsSync(outPng) ? statSync(outPng).size : 0;
-      if (size < 10_240) throw new Error(`escena ${i + 1} PNG sospechoso (${size} bytes — ¿negro/render roto?)`);
-      copyFileSync(outPng, finalPng);
-      okScenes++;
+    for (const asp of ASPECTS) {
+      const projectPath = path.join(TMP_DIR, `project_${styleId}_${asp.tag}.json`);
+      const propsName = `props_sthumb_${styleId}_${asp.tag}.json`;
+      const project = buildProjectForStyle({ ...ctxBase, width: asp.width, height: asp.height }, styleId);
+      project.id = `style_thumb_${styleId}_${asp.tag}`;
+      project.musicTrack = null; project.musicVolume = 0; project.enableJumpCuts = false;
+      writeFileSync(projectPath, JSON.stringify(project, null, 2), "utf-8");
+      execFileSync("node", ["build-props.mjs", VIDEO_ID, projectPath, propsName], {
+        cwd: __dirname, stdio: "pipe", timeout: 120_000,
+      });
+      try {
+        for (let i = 0; i < sceneFrames.length; i++) {
+          const outPng = path.join(TMP_DIR, `${styleId}_${asp.tag}_${i + 1}.png`);
+          const finalPng = path.join(OUT_DIR, `${styleId}_${asp.tag}_${i + 1}.png`);
+          rmSync(outPng, { force: true });
+          execFileSync(npxExe, [
+            "remotion", "still", "src/index.ts", "ViralVideo",
+            outPng, `--frame=${sceneFrames[i]}`, `--props=${propsName}`, "--scale=0.25", "--timeout=120000",
+          ], { cwd: __dirname, stdio: "pipe", timeout: 300_000, shell: true });
+          const size = existsSync(outPng) ? statSync(outPng).size : 0;
+          if (size < 10_240) throw new Error(`${asp.tag} escena ${i + 1} PNG sospechoso (${size} bytes)`);
+          copyFileSync(outPng, finalPng);
+          okScenes++;
+        }
+      } finally {
+        rmSync(path.join(__dirname, propsName), { force: true });
+      }
     }
     results.push({ id: styleId, ok: true, scenes: okScenes });
-    console.log(`  ✓ ${styleId} (${okScenes} escenas)`);
+    console.log(`  ✓ ${styleId} (${okScenes} escenas: v+h)`);
   } catch (err) {
     const msg = err?.stderr?.toString?.().slice(-300) || err?.message || String(err);
     results.push({ id: styleId, ok: false, error: msg });
     console.error(`  ✗ ${styleId}: ${msg}`);
-  } finally {
-    rmSync(path.join(__dirname, propsName), { force: true });
   }
 }
 
