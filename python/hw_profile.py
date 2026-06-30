@@ -264,6 +264,7 @@ def _recommend(prof: dict) -> dict:
     nv = prof.get("gpu_nvidia") or {}
     cap = float(nv.get("compute_capability") or 0.0)
     vram_free = int(nv.get("vram_free_mb") or 0)
+    vram_total = int(nv.get("vram_total_mb") or 0)
     nvenc_usable = bool(nv.get("nvenc_usable"))
     nvdec_usable = bool(nv.get("nvdec_usable"))
     qsv = bool(prof.get("gpu_intel_qsv_usable"))
@@ -294,9 +295,18 @@ def _recommend(prof: dict) -> dict:
     # 32→4 capas, ~2-3x más rápido en transcripción, +1-2% WER en español =
     # aceptable). Damos el id explícito ct2 para que faster-whisper/whisperx lo
     # resuelvan sin ambigüedad a un modelo CTranslate2 descargable.
-    if torch_cuda and vram_free >= 8000:
-        whisper_model = "deepdml/faster-whisper-large-v3-turbo-ct2"
-    elif torch_cuda and vram_free >= 2000:
+    #
+    # PRECISIÓN: decidimos por VRAM **TOTAL**, no por la libre. La libre baja cuando hay
+    # un render o el desktop usando la GPU, y antes hacía caer la detección (cacheada) a
+    # "small" → transcripción imprecisa. El turbo-ct2 pesa ~1.6 GB en fp16, así que entra
+    # cómodo en cualquier GPU ≥5 GB; la transcripción normalmente corre ANTES del render.
+    # "la más precisa" (pedido del usuario): large-v3 COMPLETO (Systran/faster-whisper-
+    # large-v3, ya descargado → offline-safe, máxima fidelidad ES) en GPUs ≥5 GB. Es más
+    # lento que el turbo pero el usuario priorizó precisión sobre velocidad. ~3 GB en fp16,
+    # entra en 6 GB. GPUs medianas → medium; chicas → small.
+    if torch_cuda and vram_total >= 5000:
+        whisper_model = "large-v3"
+    elif torch_cuda and vram_total >= 3500:
         whisper_model = "medium"
     elif torch_cuda:
         whisper_model = "small"
