@@ -1,7 +1,7 @@
 ﻿# Estilos visuales (base)
 
 > **Actualizado:** este doc detalla los estilos base y su configuración JSON. El sistema
-> hoy tiene **22 estilos** en total (`frontend/src/lib/style-registry.data.json` es la
+> hoy tiene **23 estilos** en total (`frontend/src/lib/style-registry.data.json` es la
 > fuente de verdad del catálogo). Además de los base de aquí, incluye `cinematic_pro`,
 > `broll_full`, `broll_pip`, `text_behind`, `pop_reels`, `graphics_pro`, `graphics_max`,
 > `motion_pro`, `motion_beat`, `motion_grid`, `editorial`, `editorial_broll`,

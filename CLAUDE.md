@@ -55,7 +55,7 @@ Ver `docs/AUTOSTART.md` para configuración del autostart.
 
 Solo caracteres `[a-zA-Z0-9_-]`. NO espacios, NO acentos.
 
-### 22 estilos visuales disponibles (silent, punch, hype, hype_max, hype_max_sfx, supreme, cinematic_pro, broll_full, broll_pip, text_behind, pop_reels, graphics_pro, graphics_max, motion_pro, motion_beat, motion_grid, editorial, editorial_broll, kinetic_type, lottie_pop, paper_cut, cine_clasico)
+### 23 estilos visuales disponibles (silent, punch, hype, hype_max, hype_max_sfx, supreme, cinematic_pro, broll_full, broll_pip, text_behind, pop_reels, graphics_pro, graphics_max, motion_pro, motion_beat, motion_grid, editorial, editorial_full, editorial_broll, kinetic_type, lottie_pop, paper_cut, cine_clasico)
 
 `silent`, `punch`, `hype`, `hype_max`, `hype_max_sfx` (+ `supreme` para clips de long_form). Ver `docs/STYLES.md`. Fuente de verdad del catálogo: `frontend/src/lib/style-registry.data.json`.
 
@@ -154,7 +154,7 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 Documentado en `README.md`. Resumen:
 
 - ✅ Dashboard funcional con 8 rutas
-- ✅ 22 estilos visuales implementados (los del selector + `supreme` automático para clips + `cinematic_pro` opt-in)
+- ✅ 23 estilos visuales implementados (los del selector + `supreme` automático para clips + `cinematic_pro` opt-in). `editorial_full` = editorial a pantalla completa en horizontal; los estilos editoriales usan panel (video + texto/ilustraciones al costado) en V y H
   - Nuevos: `cine_clasico` (cine antiguo: voz a radio vieja + B&W + máquina de escribir/proyector en los picos del director emocional), `editorial_broll` (Editorial + B-roll Pexels en cortinillas), `kinetic_type`, `lottie_pop`, `paper_cut`
   - El estilo `editorial` tiene 17 temas editoriales (nuevos: `art_deco`, `blueprint`, `noir`)
 - ✅ Pipeline shorts: transcribe + cuts + render
@@ -186,5 +186,5 @@ Es el archivo más delicado del proyecto. Reglas:
 - `docs/SETUP.md` — instalación
 - `docs/USAGE.md` — tutorial
 - `docs/ARCHITECTURE.md` — técnica
-- `docs/STYLES.md` — los estilos (22 en total)
+- `docs/STYLES.md` — los estilos (23 en total)
 - `docs/TROUBLESHOOTING.md` — errores comunes

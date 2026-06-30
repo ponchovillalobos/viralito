@@ -157,7 +157,7 @@ el oficial.
 - **🧠 Director emocional** *(único en el mercado)*: analiza CÓMO hablás — la música
   baja cuando hablás y respira en tus pausas (auto-ducking), los zooms caen en tus
   picos emocionales, los efectos se intensifican con tu voz.
-- **22 estilos de edición** con mini-demos animadas: del MrBeast intenso al
+- **23 estilos de edición** con mini-demos animadas: del MrBeast intenso al
   **📰 Editorial documental** (panel lateral + titulares serif gigantes + ilustraciones
   line-art doradas, con 17 temas de fuente/fondo), el **🎞️🎙️ Cine clásico** (en los picos
   la voz suena a radio vieja y la imagen se vuelve blanco y negro) y los **Motion** con
@@ -181,7 +181,7 @@ el oficial.
   se agrupan en una tarjeta con chips para comparar sin duplicados.
 - **App de escritorio** (Tauri): ventana nativa, portable — descargá, descomprimí y listo.
 
-## 🎨 Los 22 estilos
+## 🎨 Los 23 estilos
 
 | | Estilo | Qué hace |
 |---|---|---|
