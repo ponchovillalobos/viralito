@@ -77,14 +77,18 @@ for (const w of words) {
   }
 }
 
-// Frame con contenido visible: 35% de la duración (igual criterio que style-preview),
-// acotado a [2s, 8s] para no caer en intro/outro.
-const thumbTimeSec = Math.min(8, Math.max(2, duration * 0.35));
-const FRAME = Math.max(1, Math.round(thumbTimeSec * FPS));
+// 3 ESCENAS por estilo: tres momentos distintos del clip (≈28%, 50%, 72% de la
+// duración, acotados a [2s, duración-2s]) → el usuario ve cómo se ve el output en
+// varias partes, no un solo frame. Cada uno se guarda como {id}_1/2/3.png.
+const SCENE_FRACS = [0.28, 0.5, 0.72];
+const sceneFrames = SCENE_FRACS.map((f) => {
+  const t = Math.min(Math.max(2, duration * f), Math.max(2, duration - 2));
+  return Math.max(1, Math.round(t * FPS));
+});
 
 mkdirSync(TMP_DIR, { recursive: true });
 mkdirSync(OUT_DIR, { recursive: true });
-console.log(`Generando ${idsToRun.length} miniaturas — video "${VIDEO_ID}" · frame ${FRAME} (${thumbTimeSec.toFixed(1)}s)`);
+console.log(`Generando ${idsToRun.length} estilos × ${sceneFrames.length} escenas — video "${VIDEO_ID}" · frames ${sceneFrames.join(", ")}`);
 
 const ctxBase = {
   videoId: VIDEO_ID,
@@ -96,35 +100,39 @@ const ctxBase = {
   caption: "",
 };
 
+const npxExe = process.platform === "win32" ? "npx.cmd" : "npx";
 const results = [];
 for (const styleId of idsToRun) {
   const projectPath = path.join(TMP_DIR, `project_${styleId}.json`);
   const propsName = `props_sthumb_${styleId}.json`;
-  const outPng = path.join(TMP_DIR, `${styleId}.png`);
-  const finalPng = path.join(OUT_DIR, `${styleId}.png`);
   try {
     const project = buildProjectForStyle({ ...ctxBase }, styleId);
     project.id = `style_thumb_${styleId}`;
     project.musicTrack = null; project.musicVolume = 0; project.enableJumpCuts = false;
     writeFileSync(projectPath, JSON.stringify(project, null, 2), "utf-8");
 
-    // 1) props (mismo build-props.mjs que style-preview)
+    // props una sola vez (mismo build-props.mjs que style-preview); las 3 escenas
+    // comparten props y solo cambian de --frame.
     execFileSync("node", ["build-props.mjs", VIDEO_ID, projectPath, propsName], {
       cwd: __dirname, stdio: "pipe", timeout: 120_000,
     });
-    // 2) still 0.25 → 270×480
-    rmSync(outPng, { force: true });
-    const npxExe = process.platform === "win32" ? "npx.cmd" : "npx";
-    execFileSync(npxExe, [
-      "remotion", "still", "src/index.ts", "ViralVideo",
-      outPng, `--frame=${FRAME}`, `--props=${propsName}`, "--scale=0.25", "--timeout=120000",
-    ], { cwd: __dirname, stdio: "pipe", timeout: 300_000, shell: true });
 
-    const size = existsSync(outPng) ? statSync(outPng).size : 0;
-    if (size < 10_240) throw new Error(`PNG sospechoso (${size} bytes — ¿frame negro/render roto?)`);
-    copyFileSync(outPng, finalPng);
-    results.push({ id: styleId, ok: true, kb: +(size / 1024).toFixed(1) });
-    console.log(`  ✓ ${styleId}.png (${(size / 1024).toFixed(1)} KB)`);
+    let okScenes = 0;
+    for (let i = 0; i < sceneFrames.length; i++) {
+      const outPng = path.join(TMP_DIR, `${styleId}_${i + 1}.png`);
+      const finalPng = path.join(OUT_DIR, `${styleId}_${i + 1}.png`);
+      rmSync(outPng, { force: true });
+      execFileSync(npxExe, [
+        "remotion", "still", "src/index.ts", "ViralVideo",
+        outPng, `--frame=${sceneFrames[i]}`, `--props=${propsName}`, "--scale=0.25", "--timeout=120000",
+      ], { cwd: __dirname, stdio: "pipe", timeout: 300_000, shell: true });
+      const size = existsSync(outPng) ? statSync(outPng).size : 0;
+      if (size < 10_240) throw new Error(`escena ${i + 1} PNG sospechoso (${size} bytes — ¿negro/render roto?)`);
+      copyFileSync(outPng, finalPng);
+      okScenes++;
+    }
+    results.push({ id: styleId, ok: true, scenes: okScenes });
+    console.log(`  ✓ ${styleId} (${okScenes} escenas)`);
   } catch (err) {
     const msg = err?.stderr?.toString?.().slice(-300) || err?.message || String(err);
     results.push({ id: styleId, ok: false, error: msg });

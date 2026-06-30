@@ -350,6 +350,8 @@ export function LongFormWizard() {
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
   const [showAllThemes, setShowAllThemes] = useState(false);
+  // "Ver ejemplo": estilo cuya expansión de escenas (miniaturas reales) está abierta.
+  const [exampleStyle, setExampleStyle] = useState<string | null>(null);
   // Redes fijas: los captions por red se generan SOLOS (visibles en /produccion).
   // Ya no hay botones de redes en el wizard.
   const selectedPlatforms: PlatformId[] = ["instagram", "linkedin"];
@@ -1162,28 +1164,72 @@ export function LongFormWizard() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STYLES.map((s) => {
               const sel = selectedStyles.includes(s.id);
+              const open = exampleStyle === s.id;
               return (
-                <button
+                // No es <button> (adentro va el botón "Ver ejemplo" → button-in-button
+                // rompe la hidratación). Área de selección = <div role="button">.
+                <div
                   key={s.id}
-                  type="button"
-                  onClick={() => toggleStyle(s.id)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-all",
+                    "rounded-lg border bg-card transition-all",
                     sel
                       ? "border-violet-400 ring-1 ring-violet-400 bg-violet-500/5"
                       : "border-border hover:border-foreground/30"
                   )}
                 >
-                  {/* Mini-demo EN MOVIMIENTO del estilo: se entiende sin leer. */}
-                  <StyleMiniDemo styleId={s.id} accent={accent} />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{s.name}</span>
-                      {sel && <CheckCircle2 className="h-4 w-4 text-violet-400" />}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleStyle(s.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleStyle(s.id);
+                      }
+                    }}
+                    className="flex cursor-pointer items-center gap-3 p-4 text-left"
+                  >
+                    {/* Mini-demo EN MOVIMIENTO del estilo: se entiende sin leer. */}
+                    <StyleMiniDemo styleId={s.id} accent={accent} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{s.name}</span>
+                        {sel && <CheckCircle2 className="h-4 w-4 text-violet-400" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{s.tagline}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{s.tagline}</p>
                   </div>
-                </button>
+                  {/* Ver ejemplo: despliega 3 ESCENAS REALES de cómo se verá el output
+                      (frontend/public/style-thumbs/{id}_1..3.png) + la descripción. */}
+                  <button
+                    type="button"
+                    onClick={() => setExampleStyle(open ? null : s.id)}
+                    className="w-full border-t border-border/60 py-1.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                  >
+                    {open ? "▲ Ocultar ejemplo" : "▼ Ver ejemplo"}
+                  </button>
+                  {open && (
+                    <div className="px-3 pb-3">
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[1, 2, 3].map((n) => (
+                          <img
+                            key={n}
+                            src={`/style-thumbs/${s.id}_${n}.png`}
+                            alt=""
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                            className="aspect-[9/16] w-full rounded-md border border-white/10 object-cover"
+                          />
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                        {s.tagline}
+                      </p>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
