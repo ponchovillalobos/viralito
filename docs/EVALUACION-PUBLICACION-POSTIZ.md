@@ -127,3 +127,62 @@ recuperación de "vencidos mientras estaba apagada" (ya hay patrón en la cola d
 3. ¿Querés el **calendario** visual como primer entregable (alto impacto, bajo riesgo)?
 4. ¿IG lo dejamos **semi-auto** (puente manual, como está) o intentamos full-auto (requiere
    cuenta Business + más fricción de setup)?
+
+---
+
+## 8. Dirección elegida por el usuario (2026-06-30) + plan refinado
+
+**Lo que pidió:** la sección de publicación debe **verse y ordenarse como Postiz** (su repo);
+usar **lo que ya sirve de Postiz** (reimplementado, no copiado — ver §3.1 licencia); agregarla
+como una **sección nueva** (tarjeta en el home + su propio menú, como las del inicio);
+**NO cambiar el funcionamiento** de creación de videos (render/wizard/editor); y **eliminar**
+lo de redes que no usamos. (Considera que su sistema actual "no le sirve" y quiere el de Postiz.)
+
+### 8.1 Método legal (AGPL-safe)
+- Replicar el **look & feel / orden** de Postiz (calendario, composer, sidebar de canales) →
+  legal (el diseño/UX se puede imitar; no se copia código).
+- **Reimplementar** la lógica por red mirando los providers de Postiz como referencia técnica.
+- **NO** pegar código Postiz literal (AGPL). Solo librerías MIT/Apache.
+
+### 8.2 Estructura de Postiz a replicar (de su repo `apps/frontend/src/components`)
+- **launches** → vista principal = **calendario** de posts programados (mes/semana/día).
+- **new-launch / preview / provider-preview** → **composer**: escribís 1 vez, preview POR red,
+  media, selector de fecha/hora.
+- **channels (plugs)** → **sidebar de cuentas conectadas** con ícono/avatar por red.
+- **analytics / platform-analytics** → métricas por red (Viralito ya tiene `/metricas`).
+
+### 8.3 Nueva sección en Viralito (aditiva)
+- Nueva **tarjeta en el home** (como las 4 actuales): "📅 Programar y publicar".
+- Nueva ruta `/publicar` (o renombrar/absorber `/produccion`) con layout estilo Postiz:
+  sidebar de canales + calendario central + botón "Nuevo post" → composer.
+- Reusa datos que YA existen: `scheduled-uploads.json` (calendario), captions por red
+  (`caption-tabs`), renders listos (`production-list`), métricas.
+
+### 8.4 Keep / Remove del código de redes actual
+**KEEP (sirve, se reusa bajo el nuevo look):**
+- `scheduled-uploads.ts` (el motor de scheduling — se mejora, no se tira).
+- `linkedin-client/upload` (LinkedIn anda auto — el mejor caso).
+- `tiktok-client/upload` + `tiktok/schedule` (schedule funciona).
+- `instagram-client/upload` (queda como semi-auto / puente manual).
+- `platforms.ts`, `metrics-store.ts`, `notifications-store.ts`, OAuth callbacks.
+
+**REMOVE/absorber (lo que "no usamos"):**
+- Confirmar con el usuario qué exactamente no usa. Candidatos: componentes de `/produccion`
+  que el nuevo look reemplace (schedule-dialog viejo → composer nuevo; production-list →
+  integrada al calendario). Se ELIMINAN al reemplazarlos, no antes (para no romper).
+
+### 8.5 Plan por fases (cada una aditiva, gate verde, no toca render/wizard)
+- **Fase 0 — Cascarón estilo Postiz:** tarjeta en el home + ruta `/publicar` + layout
+  (sidebar de canales + **calendario** leyendo `scheduled-uploads.json`) + botón "Nuevo post".
+  Solo UI sobre datos existentes → riesgo casi nulo.
+- **Fase 1 — Composer estilo Postiz:** escribir 1 vez + preview por red + media (el render
+  listo) + fecha/hora → crea entries en `scheduled-uploads`. Reusa captions por red.
+- **Fase 2 — Robustez del scheduler:** recuperar programados vencidos tras reinicio.
+- **Fase 3 — Más redes (reimplementadas de referencia):** Facebook (ya def) + YouTube +
+  Threads/Bluesky (gratis). Un provider por red, aditivo.
+- **Fase 4 — Limpieza:** eliminar los componentes viejos de `/produccion` ya reemplazados.
+
+### 8.6 Riesgo / no romper
+- La creación de videos (render, wizard, editor, largos) **NO se toca** en ninguna fase.
+- Cada fase: tsc 0 + tests + paridad; solo aditivo hasta la Fase 4 (limpieza controlada).
+- Secretos solo en `.env.local`. Sin Postgres/Redis/Temporal (seguimos JSON + scheduler propio).
