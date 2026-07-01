@@ -212,3 +212,17 @@ red es riesgoso sin poder testear el publish.
 - **Plan:** cuando el usuario diga qué red + provea las credenciales (en .env.local, nunca
   commit), se construye ESE provider (OAuth/session + upload + platform en el scheduler +
   opción en el composer) y se prueba end-to-end.
+
+---
+
+## 10. Redes del usuario (LinkedIn/Instagram/TikTok/Facebook) — estado
+
+El usuario eligió esas 4. Estado del CÓDIGO (lo que hago yo, 99%):
+- **LinkedIn / Instagram / TikTok:** ya estaban codeados + con **asistente guiado** en /setup/{red}
+  (Config → Conectar). Listos; solo faltan las credenciales del usuario.
+- **Facebook (934b929):** construido reusando la conexión Meta de Instagram (misma app). Sube el
+  video DIRECTO a la Página (sin túnel). Opción en el composer + case en el scheduler + scope
+  pages_manage_posts. Se activa al conectar Meta (via el asistente de Instagram).
+
+Lo ÚNICO del usuario (1%): crear 3 apps gratis (LinkedIn, Meta=IG+FB, TikTok) y pegar 6 códigos
+en los asistentes de la app (NO en .env). Guía: docs/CONECTAR-REDES.md.
