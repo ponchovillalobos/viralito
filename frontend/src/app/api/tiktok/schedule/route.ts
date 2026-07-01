@@ -93,6 +93,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Evitar doble publicación en la MISMA red: si ya hay una entry activa (no fallida) para
+    // este video + plataforma, no crear otra.
+    const existing = (await listScheduled()).find(
+      (u) => u.projectId === body.projectId && u.platform === platform && u.status !== "failed",
+    );
+    if (existing) {
+      const STATUS_ES: Record<string, string> = {
+        pending: "ya está programado",
+        running: "se está publicando",
+        uploaded: "ya se subió",
+        published: "ya se publicó",
+        pending_manual: "está esperando publicación manual",
+      };
+      const redName = platform === "instagram_bridge" ? "Instagram" : platform;
+      return NextResponse.json(
+        {
+          error: `Este video ${STATUS_ES[existing.status] ?? "ya está en cola"} en ${redName}. No se publica dos veces en la misma red.`,
+          duplicate: true,
+        },
+        { status: 409 },
+      );
+    }
+
     const entry = await createScheduled({
       projectId: body.projectId,
       source,

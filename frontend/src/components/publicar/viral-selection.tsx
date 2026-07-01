@@ -8,8 +8,17 @@
  * Datos: /api/viral-ranking. Acá el usuario revisa + sube las miniaturas; después se programan.
  */
 import { useEffect, useState } from "react";
-import { Flame, Play, Loader2, Copy, Check, X } from "lucide-react";
+import { Flame, Play, Loader2, Copy, Check, X, CheckCircle2 } from "lucide-react";
 import { ThumbnailButton } from "@/components/produccion/thumbnail-button";
+import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
+
+const NET_STATUS: Record<string, string> = {
+  pending: "programado",
+  running: "publicando…",
+  uploaded: "subido",
+  published: "publicado",
+  pending_manual: "esperando",
+};
 
 interface ViralVideo {
   id: string;
@@ -35,6 +44,8 @@ export function ViralSelection() {
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState<string | null>(null); // id del video reproduciéndose
   const [copied, setCopied] = useState<string | null>(null);
+  // Por video: en qué redes ya está (para la etiqueta "ya en X red").
+  const [byProject, setByProject] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     fetch("/api/viral-ranking")
@@ -42,6 +53,10 @@ export function ViralSelection() {
       .then((d) => setVideos(Array.isArray(d.videos) ? d.videos.slice(0, TOP_N) : []))
       .catch(() => setVideos([]))
       .finally(() => setLoading(false));
+    fetch("/api/scheduled/by-project")
+      .then((r) => r.json())
+      .then((d) => setByProject(d.byProject ?? {}))
+      .catch(() => {});
   }, []);
 
   async function copyCopy(id: string, text: string) {
@@ -119,6 +134,23 @@ export function ViralSelection() {
                   <span className="-mt-0.5 w-fit rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {v.style}
                   </span>
+                )}
+                {byProject[v.id] && Object.keys(byProject[v.id]).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(byProject[v.id]).map(([plat, status]) => {
+                      const p = PLATFORMS[plat as PlatformKey];
+                      return (
+                        <span
+                          key={plat}
+                          className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                          style={{ backgroundColor: p?.color ?? "#10b981" }}
+                          title={`Ya ${NET_STATUS[status] ?? status} en ${p?.label ?? plat} — no se publica dos veces`}
+                        >
+                          <CheckCircle2 className="h-2.5 w-2.5" /> {p?.label ?? plat} · {NET_STATUS[status] ?? status}
+                        </span>
+                      );
+                    })}
+                  </div>
                 )}
                 {v.copy && (
                   <p className="line-clamp-4 flex-1 whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
