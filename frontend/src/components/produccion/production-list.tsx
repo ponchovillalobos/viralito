@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { ScheduleDialog } from "@/components/produccion/schedule-dialog";
+import { ThumbnailButton } from "@/components/produccion/thumbnail-button";
 import { InstagramHelperDialog } from "@/components/produccion/instagram-helper-dialog";
 import { ScheduleStatusBadge } from "@/components/produccion/schedule-status-badge";
 import { FilterChip } from "@/components/produccion/filter-chip";
@@ -695,6 +696,7 @@ export function ProductionList() {
                           programar
                         </button>
                       )}
+                      {PUBLISHING_ENABLED && <ThumbnailButton projectId={p.id} />}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="flex items-center gap-1">
