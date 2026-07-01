@@ -186,3 +186,29 @@ lo de redes que no usamos. (Considera que su sistema actual "no le sirve" y quie
 - La creación de videos (render, wizard, editor, largos) **NO se toca** en ninguna fase.
 - Cada fase: tsc 0 + tests + paridad; solo aditivo hasta la Fase 4 (limpieza controlada).
 - Secretos solo en `.env.local`. Sin Postgres/Redis/Temporal (seguimos JSON + scheduler propio).
+
+---
+
+## 9. Estado de implementación (loop 2026-06-30)
+
+**HECHO, probado y en vivo (aditivo, sin tocar la creación de videos):**
+- **Fase 0** (f5bb796): tarjeta home + /publicar + sidebar de canales + calendario mensual + /api/scheduled/list.
+- **Fase 1** (f53087e): composer estilo Postiz (elegir video → redes → descripción → fecha/hora → programa). Test funcional OK (crea entry pending → aparece en el calendario).
+- **Fase 2** (140c3b2): abrir /publicar arranca el scheduler → recupera programados vencidos tras reinicio. Verificado en log.
+- **Fase 4** (c89cb25): /publicar es el HUB único (calendario + composer + ProductionList absorbida). /produccion → redirect 307 a /publicar. Home a 4 tarjetas.
+
+Redes que FUNCIONAN hoy (reusadas): **LinkedIn** (auto), **TikTok** (schedule), **Instagram** (semi-auto/puente).
+
+**Fase 3 (más redes) — BLOQUEADA por credenciales del usuario:**
+Agregar Facebook / YouTube / Threads / Bluesky requiere, por red, una **app de desarrollador
++ client_id/secret** (o app-password en Bluesky) que SOLO el usuario puede crear en la consola
+de cada plataforma. No se puede construir+probar sin eso (la regla del loop es "probar cada
+fase"; el publish real necesita una cuenta conectada). Además tocar el scheduler para sumar una
+red es riesgoso sin poder testear el publish.
+- **Más fácil / sin app de dev:** **Bluesky** (usa handle + app-password que el user genera en
+  Ajustes → App Passwords, 30 seg). Buena primera red nueva.
+- **Necesitan app de dev (Meta/Google):** Facebook (Meta app), Threads (Meta app), YouTube
+  (Google Cloud project + OAuth). Cuota YT ~6 subidas/día sin ampliación.
+- **Plan:** cuando el usuario diga qué red + provea las credenciales (en .env.local, nunca
+  commit), se construye ESE provider (OAuth/session + upload + platform en el scheduler +
+  opción en el composer) y se prueba end-to-end.
