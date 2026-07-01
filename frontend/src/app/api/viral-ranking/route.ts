@@ -14,6 +14,15 @@ interface Clip {
   hook: string;
   theme: string;
   caption: string;
+  hashtags: string[];
+}
+
+/** Copy unificado para postear en LinkedIn/TikTok/Instagram: caption viral (hook+valor+CTA) +
+ *  hashtags en español sin acentos. La IA ya generó ambos; acá se combinan en un solo texto. */
+function buildCopy(caption: string, hashtags: string[]): string {
+  const c = (caption || "").trim();
+  const tags = hashtags.filter((h) => typeof h === "string" && h.trim());
+  return tags.length ? `${c}\n\n${tags.join(" ")}` : c;
 }
 
 /** Título humano corto desde el hook (o el slug si no hay hook). */
@@ -72,6 +81,9 @@ export async function GET() {
               hook: typeof o.hook === "string" ? o.hook : "",
               theme: typeof o.theme === "string" ? o.theme : "",
               caption: typeof o.caption === "string" ? o.caption : "",
+              hashtags: Array.isArray(o.hashtags)
+                ? (o.hashtags as unknown[]).filter((x): x is string => typeof x === "string")
+                : [],
             });
           }
         }
@@ -121,7 +133,8 @@ export async function GET() {
         score: m.clip.score,
         title: humanTitle(m.clip.hook, m.clip.slug),
         theme: m.clip.theme,
-        caption: m.clip.caption,
+        // copy unificado (caption + hashtags) para postear en LinkedIn/TikTok/Instagram.
+        copy: buildCopy(m.clip.caption, m.clip.hashtags),
       });
     }
 
