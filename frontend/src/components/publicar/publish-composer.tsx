@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 // Solo las redes que el scheduler sabe manejar hoy (tiktok, linkedin, instagram vía bridge).
 const SCHEDULABLE: { key: PlatformKey; platform: string }[] = [
   { key: "instagram", platform: "instagram_bridge" },
+  { key: "facebook", platform: "facebook" },
   { key: "linkedin", platform: "linkedin" },
   { key: "tiktok", platform: "tiktok" },
 ];

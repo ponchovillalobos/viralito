@@ -17,6 +17,7 @@ import {
   type PrivacyLevel,
 } from "@/lib/tiktok-upload";
 import { uploadVideoToLinkedIn } from "@/lib/linkedin-upload";
+import { publishVideoToFacebook } from "@/lib/facebook-upload";
 import { pushNotification } from "@/lib/notifications-store";
 
 const STORE_FILE = path.join(path.dirname(DATA_ROOT), "scheduled-uploads.json");
@@ -30,7 +31,7 @@ export type ScheduledStatus =
   | "pending_manual" // IG bridge: el worker no publica, espera al humano
   | "failed";
 
-export type SchedulePlatform = "tiktok" | "linkedin" | "instagram_bridge";
+export type SchedulePlatform = "tiktok" | "linkedin" | "instagram_bridge" | "facebook";
 
 export interface ScheduledUpload {
   id: string;
@@ -251,6 +252,21 @@ async function processUpload(upload: ScheduledUpload): Promise<void> {
           publicPostId: result.postUrn,
         });
         console.log(`[scheduler] linkedin ${upload.id} published (postUrn=${result.postUrn})`);
+        break;
+      }
+      case "facebook": {
+        // Publica DIRECTO en la Página de Facebook (sube el archivo, sin túnel). Reusa la
+        // conexión de Meta de Instagram (misma app). Síncrono como LinkedIn → "published".
+        const result = await publishVideoToFacebook({
+          videoId: upload.projectId,
+          source: upload.source,
+          caption: upload.caption || upload.title,
+        });
+        await updateScheduled(upload.id, {
+          status: "published",
+          publicPostId: result.videoPostId,
+        });
+        console.log(`[scheduler] facebook ${upload.id} published (videoPostId=${result.videoPostId})`);
         break;
       }
       case "instagram_bridge": {

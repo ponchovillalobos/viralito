@@ -29,6 +29,9 @@ export const IG_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "business_management",
+  // Con la MISMA app/conexión de Meta, esto habilita publicar en la Página de Facebook
+  // (Viralito reusa esta conexión para Facebook — el usuario conecta una sola app).
+  "pages_manage_posts",
 ] as const;
 
 export function getBaseUrl(): string {
