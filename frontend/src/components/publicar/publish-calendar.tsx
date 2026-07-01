@@ -8,7 +8,7 @@
  * El composer (crear post) llega en la Fase 1; "Nuevo post" por ahora lleva a Mis videos.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Circle } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Circle, CheckCircle2 } from "lucide-react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
 import { PublishComposer } from "./publish-composer";
@@ -114,6 +114,24 @@ export function PublishCalendar() {
 
   const channels = (Object.keys(PLATFORMS) as PlatformKey[]).map((k) => PLATFORMS[k]);
 
+  // Estado de conexión por red (Conectado/Conectar en el sidebar). Facebook reusa la conexión
+  // de Meta de Instagram → está conectado cuando IG lo está, y su link de conectar es el de IG.
+  const [conn, setConn] = useState<Record<string, { connected: boolean; name?: string }>>({});
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => {
+        const igConnected = Boolean(s?.instagram?.hasAccessToken);
+        setConn({
+          instagram: { connected: igConnected, name: s?.instagram?.connectedUsername },
+          facebook: { connected: igConnected, name: s?.instagram?.connectedUsername },
+          linkedin: { connected: Boolean(s?.linkedin?.hasAccessToken), name: s?.linkedin?.connectedName },
+          tiktok: { connected: Boolean(s?.tiktok?.hasAccessToken), name: s?.tiktok?.connectedUsername },
+        });
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="grid gap-5 lg:grid-cols-[240px_1fr]">
       {/* Sidebar de canales (estilo Postiz) */}
@@ -123,24 +141,45 @@ export function PublishCalendar() {
             Tus redes
           </p>
           <ul className="space-y-2">
-            {channels.map((p) => (
-              <li key={p.key} className="flex items-center gap-2.5">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                  style={{ backgroundColor: p.color }}
-                >
-                  {p.label.slice(0, 2)}
-                </span>
-                <span className="flex-1 text-sm font-medium">{p.label}</span>
-                <a
-                  href={`/api/auth/${p.key}/login`}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground transition hover:text-foreground"
-                  title={`Conectar ${p.label}`}
-                >
-                  <Circle className="h-2.5 w-2.5" /> Conectar
-                </a>
-              </li>
-            ))}
+            {channels.map((p) => {
+              const c = conn[p.key];
+              // Facebook reusa el OAuth de Meta (Instagram).
+              const loginKey = p.key === "facebook" ? "instagram" : p.key;
+              return (
+                <li key={p.key} className="flex items-center gap-2.5">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                    style={{ backgroundColor: p.color }}
+                  >
+                    {p.label.slice(0, 2)}
+                  </span>
+                  <span className="flex-1 min-w-0 text-sm font-medium">
+                    {p.label}
+                    {c?.connected && c.name && (
+                      <span className="block truncate text-[10px] font-normal text-muted-foreground">
+                        {c.name}
+                      </span>
+                    )}
+                  </span>
+                  {c?.connected ? (
+                    <span
+                      className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-emerald-400"
+                      title={`${p.label} conectado`}
+                    >
+                      <CheckCircle2 className="h-3 w-3" /> Conectado
+                    </span>
+                  ) : (
+                    <a
+                      href={`/api/auth/${loginKey}/login`}
+                      className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground transition hover:text-foreground"
+                      title={`Conectar ${p.label}`}
+                    >
+                      <Circle className="h-2.5 w-2.5" /> Conectar
+                    </a>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
             Conecta una vez y tus videos se programan y publican solos a la hora elegida.
