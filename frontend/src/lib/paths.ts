@@ -34,6 +34,9 @@ export const TRANSCRIPTS_DIR = path.join(DATA_ROOT, "transcripts");
 export const CUTS_DIR = path.join(DATA_ROOT, "cuts");
 export const RENDERS_DIR = path.join(DATA_ROOT, "renders");
 export const PROJECTS_DIR = path.join(DATA_ROOT, "projects");
+// Miniaturas custom que el usuario sube por video (JPG/PNG). Se usan como thumbnail del post
+// (ej. LinkedIn uploadThumbnail). Vertical u horizontal según el video — el usuario provee el aspecto.
+export const THUMBS_DIR = path.join(DATA_ROOT, "thumbnails");
 export const BROLL_DIR = path.join(DATA_ROOT, "assets", "broll");
 export const MUSIC_DIR = path.join(DATA_ROOT, "assets", "music");
 export const SFX_DIR = path.join(DATA_ROOT, "assets", "sfx", "curated");
@@ -45,6 +48,7 @@ export const LF_RAW = path.join(LF_ROOT, "raw");
 export const LF_CLEAN = path.join(LF_ROOT, "clean");
 export const LF_CLIPS = path.join(LF_ROOT, "clips");
 export const LF_RENDERS = path.join(LF_ROOT, "renders");
+export const LF_THUMBS = path.join(LF_ROOT, "thumbnails");
 
 // Modo cinematográfico — imágenes que el usuario sube para superponer al video.
 // Estructura: {OVERLAYS_DIR}/{videoId}/{overlayId}.{jpg|png|webp}

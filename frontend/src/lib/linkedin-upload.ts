@@ -33,6 +33,8 @@ export interface LinkedInUploadOptions {
   commentary: string;
   /** Visibilidad. Default PUBLIC. */
   visibility?: LinkedInVisibility;
+  /** Path a una miniatura custom (opcional). Si existe, se sube como thumbnail del video. */
+  thumbnailPath?: string;
 }
 
 export interface LinkedInPostResult {
@@ -52,6 +54,8 @@ interface InitializeUploadResponse {
     video: string;
     /** Algunos endpoints también devuelven uploadToken */
     uploadToken?: string;
+    /** URL para subir la miniatura (presente si uploadThumbnail=true). */
+    thumbnailUploadUrl?: string;
   };
 }
 
@@ -89,14 +93,15 @@ async function getPersonUrn(): Promise<string> {
 async function initializeUpload(
   accessToken: string,
   personUrn: string,
-  fileSizeBytes: number
+  fileSizeBytes: number,
+  withThumbnail: boolean
 ): Promise<InitializeUploadResponse["value"]> {
   const body = {
     initializeUploadRequest: {
       owner: personUrn,
       fileSizeBytes,
       uploadCaptions: false,
-      uploadThumbnail: false,
+      uploadThumbnail: withThumbnail,
     },
   };
   const res = await fetch(
@@ -264,6 +269,19 @@ async function createPost(
   return postUrn;
 }
 
+/** Sube la miniatura custom al thumbnailUploadUrl que devuelve initializeUpload (PUT directo). */
+async function uploadThumbnailImage(uploadUrl: string, thumbnailPath: string): Promise<void> {
+  const buf = await fs.readFile(thumbnailPath);
+  const ext = thumbnailPath.split(".").pop()?.toLowerCase() ?? "jpg";
+  const ct = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": ct },
+    body: new Uint8Array(buf),
+  });
+  if (!res.ok) throw new Error(`thumbnail PUT ${res.status}`);
+}
+
 /**
  * Función pública — sube + publica un video a LinkedIn en un solo call.
  */
@@ -280,8 +298,22 @@ export async function uploadVideoToLinkedIn(
   const fileSizeBytes = stat.size;
   if (fileSizeBytes === 0) throw new Error("El archivo de video está vacío.");
 
-  // 1. Initialize
-  const init = await initializeUpload(accessToken, personUrn, fileSizeBytes);
+  // 1. Initialize (pide URL de miniatura si hay una custom)
+  const withThumbnail = Boolean(opts.thumbnailPath);
+  const init = await initializeUpload(accessToken, personUrn, fileSizeBytes, withThumbnail);
+
+  // 1b. Subir la miniatura custom (si hay). Es opcional — si falla, se sigue con el thumbnail
+  //     default de LinkedIn (no rompe la publicación).
+  if (withThumbnail && init.thumbnailUploadUrl && opts.thumbnailPath) {
+    try {
+      await uploadThumbnailImage(init.thumbnailUploadUrl, opts.thumbnailPath);
+    } catch (e) {
+      console.warn(
+        "[linkedin] subida de miniatura falló, sigo sin ella:",
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
 
   // 2. Upload chunks
   const eTags = await uploadChunks(opts.filePath, init.uploadInstructions);

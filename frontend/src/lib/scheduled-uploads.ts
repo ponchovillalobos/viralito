@@ -18,6 +18,7 @@ import {
 } from "@/lib/tiktok-upload";
 import { uploadVideoToLinkedIn } from "@/lib/linkedin-upload";
 import { publishVideoToFacebook } from "@/lib/facebook-upload";
+import { findThumbnail } from "@/lib/thumbnails";
 import { pushNotification } from "@/lib/notifications-store";
 
 const STORE_FILE = path.join(path.dirname(DATA_ROOT), "scheduled-uploads.json");
@@ -258,10 +259,13 @@ async function processUpload(upload: ScheduledUpload): Promise<void> {
         break;
       }
       case "linkedin": {
+        // Miniatura custom (si el usuario subió una para este video) → LinkedIn la usa de thumbnail.
+        const thumbnailPath = (await findThumbnail(upload.projectId)) ?? undefined;
         const result = await uploadVideoToLinkedIn({
           filePath,
           commentary: upload.caption || upload.title,
           visibility: "PUBLIC",
+          thumbnailPath,
         });
         await updateScheduled(upload.id, {
           status: "published",
