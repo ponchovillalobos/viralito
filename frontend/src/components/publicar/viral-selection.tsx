@@ -76,14 +76,23 @@ export function ViralSelection() {
             key={v.id}
             className="flex gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-foreground/20"
           >
-            {/* Puntuación EN GRANDE */}
-            <div
-              className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg"
-              style={{ backgroundColor: s.bg, color: s.text }}
-              title={`Viralidad ${v.score}/100 — ${s.label}`}
-            >
-              <Flame className="h-4 w-4 opacity-80" />
-              <span className="text-2xl font-bold leading-none">{Math.round(v.score)}</span>
+            {/* Miniatura del video (preview) con la puntuación EN GRANDE encima */}
+            <div className="relative aspect-[9/16] w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/videos/${encodeURIComponent(v.id)}/thumbnail`}
+                alt={v.title}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <span
+                className="absolute left-1 top-1 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-sm font-bold shadow"
+                style={{ backgroundColor: s.bg, color: s.text }}
+                title={`Viralidad ${v.score}/100 — ${s.label}`}
+              >
+                <Flame className="h-3 w-3" />
+                {Math.round(v.score)}
+              </span>
             </div>
 
             {/* Contenido */}
