@@ -103,8 +103,8 @@ function makeSuccessPage(username: string) {
     <div class="check">✓</div>
     <h1>TikTok conectado</h1>
     <p>Cuenta: <span class="acc">${escapeHtml(username)}</span></p>
-    <p>Ya puedes programar y publicar desde /produccion.</p>
-    <a href="/produccion">Ir a Producción</a>
+    <p>Ya puedes programar y publicar desde la sección Publicar.</p>
+    <a href="/publicar">Ir a Publicar</a>
   </div>
 </body>
 </html>`;

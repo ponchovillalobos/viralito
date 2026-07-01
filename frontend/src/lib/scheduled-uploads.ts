@@ -226,6 +226,22 @@ async function processUpload(upload: ScheduledUpload): Promise<void> {
       upload.source === "long_form" ? paths.LF_RENDERS : paths.RENDERS_DIR;
     const filePath = path_node.join(rendersBase, `${upload.projectId}.mp4`);
 
+    // DRY-RUN (env VIRAL_PUBLISH_DRYRUN=1): valida TODO el pipeline (cola → worker → estado →
+    // calendario) SIN llamar a la API real de la red. Permite probar el flujo end-to-end sin
+    // credenciales ni cuenta conectada. Default OFF → no afecta la publicación real.
+    if (process.env.VIRAL_PUBLISH_DRYRUN === "1") {
+      const fsmod = await import("node:fs/promises");
+      await fsmod.access(filePath); // confirma que el render existe (como haría el publish real)
+      await updateScheduled(upload.id, {
+        status: "published",
+        publicPostId: `dryrun_${upload.platform}_${upload.id}`,
+      });
+      console.log(
+        `[scheduler] DRY-RUN ${upload.platform} ${upload.id} → published (simulado, sin API real)`
+      );
+      return;
+    }
+
     switch (upload.platform) {
       case "tiktok": {
         const result = await uploadVideoToTikTok({

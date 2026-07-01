@@ -69,6 +69,8 @@ export async function fetchMemberPostMetric(
 /** Base URL para redirect URIs OAuth. Default localhost:3000. */
 export function getBaseUrl(): string {
   return (
+    // URL pública HTTPS (túnel/dominio) con prioridad, para redes que exijan https en el redirect.
+    process.env.VIRAL_OAUTH_BASE_URL ??
     process.env.VIRAL_API_HOST ??
     process.env.NEXT_PUBLIC_BASE_URL ??
     "http://localhost:3000"

@@ -36,6 +36,9 @@ export const IG_SCOPES = [
 
 export function getBaseUrl(): string {
   return (
+    // URL pública HTTPS (túnel Cloudflare/ngrok o dominio) para redes que EXIGEN https en el
+    // redirect (Meta/TikTok). Separada de VIRAL_API_HOST (que se usa también para llamadas internas).
+    process.env.VIRAL_OAUTH_BASE_URL ??
     process.env.VIRAL_API_HOST ??
     process.env.NEXT_PUBLIC_BASE_URL ??
     "http://localhost:3000"
