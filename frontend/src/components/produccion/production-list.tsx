@@ -158,24 +158,6 @@ export function ProductionList() {
     }
   }
 
-  // Paquete de publicación: copia la mejor descripción disponible (variante por
-  // red con hashtags si existe; si no, el caption general) Y abre la carpeta del
-  // archivo — todo listo para arrastrar el video a la red y pegar el texto.
-  async function copyPackageAndReveal(p: ProjectExt) {
-    const caption = pickCaptionForPlatform(p, "instagram").trim();
-    if (caption) {
-      try {
-        await navigator.clipboard.writeText(caption);
-        toast.success("Descripción copiada ✓ — arrastra el video a tu red y pega la descripción.");
-      } catch {
-        toast.error("No se pudo copiar la descripción — te abro la carpeta de todas formas.");
-      }
-    } else {
-      toast.info("Este video todavía no tiene descripción (créala con ✨) — te abro la carpeta.");
-    }
-    await revealRender(p);
-  }
-
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -224,36 +206,6 @@ export function ProductionList() {
 
   const copyCaption = (p: ProjectExt) => publishActions.copyCaption(p, setCopiedId);
 
-  // Copys POR RED (flujo manual): compone la versión adaptada a cada red desde
-  // captionMeta (texto corto + hashtags propios; LinkedIn usa la versión larga).
-  // Si el proyecto no tiene captionMeta, cae al caption general.
-  const [copiedNetwork, setCopiedNetwork] = useState<string | null>(null);
-  async function copyCaptionForNetwork(p: ProjectExt, net: "tiktok" | "instagram" | "linkedin") {
-    const meta = (p as unknown as {
-      captionMeta?: {
-        caption_short?: string;
-        caption_long?: string;
-        hashtags_tiktok?: string[];
-        hashtags_instagram?: string[];
-        hashtags_linkedin?: string[];
-      } | null;
-    }).captionMeta;
-    const tags = (arr?: string[]) => (arr && arr.length ? "\n\n" + arr.join(" ") : "");
-    let text = p.caption ?? "";
-    if (meta) {
-      if (net === "linkedin") text = (meta.caption_long || meta.caption_short || text) + tags(meta.hashtags_linkedin);
-      else if (net === "instagram") text = (meta.caption_short || text) + tags(meta.hashtags_instagram);
-      else text = (meta.caption_short || text) + tags(meta.hashtags_tiktok);
-    }
-    if (!text.trim()) return;
-    try {
-      await navigator.clipboard.writeText(text.trim());
-      setCopiedNetwork(`${p.id}:${net}`);
-      setTimeout(() => setCopiedNetwork(null), 1800);
-    } catch (err) {
-      toastError(err, "No se pudo copiar el texto");
-    }
-  }
   const publishToLinkedIn = (p: ProjectExt) =>
     publishActions.publishToLinkedIn(p, setPublishingToLinkedin);
   const publishToInstagram = (p: ProjectExt) =>
@@ -620,57 +572,9 @@ export function ProductionList() {
                       Todavía no tiene descripción. Toca el botón ✨ para crearla con IA.
                     </p>
                   )}
-                  {/* Copys POR RED: cada botón copia la versión adaptada a esa red
-                      (texto corto + hashtags de TikTok/IG, versión larga para LinkedIn).
-                      Es el flujo manual: copias y pegas en la app de la red. */}
-                  {p.caption && (
-                    <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1.5">
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        Copiar texto para:
-                      </span>
-                      {(["tiktok", "instagram", "linkedin"] as const).map((net) => (
-                        <button
-                          key={net}
-                          type="button"
-                          onClick={() => copyCaptionForNetwork(p, net)}
-                          title={`Copiar el texto adaptado a ${net === "tiktok" ? "TikTok" : net === "instagram" ? "Instagram" : "LinkedIn"} (con sus hashtags)`}
-                          className="rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground/80 transition hover:border-brand-pink/50 hover:text-brand-pink"
-                        >
-                          {copiedNetwork === `${p.id}:${net}` ? "✓ copiado" : net === "tiktok" ? "TikTok" : net === "instagram" ? "Instagram" : "LinkedIn"}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5 text-[10px] text-muted-foreground">
-                  {/* Fila 0 — acciones del archivo, SIEMPRE visibles (con o sin publicación). */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <a
-                      href={`/api/videos/${encodeURIComponent(p.id)}/stream?source=render&download=1`}
-                      download
-                      title="Descargar el MP4 a tu compu"
-                      className="flex items-center gap-1.5 rounded-md border border-brand-pink/30 bg-brand-pink/5 px-2.5 py-1 text-xs font-medium text-brand-pink hover:bg-brand-pink/15"
-                    >
-                      💾 Guardar video
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => revealRender(p)}
-                      title="Abrir la carpeta donde está el archivo del video"
-                      className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground/90 hover:border-brand-pink/50 hover:text-brand-pink"
-                    >
-                      📂 Abrir carpeta
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => copyPackageAndReveal(p)}
-                      title="Copiar la descripción Y abrir la carpeta del archivo: arrastra el video a tu red y pega el texto"
-                      className="flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/5 px-2.5 py-1 text-xs font-medium text-sky-300 hover:bg-sky-500/15"
-                    >
-                      📦 Copiar y abrir
-                    </button>
-                  </div>
                   {/* Fila 1 — programar (multi-plataforma) + editor + updated */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">

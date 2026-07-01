@@ -1,4 +1,5 @@
 import { PublishCalendar } from "@/components/publicar/publish-calendar";
+import { ViralSelection } from "@/components/publicar/viral-selection";
 import { ProductionList } from "@/components/produccion/production-list";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SECTION_COLORS } from "@/lib/section-colors";
@@ -19,6 +20,18 @@ export default function PublicarPage() {
           color={SECTION_COLORS.publicar}
         />
         <PublishCalendar />
+      </div>
+
+      {/* Videos seleccionados — los más virales (por puntuación), limpios y escaneables.
+          Acá el usuario revisa + sube las miniaturas antes de programar. */}
+      <div className="space-y-6 border-t border-border pt-8">
+        <SectionHeader
+          eyebrow="Seleccionados"
+          title="Videos más virales"
+          description="Ordenados por puntuación de viralidad. Revisá, subí su miniatura, y quedan listos para programar."
+          color={SECTION_COLORS.publicar}
+        />
+        <ViralSelection />
       </div>
 
       {/* Tus videos (antes /produccion) — desde acá también podés programar cada uno. */}
