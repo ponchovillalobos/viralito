@@ -17,6 +17,7 @@ interface ViralVideo {
   score: number;
   title: string;
   theme: string;
+  style: string | null;
   copy: string;
 }
 
@@ -114,6 +115,11 @@ export function ViralSelection() {
                 <h3 className="line-clamp-2 text-[13px] font-semibold leading-tight" title={v.title}>
                   {v.title}
                 </h3>
+                {v.style && (
+                  <span className="-mt-0.5 w-fit rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {v.style}
+                  </span>
+                )}
                 {v.copy && (
                   <p className="line-clamp-4 flex-1 whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
                     {v.copy}

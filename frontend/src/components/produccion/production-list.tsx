@@ -457,7 +457,36 @@ export function ProductionList() {
 
               <div className="space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-semibold leading-tight">{p.title ?? p.id}</h3>
+                  {/* Nombre corto y localizable: [score] Título 2-3 palabras · estilo. */}
+                  <h3
+                    className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-tight"
+                    title={p.id}
+                  >
+                    {typeof p.viralityScore === "number" && p.viralityScore > 0 && (
+                      <span
+                        className="shrink-0 rounded px-1.5 py-0.5 text-xs font-bold text-white"
+                        style={{
+                          backgroundColor:
+                            p.viralityScore >= 60
+                              ? "#dc2626"
+                              : p.viralityScore >= 45
+                                ? "#f59e0b"
+                                : p.viralityScore >= 35
+                                  ? "#10b981"
+                                  : "#64748b",
+                        }}
+                        title={`Viralidad ${Math.round(p.viralityScore)}/100`}
+                      >
+                        {Math.round(p.viralityScore)}
+                      </span>
+                    )}
+                    <span className="truncate">{p.shortTitle || p.title || p.id}</span>
+                    {p.styleId && (
+                      <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                        · {STYLE_LABEL[p.styleId] ?? p.styleId}
+                      </span>
+                    )}
+                  </h3>
                   {g.variants.length > 1 ? (
                     // Varios estilos del mismo clip → chips para cambiar entre ellos (una sola
                     // tarjeta, sin "repetidos"). El chip activo es el que se ve/reproduce.

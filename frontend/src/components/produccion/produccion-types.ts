@@ -45,6 +45,10 @@ export interface ProjectExt extends Project {
   styleId?: string;
   /** Título corto basado en el contenido (lo arma auto-build para nombrar el archivo). */
   title?: string;
+  /** Puntuación de viralidad (0-100) del clip, si /api/projects la resolvió del proposal. */
+  viralityScore?: number | null;
+  /** Nombre corto y humano (2-3 palabras) derivado del id — para mostrar en la lista. */
+  shortTitle?: string;
   /** Nuevo: 3 variantes por plataforma generadas en una corrida de generate_caption.py */
   captions?: {
     tiktok?: CaptionVariant;

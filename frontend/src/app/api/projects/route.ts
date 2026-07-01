@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PROJECTS_DIR, LF_ROOT } from "@/lib/paths";
 import { buildBackingChecker } from "@/lib/orphan-sweep";
+import { loadClipScores, matchClipScore, shortTitle } from "@/lib/viral-meta";
 
 export const dynamic = "force-dynamic";
 
@@ -46,17 +47,31 @@ async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
 
 export async function GET() {
   try {
-    const [shorts, longClips, backingExists] = await Promise.all([
+    const [shorts, longClips, backingExists, clipScores] = await Promise.all([
       readProjectsFromDir(PROJECTS_DIR, "short"),
       readProjectsFromDir(LF_PROJECTS_DIR, "long_form"),
       buildBackingChecker(),
+      loadClipScores(),
     ]);
     // Filtrar proyectos cuyo video de respaldo (raw fuente o render producido) ya no
     // existe: si el usuario borró el archivo, el proyecto no debe seguir apareciendo.
-    const projects = [...shorts, ...longClips].filter((p) =>
-      backingExists(p.id, p.videoId, p.source),
+    // Y enriquecer con un nombre corto y consistente: viralityScore + shortTitle (2-3 palabras),
+    // para localizar cualquier video de un vistazo en toda la app.
+    const projects = [...shorts, ...longClips]
+      .filter((p) => backingExists(p.id, p.videoId, p.source))
+      .map((p) => {
+        const match = matchClipScore(p.id as string, clipScores);
+        return {
+          ...(p as Record<string, unknown>),
+          viralityScore: match?.score ?? (p as { viralityScore?: number }).viralityScore ?? null,
+          shortTitle: shortTitle(p.id as string),
+        };
+      });
+    projects.sort((a, b) =>
+      String((b as { updatedAt?: unknown }).updatedAt ?? "").localeCompare(
+        String((a as { updatedAt?: unknown }).updatedAt ?? ""),
+      ),
     );
-    projects.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
     return NextResponse.json(
       { projects },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

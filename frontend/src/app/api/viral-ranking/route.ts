@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { LF_ROOT, LF_RENDERS } from "@/lib/paths";
+import { styleFromId } from "@/lib/viral-meta";
 
 // Ranking de viralidad de los clips ya renderizados. Une los proposals (que tienen viralityScore,
 // hook, caption por slug) con los renders existentes, deduplica por tema y devuelve el top ordenado.
@@ -133,6 +134,7 @@ export async function GET() {
         score: m.clip.score,
         title: humanTitle(m.clip.hook, m.clip.slug),
         theme: m.clip.theme,
+        style: styleFromId(m.id),
         // copy unificado (caption + hashtags) para postear en LinkedIn/TikTok/Instagram.
         copy: buildCopy(m.clip.caption, m.clip.hashtags),
       });
