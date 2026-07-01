@@ -90,8 +90,12 @@ export async function uploadVideoToTikTok(opts: UploadOptions): Promise<UploadRe
   const videoSize = stat.size;
   if (videoSize === 0) throw new Error("El archivo de video está vacío.");
 
-  // 2. Calcular chunks
-  const totalChunkCount = Math.max(1, Math.ceil(videoSize / CHUNK_BYTES));
+  // 2. Calcular chunks. TikTok exige que TODOS los chunks midan chunk_size EXCEPTO el último,
+  //    que absorbe el resto (puede ser entre 1x y 2x chunk_size). Por eso total_chunk_count =
+  //    floor(video_size / chunk_size), NO ceil: con ceil, un video de p.ej. 12 MB daría un último
+  //    chunk de 2 MB (< 5 MB mínimo) → "The total chunk count is invalid". Con floor, ese video va
+  //    en 1 solo chunk (video completo). Videos <= CHUNK_BYTES también van en 1 chunk.
+  const totalChunkCount = Math.max(1, Math.floor(videoSize / CHUNK_BYTES));
   const chunkSize = totalChunkCount === 1 ? videoSize : CHUNK_BYTES;
 
   // 3. Init: pedir upload URL
