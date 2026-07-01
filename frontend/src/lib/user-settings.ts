@@ -125,11 +125,31 @@ function normalizeHandle(raw: string): string {
   return s.startsWith("@") ? s : `@${s}`;
 }
 
+/**
+ * Fallback a .env.local para las credenciales de APP: si un campo está vacío en el archivo
+ * de settings (el asistente), se toma de la variable de entorno. Así el usuario puede poner
+ * las credenciales en .env.local en vez del asistente. Los TOKENS de usuario NO van acá —
+ * se obtienen por OAuth al conectar la cuenta (clic en "Conectar").
+ */
+function applyEnvCredentials(s: UserSettings): UserSettings {
+  const env = process.env;
+  s.linkedin.clientId ||= (env.LINKEDIN_CLIENT_ID ?? "").trim();
+  s.linkedin.clientSecret ||= (env.LINKEDIN_CLIENT_SECRET ?? "").trim();
+  s.tiktok.clientKey ||= (env.TIKTOK_CLIENT_KEY ?? "").trim();
+  s.tiktok.clientSecret ||= (env.TIKTOK_CLIENT_SECRET ?? "").trim();
+  // Instagram Y Facebook usan la MISMA app de Meta (META_APP_ID/SECRET).
+  s.instagram.appId ||= (env.META_APP_ID ?? "").trim();
+  s.instagram.appSecret ||= (env.META_APP_SECRET ?? "").trim();
+  s.instagram.publicBaseUrl ||= (env.META_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
+  return s;
+}
+
 export async function readSettings(): Promise<UserSettings> {
+  let s: UserSettings;
   try {
     const raw = await fs.readFile(SETTINGS_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<UserSettings>;
-    return {
+    s = {
       handles: {
         tiktok: normalizeHandle(parsed.handles?.tiktok ?? ""),
         instagram: normalizeHandle(parsed.handles?.instagram ?? ""),
@@ -168,7 +188,7 @@ export async function readSettings(): Promise<UserSettings> {
       pixabay: { apiKey: (parsed.pixabay?.apiKey ?? "").trim() },
     };
   } catch {
-    return {
+    s = {
       handles: { ...DEFAULTS.handles },
       tiktok: { ...DEFAULTS.tiktok },
       linkedin: { ...DEFAULTS.linkedin },
@@ -176,6 +196,7 @@ export async function readSettings(): Promise<UserSettings> {
       pixabay: { ...DEFAULTS.pixabay },
     };
   }
+  return applyEnvCredentials(s);
 }
 
 export async function writeSettings(patch: Partial<UserSettings>): Promise<UserSettings> {
