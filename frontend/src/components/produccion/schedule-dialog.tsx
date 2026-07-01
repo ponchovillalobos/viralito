@@ -73,7 +73,11 @@ export function ScheduleDialog({
 }: ScheduleDialogProps) {
   const [scheduledAt, setScheduledAt] = useState<string>(defaultScheduledAtLocalISO());
   const [selected, setSelected] = useState<Set<SchedulePlatform>>(new Set(["tiktok"]));
-  const [mode, setMode] = useState<"direct" | "inbox">("direct");
+  // Default "inbox" (borrador): las apps de TikTok SIN auditar no pueden publicar "direct" a
+  // cuentas públicas (error unaudited_client_can_only_post_to_private_accounts). Inbox sube el
+  // video a los borradores de TikTok y el usuario lo publica desde la app. Direct sirve una vez
+  // que la app pasa la auditoría de TikTok.
+  const [mode, setMode] = useState<"direct" | "inbox">("inbox");
   const [privacyLevel, setPrivacyLevel] = useState<PrivacyLevel>("SELF_ONLY");
   const [captionByPlatform, setCaptionByPlatform] = useState<Record<SchedulePlatform, string>>({
     tiktok: "",
@@ -99,7 +103,7 @@ export function ScheduleDialog({
     if (open) {
       setScheduledAt(defaultScheduledAtLocalISO());
       setSelected(new Set(["tiktok"]));
-      setMode("direct");
+      setMode("inbox");
       setPrivacyLevel("SELF_ONLY");
       setCaptionByPlatform({ ...initialCaptions });
     }

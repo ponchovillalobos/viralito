@@ -98,7 +98,9 @@ export async function POST(req: NextRequest) {
       source,
       platform,
       scheduledAt: body.scheduledAt,
-      mode: body.mode ?? "direct",
+      // Default "inbox" (borrador): apps de TikTok sin auditar no pueden publicar "direct" a
+      // cuentas públicas. Inbox sube a los borradores y el usuario publica desde la app.
+      mode: body.mode ?? "inbox",
       privacyLevel: body.privacyLevel,
       caption,
       title: caption,
