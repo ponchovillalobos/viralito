@@ -16,10 +16,13 @@ export const TIKTOK_SCOPES = ["user.info.basic", "video.upload", "video.publish"
 
 /**
  * Base URL para redirect URIs OAuth. Por defecto localhost:3000.
- * Override con env var NEXT_PUBLIC_BASE_URL si después usás ngrok o un dominio.
+ * VIRAL_OAUTH_BASE_URL tiene prioridad: es la URL pública HTTPS (túnel Cloudflare/ngrok o
+ * dominio) que necesitan redes como TikTok/Meta que EXIGEN https en el redirect. Se separa
+ * de VIRAL_API_HOST (que también se usa para llamadas internas y debe seguir en localhost).
  */
 export function getBaseUrl(): string {
   return (
+    process.env.VIRAL_OAUTH_BASE_URL ??
     process.env.VIRAL_API_HOST ??
     process.env.NEXT_PUBLIC_BASE_URL ??
     "http://localhost:3000"
