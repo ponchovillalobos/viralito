@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Vista de "videos seleccionados" — los más virales, ordenados por puntuación. Diseño limpio y
- * escaneable: título HUMANO corto (no el id feo del archivo), la puntuación de viralidad EN GRANDE,
- * el copy viral, botón de miniatura y de ver. Acá el usuario revisa + sube las miniaturas; después
- * se programan. Datos: /api/viral-ranking.
+ * Vista de "videos seleccionados" — los más virales, en GRID de tarjetas (3 columnas) para ver
+ * más de un vistazo. Cada tarjeta: miniatura del video (clic = reproducir) con la puntuación de
+ * viralidad y el ranking encima, título HUMANO corto, copy viral, y botón de miniatura custom.
+ * Datos: /api/viral-ranking. Acá el usuario revisa + sube las miniaturas; después se programan.
  */
 import { useEffect, useState } from "react";
-import { Flame, Play, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Flame, Play, Loader2 } from "lucide-react";
 import { ThumbnailButton } from "@/components/produccion/thumbnail-button";
 
 interface ViralVideo {
@@ -32,7 +32,6 @@ function scoreStyle(score: number): { bg: string; text: string; label: string } 
 export function ViralSelection() {
   const [videos, setVideos] = useState<ViralVideo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/viral-ranking")
@@ -41,15 +40,6 @@ export function ViralSelection() {
       .catch(() => setVideos([]))
       .finally(() => setLoading(false));
   }, []);
-
-  function toggle(id: string) {
-    setExpanded((prev) => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  }
 
   if (loading) {
     return (
@@ -67,75 +57,57 @@ export function ViralSelection() {
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {videos.map((v, i) => {
         const s = scoreStyle(v.score);
-        const isOpen = expanded.has(v.id);
         return (
           <div
             key={v.id}
-            className="flex gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-foreground/20"
+            className="flex flex-col overflow-hidden rounded-xl border border-border bg-card transition hover:border-foreground/20"
           >
-            {/* Miniatura del video (preview) con la puntuación EN GRANDE encima */}
-            <div className="relative aspect-[9/16] w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-900">
+            {/* Miniatura del video (clic = reproducir) con score + ranking encima */}
+            <a
+              href={`/api/videos/${encodeURIComponent(v.id)}/stream?source=render`}
+              target="_blank"
+              rel="noreferrer"
+              className="group relative block aspect-[4/5] overflow-hidden bg-zinc-900"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/videos/${encodeURIComponent(v.id)}/thumbnail`}
                 alt={v.title}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 loading="lazy"
               />
               <span
-                className="absolute left-1 top-1 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-sm font-bold shadow"
+                className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-sm font-bold shadow"
                 style={{ backgroundColor: s.bg, color: s.text }}
                 title={`Viralidad ${v.score}/100 — ${s.label}`}
               >
                 <Flame className="h-3 w-3" />
                 {Math.round(v.score)}
               </span>
-            </div>
+              <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                #{i + 1}
+              </span>
+              <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-lg">
+                  <Play className="h-4 w-4 fill-black text-black" />
+                </span>
+              </span>
+            </a>
 
             {/* Contenido */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[15px] font-semibold leading-tight">
-                  <span className="mr-1.5 text-xs font-normal text-muted-foreground">#{i + 1}</span>
-                  {v.title}
-                </h3>
-                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${s.bg}22`, color: s.bg }}>
-                  {s.label}
-                </span>
-              </div>
-
-              {/* Copy viral (clamp a 2 líneas, expandible) */}
+            <div className="flex flex-1 flex-col gap-1.5 p-2.5">
+              <h3 className="line-clamp-2 text-[13px] font-semibold leading-tight" title={v.title}>
+                {v.title}
+              </h3>
               {v.caption && (
-                <div className="mt-1">
-                  <p className={`text-xs text-muted-foreground ${isOpen ? "" : "line-clamp-2"}`}>
-                    {v.caption}
-                  </p>
-                  {v.caption.length > 120 && (
-                    <button
-                      type="button"
-                      onClick={() => toggle(v.id)}
-                      className="mt-0.5 flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
-                    >
-                      {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      {isOpen ? "menos" : "ver copy completo"}
-                    </button>
-                  )}
-                </div>
+                <p className="line-clamp-3 flex-1 text-[11px] leading-snug text-muted-foreground">
+                  {v.caption}
+                </p>
               )}
-
-              {/* Acciones limpias */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <a
-                  href={`/api/videos/${encodeURIComponent(v.id)}/stream?source=render`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] transition hover:border-foreground/40"
-                >
-                  <Play className="h-3 w-3" /> Ver
-                </a>
+              <div className="pt-0.5">
                 <ThumbnailButton projectId={v.id} />
               </div>
             </div>
