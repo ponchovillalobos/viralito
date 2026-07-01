@@ -202,6 +202,13 @@ export function PublishComposer({
                 );
               })}
             </div>
+            {nets.has("tiktok") && (
+              <p className="mt-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                <strong className="text-foreground">TikTok:</strong> el video se envía a tu{" "}
+                <strong>bandeja/borradores de TikTok</strong> — lo publicás con un toque desde la app
+                de TikTok. La publicación directa al feed público automática requiere auditar la app.
+              </p>
+            )}
           </div>
 
           {/* Descripción */}
