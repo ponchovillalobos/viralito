@@ -44,7 +44,8 @@ interface TokenResponse {
 export async function exchangeCodeForTokens(
   code: string,
   clientKey: string,
-  clientSecret: string
+  clientSecret: string,
+  codeVerifier: string
 ): Promise<TokenResponse> {
   const params = new URLSearchParams({
     client_key: clientKey,
@@ -52,6 +53,8 @@ export async function exchangeCodeForTokens(
     code,
     grant_type: "authorization_code",
     redirect_uri: getRedirectUri(),
+    // PKCE: TikTok v2 exige code_verifier (debe coincidir con el code_challenge del /authorize).
+    code_verifier: codeVerifier,
   });
   const res = await fetch(TIKTOK_TOKEN_URL, {
     method: "POST",

@@ -43,8 +43,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // PKCE: el code_verifier guardado en el login se manda en el intercambio de token.
+  const codeVerifier = req.cookies.get("tiktok_code_verifier")?.value;
+  if (!codeVerifier) {
+    return makeErrorPage(
+      "Falta el code_verifier (PKCE). La sesión de conexión expiró — intenta conectar de nuevo."
+    );
+  }
+
   try {
-    const tokens = await exchangeCodeForTokens(code, clientKey, clientSecret);
+    const tokens = await exchangeCodeForTokens(code, clientKey, clientSecret, codeVerifier);
 
     // Obtener username/display_name de la cuenta conectada
     let connectedUsername = "";
