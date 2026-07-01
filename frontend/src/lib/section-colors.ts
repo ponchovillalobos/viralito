@@ -7,6 +7,7 @@ export const SECTION_COLORS = {
   inicio: "#fa3c8d",      // rosa Viralito (marca)
   editor: "#06b6d4",      // cyan
   produccion: "#f59e0b",  // amber
+  publicar: "#10b981",    // emerald (programar y publicar)
   metricas: "#60a5fa",    // azul (antes violeta — lo cedió a largos)
   largos: "#ad23ee",      // violeta Viralito (marca)
   research: "#fb7185",    // rose

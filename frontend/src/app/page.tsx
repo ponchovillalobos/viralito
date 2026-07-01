@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, FolderKanban, ArrowRight, Telescope, Film, Clapperboard } from "lucide-react";
+import { Scissors, FolderKanban, ArrowRight, Telescope, Film, Clapperboard, CalendarClock } from "lucide-react";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,13 @@ const ACTIONS = [
     desc: "Tus shorts ya editados, listos para publicar.",
     icon: FolderKanban,
     color: "#f59e0b", // amber
+  },
+  {
+    href: "/publicar",
+    title: "Programar y publicar",
+    desc: "Calendario de tus publicaciones: elige red, fecha y hora, y deja todo programado.",
+    icon: CalendarClock,
+    color: "#10b981", // emerald
   },
 ] as const;
 
