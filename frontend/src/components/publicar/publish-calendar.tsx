@@ -7,11 +7,11 @@
  * programados como chips coloreados por red, + un sidebar de canales (como el de Postiz).
  * El composer (crear post) llega en la Fase 1; "Nuevo post" por ahora lleva a Mis videos.
  */
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, ChevronLeft, ChevronRight, Plus, Circle } from "lucide-react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
+import { PublishComposer } from "./publish-composer";
 
 type SchedulePlatform = "tiktok" | "linkedin" | "instagram_bridge";
 interface ScheduledUpload {
@@ -69,26 +69,25 @@ function sameDay(a: Date, b: Date): boolean {
 export function PublishCalendar() {
   const [uploads, setUploads] = useState<ScheduledUpload[]>([]);
   const [loading, setLoading] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [cursor, setCursor] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadUploads = useCallback(() => {
     fetch("/api/scheduled/list")
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled && Array.isArray(d.uploads)) setUploads(d.uploads);
+        if (Array.isArray(d.uploads)) setUploads(d.uploads);
       })
       .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadUploads();
+  }, [loadUploads]);
 
   const cells = useMemo(() => monthGrid(cursor.year, cursor.month), [cursor]);
   const today = new Date();
@@ -183,12 +182,13 @@ export function PublishCalendar() {
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <Link
-              href="/produccion"
+            <button
+              type="button"
+              onClick={() => setComposerOpen(true)}
               className="ml-2 flex items-center gap-1.5 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-400"
             >
               <Plus className="h-3.5 w-3.5" /> Nuevo post
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -256,11 +256,16 @@ export function PublishCalendar() {
         )}
         {!loading && uploads.length === 0 && (
           <p className="p-4 text-center text-xs text-muted-foreground">
-            Aún no hay publicaciones programadas. Programá una desde &quot;Mis videos&quot; o el botón
-            &quot;Nuevo post&quot;.
+            Aún no hay publicaciones programadas. Tocá &quot;Nuevo post&quot; para programar una.
           </p>
         )}
       </div>
+
+      <PublishComposer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        onScheduled={loadUploads}
+      />
     </div>
   );
 }
