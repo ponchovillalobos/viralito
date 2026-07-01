@@ -39,3 +39,24 @@ más confiable para ver un video publicándose HOY. Pasos (te guío cuando esté
 ## Cómo se prueba el pipeline sin conectar nada (dry-run)
 Arrancar la app con `VIRAL_PUBLISH_DRYRUN=1` → programar un post desde el composer → el worker lo
 marca "publicado" (simulado) en ~1 tick. Sirve para validar todo el flujo sin credenciales.
+
+---
+
+## 🎉 TikTok — CONECTADO y publicando (logrado)
+Primera publicación real de Viralito → TikTok (video subido a borradores de la cuenta ponchoroble).
+Lo que se destrabó:
+- **OAuth con PKCE** (commit dd33383) — TikTok v2 lo exige.
+- **Túnel Cloudflare HTTPS** (VIRAL_OAUTH_BASE_URL) — TikTok rechaza `localhost` en el redirect; con
+  el túnel el Sandbox **guardó la config** (antes se borraba) y el OAuth conectó.
+- **Fix del chunk** (commit bee2062) — `total_chunk_count` con `floor` (no `ceil`), que daba
+  "The total chunk count is invalid".
+- **Modo inbox/borrador** — una app SIN auditar solo puede subir a borradores (no directo a público).
+  El video llega a los borradores de TikTok y el usuario lo publica desde la app. Para publicación
+  100% automática al feed público hay que mandar la app a **auditoría** en developers.tiktok.com.
+
+**Cómo publicar en TikTok ahora:** programar con `mode: "inbox"` → el worker sube el video a los
+borradores → abrir TikTok en el celular → publicar el borrador.
+
+**Nota del túnel:** la URL `https://almost-inquiry-rush-confidential.trycloudflare.com` es del túnel
+cloudflared actual; si cloudflared se reinicia, la URL cambia y hay que re-registrar el redirect en
+el Sandbox de TikTok + actualizar VIRAL_OAUTH_BASE_URL. Mientras el túnel siga vivo, todo funciona.

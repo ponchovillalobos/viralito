@@ -134,9 +134,26 @@ export async function uploadVideoToTikTok(opts: UploadOptions): Promise<UploadRe
   });
   const initData = await initRes.json();
   if (!initRes.ok || initData.error?.code !== "ok") {
-    throw new Error(
-      `init falló: ${initData.error?.message ?? initRes.status} (code: ${initData.error?.code})`
-    );
+    const code = initData.error?.code;
+    const raw = initData.error?.message ?? initRes.status;
+    // Mensajes claros para errores conocidos de TikTok (los que se ven en la práctica).
+    if (code === "unaudited_client_can_only_post_to_private_accounts") {
+      throw new Error(
+        "Tu app de TikTok todavía no está auditada: no puede publicar DIRECTO a una cuenta pública. " +
+          "Usá el modo borrador (inbox) — el video va a tus borradores de TikTok y lo publicás desde la app — " +
+          "o poné tu cuenta en privado, o mandá la app a auditoría en developers.tiktok.com."
+      );
+    }
+    if (
+      code === "spam_risk_too_many_pending_share" ||
+      code === "spam_risk_user_banned_from_posting"
+    ) {
+      throw new Error(
+        "TikTok rechazó por límite de posteos pendientes (spam risk). Publicá o borrá los borradores " +
+          "pendientes en la app de TikTok y reintentá en unos minutos."
+      );
+    }
+    throw new Error(`init de TikTok falló: ${raw} (code: ${code})`);
   }
   const { publish_id, upload_url } = initData.data as InitResponse;
 
