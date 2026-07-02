@@ -20,6 +20,9 @@ const NUM: Record<string, string> = {
 
 /** Título corto (2-3 palabras significativas) desde el id/slug del video. Pure (cliente + server). */
 export function shortTitle(idOrSlug: string): string {
+  // Supercut: el id es `{videoId}_supercut_{style}` — el "slug" serían los números
+  // de la fecha del video largo (ilegible). Nombre fijo y claro.
+  if (/_supercut(_|$)/i.test(idOrSlug)) return "Supercut";
   // quitar prefijo base y sufijos de clip/estilo comunes para quedarse con el slug del contenido
   const s = contentSlugFromId(idOrSlug);
   const words = s

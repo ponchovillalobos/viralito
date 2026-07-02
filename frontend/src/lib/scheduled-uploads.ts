@@ -176,9 +176,30 @@ async function tick(): Promise<void> {
   }
 }
 
+// Un upload real nunca tarda más que esto: pasado el umbral, un "running" es una
+// entry ATASCADA (la app se cerró/crasheó a mitad de publicación) y hay que
+// rescatarla — antes quedaba "running" para siempre y nunca se reintentaba.
+const RUNNING_STUCK_MS = 20 * 60_000;
+
 async function runTick(): Promise<void> {
   const store = await readStore();
   const now = Date.now();
+
+  // Rescate de entries atascadas en "running" (interrumpidas por un cierre).
+  for (const u of store.uploads) {
+    if (u.status === "running" && now - u.updatedAt > RUNNING_STUCK_MS) {
+      console.warn(
+        `[scheduler] ${u.id} llevaba ${Math.round((now - u.updatedAt) / 60_000)} min en "running" — se marca failed (interrumpido)`
+      );
+      await updateScheduled(u.id, {
+        status: "failed",
+        lastError:
+          "La publicación se interrumpió (la app se cerró a mitad de la subida). Se reintenta automáticamente si está dentro de la ventana.",
+      });
+      u.status = "failed"; // reflejar en la copia local para el filtro de abajo
+      u.updatedAt = now;
+    }
+  }
   const due = store.uploads.filter(
     (u) =>
       (u.status === "pending" && u.scheduledAt <= now) ||

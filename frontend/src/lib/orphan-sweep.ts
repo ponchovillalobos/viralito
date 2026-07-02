@@ -74,6 +74,10 @@ export function longFormOwner(filename: string): string {
   let stem = path.basename(filename, path.extname(filename));
   const clip = stem.match(/^(.+?)_c\d+/); // clips/renders/projects/graphics: {id}_cNN_…
   if (clip) return clip[1];
+  // Supercuts: {id}_supercut_{style} — sin esto el sweep los trataba como huérfanos
+  // (el owner quedaba con el sufijo entero, nunca matcheaba un raw) y los BORRABA.
+  const supercut = stem.match(/^(.+?)_supercut(_|$)/);
+  if (supercut) return supercut[1];
   if (stem.endsWith("_clean")) stem = stem.slice(0, -"_clean".length); // clean: {id}_clean
   return stem;
 }
