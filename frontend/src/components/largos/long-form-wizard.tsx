@@ -32,6 +32,7 @@ import {
   FolderOpen,
   Loader2,
   Play,
+  Clapperboard,
   RefreshCcw,
   Scissors,
   Sparkles,
@@ -2219,14 +2220,18 @@ function JobView({
             ))}
           </div>
 
-          <Link
-            href="/produccion"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-gradient px-4 text-sm font-medium text-white hover:opacity-90"
-          >
-            <Play className="h-3.5 w-3.5" />
-            Abrir Mis videos para ver y publicar
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/produccion"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-gradient px-4 text-sm font-medium text-white hover:opacity-90"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Abrir Mis videos para ver y publicar
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            {/* SUPERCUT: junta los top momentos renderizados en un highlight reel. */}
+            {job.options?.render && <SupercutButton videoId={job.videoId} />}
+          </div>
         </div>
       )}
 
@@ -2918,6 +2923,56 @@ function ProposalClipCard({
         </div>
       )}
     </div>
+  );
+}
+
+/** SUPERCUT (Mejora B): un clic → junta los top momentos renderizados (mismo estilo)
+ *  en un highlight reel con loudness -14 LUFS, y lo deja en Mis videos. */
+function SupercutButton({ videoId }: { videoId: string }) {
+  const [creating, setCreating] = useState(false);
+  const [doneId, setDoneId] = useState<string | null>(null);
+
+  async function create() {
+    setCreating(true);
+    try {
+      const r = await fetch("/api/long_form/supercut", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+      const d = (await r.json()) as {
+        error?: string;
+        id?: string;
+        clips?: number;
+        seconds?: number;
+      };
+      if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+      setDoneId(d.id ?? "ok");
+      toast.success(`Supercut listo · ${d.clips} momentos · ${Math.round(d.seconds ?? 0)}s`, {
+        description: "Lo encuentras en Mis videos, listo para publicar.",
+      });
+    } catch (err) {
+      toastError(err, "No se pudo crear el supercut");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={create}
+      disabled={creating || doneId !== null}
+      title="Junta los mejores momentos ya generados en UN solo video resumen (mismo estilo)"
+      className="inline-flex h-9 items-center gap-1.5 rounded-md border border-violet-500/40 bg-violet-500/10 px-4 text-sm font-medium text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50"
+    >
+      {creating ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Clapperboard className="h-3.5 w-3.5" />
+      )}
+      {creating ? "Creando supercut… (1-3 min)" : doneId ? "Supercut creado ✓" : "Crear supercut (top 5)"}
+    </button>
   );
 }
 

@@ -1,5 +1,24 @@
 # Plan de Mejoras Viralito — Julio 2026
 
+## Estado (2026-07-02)
+
+✅ **HECHO** — Fase 1 completa (errores visibles + toasts, progreso de upload, caché
+/api/projects + índice viral-ranking, scheduler robusto con notificación de fallos,
+accesibilidad). Fase 2 completa (score explicable en el grid, muletillas en largos,
+SFX con contexto negativo, hooks A/B con IA local, previews EN MOVIMIENTO de los 23
+estilos, fix Ollama qwen3 think:false; auto-zoom/karaoke/motion-blur YA existían).
+Fase 3 parcial (loudness -14 LUFS universal — los mixes salían a ~-21, filtro 1€ en
+el reencuadre, +24 tests de scheduler y viral-meta; whisperx batched YA existía).
+Fase 4 parcial (SUPERCUT end-to-end: python + API + botón en largos).
+
+⏸️ **PENDIENTE — requiere decisión/acción del usuario:**
+- YouTube Shorts (siguiente red, menor fricción): necesita que el usuario cree las
+  credenciales en Google Cloud Console (como se hizo con LinkedIn).
+- RIESGOSOS del motor (aprobar antes de tocar): pool de renders para shorts,
+  DAG del pipeline de largos, refactor editorial/broll (95% overlap), parity gate
+  a spec JSON, tracking SCRFD/YuNet, brand kit (toca props del render),
+  estilos nuevos LO-FI/documental, cifrado de tokens en reposo.
+
 > Auditoría exhaustiva con 6 agentes simultáneos (2026-07-02): rendimiento, interfaz/UX,
 > funcionalidades/robustez, estilos/assets + investigación web de competidores 2025-2026
 > (OpusClip, Submagic, Vizard, Klap, Riverside, Metricool) y mejores prácticas técnicas
