@@ -8,9 +8,10 @@
  * El composer (crear post) llega en la Fase 1; "Nuevo post" por ahora lleva a Mis videos.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Circle, CheckCircle2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Circle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/toast-error";
 import { PublishComposer } from "./publish-composer";
 
 type SchedulePlatform = "tiktok" | "linkedin" | "instagram_bridge";
@@ -81,7 +82,7 @@ export function PublishCalendar() {
       .then((d) => {
         if (Array.isArray(d.uploads)) setUploads(d.uploads);
       })
-      .catch(() => {})
+      .catch((err) => toastError(err, "No se cargó el calendario de publicaciones"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -114,6 +115,9 @@ export function PublishCalendar() {
 
   const channels = (Object.keys(PLATFORMS) as PlatformKey[]).map((k) => PLATFORMS[k]);
 
+  // Posts que fallaron: se avisan arriba del calendario (antes fallaban en silencio).
+  const failed = useMemo(() => uploads.filter((u) => u.status === "failed"), [uploads]);
+
   // Estado de conexión por red (Conectado/Conectar en el sidebar). Facebook reusa la conexión
   // de Meta de Instagram → está conectado cuando IG lo está, y su link de conectar es el de IG.
   const [conn, setConn] = useState<Record<string, { connected: boolean; name?: string }>>({});
@@ -129,7 +133,7 @@ export function PublishCalendar() {
           tiktok: { connected: Boolean(s?.tiktok?.hasAccessToken), name: s?.tiktok?.connectedUsername },
         });
       })
-      .catch(() => {});
+      .catch((err) => toastError(err, "No se pudo verificar la conexión de tus redes"));
   }, []);
 
   return (
@@ -231,6 +235,21 @@ export function PublishCalendar() {
           </div>
         </div>
 
+        {/* Aviso de publicaciones fallidas (antes fallaban en silencio) */}
+        {failed.length > 0 && (
+          <div className="flex items-start gap-2 border-b border-border bg-red-500/10 px-4 py-2.5 text-xs text-red-300">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p>
+              <span className="font-medium">
+                {failed.length === 1
+                  ? "1 publicación falló y no se subió a su red."
+                  : `${failed.length} publicaciones fallaron y no se subieron a su red.`}
+              </span>{" "}
+              Reprogramalas desde &quot;Nuevo post&quot; o desde Mis videos.
+            </p>
+          </div>
+        )}
+
         {/* Grilla */}
         <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {WEEKDAYS.map((d) => (
@@ -269,10 +288,14 @@ export function PublishCalendar() {
                     return (
                       <div
                         key={u.id}
-                        className="truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                        style={{ backgroundColor: color }}
+                        className={cn(
+                          "truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white",
+                          u.status === "failed" && "opacity-90 ring-1 ring-red-400",
+                        )}
+                        style={{ backgroundColor: u.status === "failed" ? "#7f1d1d" : color }}
                         title={`${PLATFORMS[pk]?.label} · ${STATUS_LABEL[u.status] ?? u.status}\n${u.caption || u.title}`}
                       >
+                        {u.status === "failed" && "⚠ "}
                         {new Date(u.scheduledAt).toLocaleTimeString("es", {
                           hour: "2-digit",
                           minute: "2-digit",

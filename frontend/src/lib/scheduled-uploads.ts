@@ -218,6 +218,13 @@ async function runTick(): Promise<void> {
   }
 }
 
+// Tipo de notificación de fallo según la red (el poller del cliente los muestra como toast).
+function failNotificationType(platform: SchedulePlatform): "tiktok_failed" | "linkedin_failed" | "publish_failed" {
+  if (platform === "tiktok") return "tiktok_failed";
+  if (platform === "linkedin") return "linkedin_failed";
+  return "publish_failed";
+}
+
 async function processUpload(upload: ScheduledUpload): Promise<void> {
   await updateScheduled(upload.id, { status: "running", attempts: upload.attempts + 1 });
   try {
@@ -226,6 +233,26 @@ async function processUpload(upload: ScheduledUpload): Promise<void> {
     const rendersBase =
       upload.source === "long_form" ? paths.LF_RENDERS : paths.RENDERS_DIR;
     const filePath = path_node.join(rendersBase, `${upload.projectId}.mp4`);
+
+    // El render pudo borrarse entre programar y publicar (limpieza / borrado manual).
+    // Antes esto moría con "ENOENT" críptico y reintentaba 3 veces al pedo: un archivo
+    // que no está no vuelve solo. Fallo DEFINITIVO con mensaje humano + notificación.
+    try {
+      const fsmod = await import("node:fs/promises");
+      await fsmod.access(filePath);
+    } catch {
+      const msg = `El video generado ya no existe (${upload.projectId}.mp4). Genera el video de nuevo y reprográmalo.`;
+      await updateScheduled(upload.id, { status: "failed", lastError: msg, attempts: 3 });
+      await pushNotification({
+        type: failNotificationType(upload.platform),
+        projectId: upload.projectId,
+        scheduleId: upload.id,
+        scheduledAt: upload.scheduledAt,
+        message: msg,
+      });
+      console.error(`[scheduler] ${upload.id} failed: render no existe (${filePath})`);
+      return;
+    }
 
     // DRY-RUN (env VIRAL_PUBLISH_DRYRUN=1): valida TODO el pipeline (cola → worker → estado →
     // calendario) SIN llamar a la API real de la red. Permite probar el flujo end-to-end sin
@@ -309,6 +336,24 @@ async function processUpload(upload: ScheduledUpload): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     await updateScheduled(upload.id, { status: "failed", lastError: msg });
     console.error(`[scheduler] ${upload.id} failed:`, msg);
+    // Si NO va a haber más reintentos (3 intentos o pasó la ventana de 24h), avisar al
+    // usuario con una notificación (toast + beep). Antes el fallo final era invisible.
+    const attemptsNow = upload.attempts + 1;
+    const willRetry =
+      attemptsNow < 3 && Date.now() - upload.scheduledAt < 24 * 60 * 60_000;
+    if (!willRetry) {
+      try {
+        await pushNotification({
+          type: failNotificationType(upload.platform),
+          projectId: upload.projectId,
+          scheduleId: upload.id,
+          scheduledAt: upload.scheduledAt,
+          message: msg,
+        });
+      } catch (e) {
+        console.warn(`[scheduler] no se pudo notificar el fallo de ${upload.id}:`, e);
+      }
+    }
   }
 }
 

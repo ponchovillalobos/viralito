@@ -132,6 +132,8 @@ export function MusicPicker({ selected, volume, onSelect, onVolumeChange }: Prop
                   <button
                     type="button"
                     onClick={() => togglePlay(t)}
+                    aria-label={isPlaying ? "Pausar la muestra" : "Escuchar la muestra"}
+                    title={isPlaying ? "Pausar la muestra" : "Escuchar la muestra"}
                     className="rounded p-1 hover:bg-muted"
                   >
                     {isPlaying ? (
@@ -143,6 +145,8 @@ export function MusicPicker({ selected, volume, onSelect, onVolumeChange }: Prop
                   <button
                     type="button"
                     onClick={() => onSelect(t.filename)}
+                    aria-label={`Elegir la pista ${t.name}`}
+                    aria-pressed={isSelected}
                     className="flex-1 text-left"
                   >
                     <div className="flex items-center gap-2">

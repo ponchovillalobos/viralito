@@ -208,6 +208,8 @@ export function ScheduleDialog({
                     key={p.key}
                     type="button"
                     onClick={() => togglePlatform(p.key)}
+                    aria-label={p.label}
+                    aria-pressed={isSelected}
                     className={cn(
                       "flex flex-col items-center gap-1 rounded-md border p-2 text-[11px] transition-colors",
                       isSelected

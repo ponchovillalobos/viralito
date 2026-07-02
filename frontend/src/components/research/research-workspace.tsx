@@ -3,7 +3,7 @@
 // Thumbnails dinámicos de /api/research/[id]/thumb.
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -115,13 +115,19 @@ export function ResearchWorkspace() {
   const [filterMarked, setFilterMarked] = useState<UserMark | "all">("all");
   const [search, setSearch] = useState("");
 
+  const warnedLoadRef = useRef(false);
   const refresh = useCallback(async () => {
     try {
       const r = await fetch("/api/research/list");
       const d = await r.json();
       setItems(d.items ?? []);
-    } catch {
-      // silencioso — sigue intentando con el polling
+      warnedLoadRef.current = false;
+    } catch (err) {
+      // Avisa UNA vez (el polling reintenta cada 3s; toastear cada tick sería spam).
+      if (!warnedLoadRef.current) {
+        warnedLoadRef.current = true;
+        toastError(err, "No se cargó la biblioteca de inspiración");
+      }
     }
   }, []);
 

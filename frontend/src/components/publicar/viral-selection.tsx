@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { Flame, Play, Loader2, Copy, Check, X, CheckCircle2 } from "lucide-react";
 import { ThumbnailButton } from "@/components/produccion/thumbnail-button";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
+import { toastError } from "@/lib/toast-error";
 
 const NET_STATUS: Record<string, string> = {
   pending: "programado",
@@ -28,7 +29,19 @@ interface ViralVideo {
   theme: string;
   style: string | null;
   copy: string;
+  /** Score explicable: por qué puntúa así (hook, emoción, datos, ritmo…). */
+  reasons?: string[];
+  factors?: Record<string, number> | null;
 }
+
+const FACTOR_LABEL: Record<string, string> = {
+  hook: "Gancho",
+  emotion: "Emoción",
+  data: "Datos",
+  pace: "Ritmo",
+  length: "Duración",
+  cta: "Cierre",
+};
 
 const TOP_N = 24;
 
@@ -42,6 +55,7 @@ function scoreStyle(score: number): { bg: string; text: string; label: string } 
 export function ViralSelection() {
   const [videos, setVideos] = useState<ViralVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null); // id del video reproduciéndose
   const [copied, setCopied] = useState<string | null>(null);
   // Por video: en qué redes ya está (para la etiqueta "ya en X red").
@@ -51,12 +65,16 @@ export function ViralSelection() {
     fetch("/api/viral-ranking")
       .then((r) => r.json())
       .then((d) => setVideos(Array.isArray(d.videos) ? d.videos.slice(0, TOP_N) : []))
-      .catch(() => setVideos([]))
+      .catch((err) => {
+        // Distinguir "falló la carga" de "no hay videos" (antes mostraba el mensaje equivocado).
+        setLoadError(true);
+        toastError(err, "No se cargó el ranking de videos virales");
+      })
       .finally(() => setLoading(false));
     fetch("/api/scheduled/by-project")
       .then((r) => r.json())
       .then((d) => setByProject(d.byProject ?? {}))
-      .catch(() => {});
+      .catch((err) => toastError(err, "No se cargaron las etiquetas de redes"));
   }, []);
 
   async function copyCopy(id: string, text: string) {
@@ -79,7 +97,9 @@ export function ViralSelection() {
   if (!videos.length) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
-        No hay videos con puntuación de viralidad todavía.
+        {loadError
+          ? "No se pudo cargar el ranking. Recarga la página para intentar de nuevo."
+          : "No hay videos con puntuación de viralidad todavía."}
       </p>
     );
   }
@@ -110,7 +130,17 @@ export function ViralSelection() {
                 <span
                   className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-sm font-bold shadow"
                   style={{ backgroundColor: s.bg, color: s.text }}
-                  title={`Viralidad ${v.score}/100 — ${s.label}`}
+                  title={[
+                    `Viralidad ${v.score}/100 — ${s.label}`,
+                    ...(v.reasons?.length ? ["¿Por qué? " + v.reasons.join(" · ")] : []),
+                    ...(v.factors
+                      ? [
+                          Object.entries(v.factors)
+                            .map(([k, val]) => `${FACTOR_LABEL[k] ?? k} ${val}`)
+                            .join(" · "),
+                        ]
+                      : []),
+                  ].join("\n")}
                 >
                   <Flame className="h-3 w-3" />
                   {Math.round(v.score)}
@@ -134,6 +164,14 @@ export function ViralSelection() {
                   <span className="-mt-0.5 w-fit rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {v.style}
                   </span>
+                )}
+                {v.reasons && v.reasons.length > 0 && (
+                  <p
+                    className="line-clamp-1 text-[10px] text-emerald-400/90"
+                    title={`¿Por qué ${v.score}/100? ${v.reasons.join(" · ")}`}
+                  >
+                    🔥 {v.reasons.join(" · ")}
+                  </p>
                 )}
                 {byProject[v.id] && Object.keys(byProject[v.id]).length > 0 && (
                   <div className="flex flex-wrap gap-1">

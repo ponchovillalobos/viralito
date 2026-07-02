@@ -159,3 +159,7 @@ release/
 
 # Artefactos de tests manuales de Remotion
 remotion/__test*
+
+# EXCEPCIÓN: previews de estilos pre-generados (3s, ~60KB c/u) — assets del bundle,
+# como los PNG de style-thumbs. Se regeneran con remotion/generate-style-previews.mjs.
+!frontend/public/style-previews/*.mp4

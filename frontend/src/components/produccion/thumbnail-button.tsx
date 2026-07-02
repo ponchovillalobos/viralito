@@ -96,6 +96,7 @@ export function ThumbnailButton({ projectId }: { projectId: string }) {
             onClick={remove}
             disabled={busy}
             className="text-muted-foreground transition hover:text-red-400"
+            aria-label="Quitar miniatura"
             title="Quitar miniatura"
           >
             <X className="h-3 w-3" />

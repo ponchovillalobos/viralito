@@ -59,6 +59,7 @@ export function SubtitleEditor({
           <select
             value={style}
             onChange={(e) => onStyleChange(e.target.value as "bebas" | "anton")}
+            aria-label="Fuente de los subtítulos"
             className="w-full rounded-md border border-border bg-muted/30 p-1.5 text-xs"
           >
             <option value="bebas">Bebas Neue</option>

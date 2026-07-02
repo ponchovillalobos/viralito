@@ -436,9 +436,21 @@ def match_sfx_to_transcript(
         sfx_cfg = SFX_KEYWORDS[sfx_name]
         # Guarda de sentido: un SFX positivo (dinero/win/reveal) NO se dispara si hay una
         # negación en la ventana [-4, +2] palabras ("perdí dinero", "no es éxito"…).
+        # Y en vez de dejar el momento mudo, disparamos el SFX de CAÍDA (lowdown):
+        # el contexto negativo también merece su acento — pero triste, no celebratorio.
         if sfx_cfg.get("category") in _POSITIVE_CATEGORIES:
             window = _norm_words[max(0, i - 4): i + 3]
             if any(t in _NEGATION_CUES for t in window):
+                at_neg = max(0.0, float(w.get("start", 0)) - 0.05)
+                sfx_marks.append({
+                    "at": round(at_neg, 2),
+                    "sound": "kenney-digital-audio-lowdown.ogg",
+                    "volume": 0.35,
+                    "matchedWord": word_text,
+                    "score": round(score, 2),
+                    "trigger": "word_match_negated",
+                })
+                matched_count += 1
                 continue
         at = float(w.get("start", 0)) + sfx_cfg.get("offset", 0)
         if at < 0:

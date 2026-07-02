@@ -42,6 +42,8 @@ export function AnimationsPanel({ animations, onChange, currentTime }: Props) {
               key={t}
               type="button"
               onClick={() => addAt(t)}
+              aria-label={`Agregar animación: ${LABELS[t]}`}
+              title={`Agregar animación: ${LABELS[t]}`}
               className="rounded-md border border-border bg-card p-3 text-left text-xs hover:border-foreground/30"
             >
               <div className="flex items-center gap-1.5 font-medium">
@@ -74,6 +76,8 @@ export function AnimationsPanel({ animations, onChange, currentTime }: Props) {
                 <button
                   type="button"
                   onClick={() => remove(i)}
+                  aria-label={`Borrar la marca de ${LABELS[a.type]} en ${a.at.toFixed(1)}s`}
+                  title={`Borrar la marca de ${LABELS[a.type]} en ${a.at.toFixed(1)}s`}
                   className="rounded p-1 text-muted-foreground hover:text-red-400"
                 >
                   <Trash2 className="h-3 w-3" />

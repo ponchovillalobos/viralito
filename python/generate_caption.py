@@ -304,6 +304,9 @@ def call_ollama(transcript_text: str, video_id: str, model: str = OLLAMA_MODEL) 
         "prompt": build_prompt(transcript_text, video_id),
         "stream": False,
         "format": "json",
+        # Modelos "thinking" (qwen3): sin esto el output se va a `thinking` y
+        # `response` llega VACÍO → JSON parse error. Ollama viejo ignora el campo.
+        "think": False,
         "options": {"temperature": 0.7, "num_ctx": 8192},
     }
     data = json.dumps(payload).encode("utf-8")

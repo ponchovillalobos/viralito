@@ -17,6 +17,8 @@ export type NotificationType =
   | "instagram_due"
   | "tiktok_failed"
   | "linkedin_failed"
+  // Fallo definitivo de publicación en cualquier otra red (facebook, etc.).
+  | "publish_failed"
   | "render_done"
   | "render_failed";
 

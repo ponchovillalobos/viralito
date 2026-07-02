@@ -10,6 +10,8 @@ interface Notification {
     | "instagram_due"
     | "tiktok_failed"
     | "linkedin_failed"
+    // Fallo definitivo de publicación en cualquier otra red (facebook, etc.).
+    | "publish_failed"
     // Emitidos por job-store cuando una edición termina (bien o mal).
     | "render_done"
     | "render_failed";
@@ -105,6 +107,11 @@ export function NotificationPoller() {
         });
       } else if (n.type === "linkedin_failed") {
         toast.error(`No se pudo publicar en LinkedIn: ${n.projectId}`, {
+          description: n.message ?? "Intenta de nuevo desde Mis videos.",
+          duration: 20_000,
+        });
+      } else if (n.type === "publish_failed") {
+        toast.error(`No se pudo publicar: ${n.projectId}`, {
           description: n.message ?? "Intenta de nuevo desde Mis videos.",
           duration: 20_000,
         });

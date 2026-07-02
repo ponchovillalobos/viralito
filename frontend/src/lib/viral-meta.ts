@@ -21,12 +21,7 @@ const NUM: Record<string, string> = {
 /** Título corto (2-3 palabras significativas) desde el id/slug del video. Pure (cliente + server). */
 export function shortTitle(idOrSlug: string): string {
   // quitar prefijo base y sufijos de clip/estilo comunes para quedarse con el slug del contenido
-  let s = idOrSlug
-    .replace(/^.*?_c\d+_/i, "") // saca "base_c09_"
-    .replace(
-      /_(editorial(_full|_broll)?|supreme|hype(_max)?(_sfx)?|silent|punch|cinematic_pro|broll_(full|pip)|text_behind|pop_reels|graphics_(pro|max)|motion_(pro|beat|grid)|kinetic_type|lottie_pop|paper_cut|cine_clasico)$/i,
-      "",
-    );
+  const s = contentSlugFromId(idOrSlug);
   const words = s
     .split(/[-_\s]+/)
     .map((w) => w.toLowerCase())
@@ -69,6 +64,10 @@ export interface ClipScore {
   hook: string;
 }
 
+// Caché por archivo (mtime): /api/projects llama loadClipScores en CADA request y los
+// proposals casi nunca cambian → re-parsear solo los archivos modificados.
+const proposalCache = new Map<string, { mtimeMs: number; clips: ClipScore[] }>();
+
 /** Lee los proposals y devuelve un mapa slug → {score, hook}. Server-only. */
 export async function loadClipScores(): Promise<Map<string, ClipScore>> {
   const propDir = path.join(LF_ROOT, "proposals");
@@ -79,23 +78,35 @@ export async function loadClipScores(): Promise<Map<string, ClipScore>> {
   } catch {
     return map;
   }
-  for (const f of files) {
-    try {
-      const d = JSON.parse(await fs.readFile(path.join(propDir, f), "utf-8"));
-      const arr: unknown[] = d.clips ?? d.proposals ?? (Array.isArray(d) ? d : []);
-      for (const c of arr) {
-        if (!c || typeof c !== "object") continue;
-        const o = c as Record<string, unknown>;
-        const slug = typeof o.slug === "string" ? o.slug : "";
-        if (!slug) continue;
-        const score = typeof o.viralityScore === "number" ? o.viralityScore : 0;
-        const prev = map.get(slug);
-        if (!prev || score > prev.score) {
-          map.set(slug, { slug, score, hook: typeof o.hook === "string" ? o.hook : "" });
+  const perFile = await Promise.all(
+    files.map(async (f): Promise<ClipScore[]> => {
+      const fp = path.join(propDir, f);
+      try {
+        const stat = await fs.stat(fp);
+        const cached = proposalCache.get(fp);
+        if (cached && cached.mtimeMs === stat.mtimeMs) return cached.clips;
+        const d = JSON.parse(await fs.readFile(fp, "utf-8"));
+        const arr: unknown[] = d.clips ?? d.proposals ?? (Array.isArray(d) ? d : []);
+        const clips: ClipScore[] = [];
+        for (const c of arr) {
+          if (!c || typeof c !== "object") continue;
+          const o = c as Record<string, unknown>;
+          const slug = typeof o.slug === "string" ? o.slug : "";
+          if (!slug) continue;
+          const score = typeof o.viralityScore === "number" ? o.viralityScore : 0;
+          clips.push({ slug, score, hook: typeof o.hook === "string" ? o.hook : "" });
         }
+        proposalCache.set(fp, { mtimeMs: stat.mtimeMs, clips });
+        return clips;
+      } catch {
+        return [];
       }
-    } catch {
-      /* ignore */
+    }),
+  );
+  for (const clips of perFile) {
+    for (const cs of clips) {
+      const prev = map.get(cs.slug);
+      if (!prev || cs.score > prev.score) map.set(cs.slug, cs);
     }
   }
   return map;
@@ -103,8 +114,39 @@ export async function loadClipScores(): Promise<Map<string, ClipScore>> {
 
 const normKey = (s: string) => s.replace(/[-_\s]/g, "").toLowerCase();
 
+/** Slug del contenido dentro de un id de video: saca el prefijo "base_c09_" y el sufijo de estilo. */
+export function contentSlugFromId(id: string): string {
+  return id
+    .replace(/^.*?_c\d+_/i, "")
+    .replace(
+      /_(editorial(_full|_broll)?|supreme|hype(_max)?(_sfx)?|silent|punch|cinematic_pro|broll_(full|pip)|text_behind|pop_reels|graphics_(pro|max)|motion_(pro|beat|grid)|kinetic_type|lottie_pop|paper_cut|cine_clasico)$/i,
+      "",
+    );
+}
+
+// Índice slug-normalizado por mapa (WeakMap: se invalida solo cuando el mapa se recrea).
+// Convierte el match de O(proyectos × clips) a O(1) por proyecto en el caso común.
+const slugIndexCache = new WeakMap<Map<string, ClipScore>, Map<string, ClipScore>>();
+
+function slugIndex(map: Map<string, ClipScore>): Map<string, ClipScore> {
+  let idx = slugIndexCache.get(map);
+  if (idx) return idx;
+  idx = new Map();
+  for (const cs of map.values()) {
+    const key = normKey(cs.slug);
+    const prev = idx.get(key);
+    if (!prev || cs.score > prev.score) idx.set(key, cs);
+  }
+  slugIndexCache.set(map, idx);
+  return idx;
+}
+
 /** Para un id de video, encuentra el mejor clip (por slug contenido en el id). Server-only. */
 export function matchClipScore(id: string, map: Map<string, ClipScore>): ClipScore | null {
+  // Camino rápido: extraer el slug del id → lookup directo en el índice.
+  const direct = slugIndex(map).get(normKey(contentSlugFromId(id)));
+  if (direct) return direct;
+  // Fallback (ids con otro formato): scan por substring como antes.
   const nid = normKey(id);
   let best: ClipScore | null = null;
   for (const cs of map.values()) {

@@ -349,6 +349,20 @@ def step_detect(video_path: Path, video_id: str) -> Path:
         "--out", str(out),
     ]
     run(cmd)
+    # Muletillas ("eh", "este…", "o sea" con firma de duda): se RESTAN de los
+    # keep_segments igual que en shorts, así el _clean.mp4 sale sin silencios NI
+    # muletillas y los clips ganan densidad. Best-effort: si falla, seguimos solo
+    # con los silencios (nunca aborta el pipeline).
+    try:
+        run([
+            str(VENV_PYTHON),
+            str(PYTHON_DIR / "detect_fillers.py"),
+            video_id,
+            "--transcripts-dir", str(LF_TRANSCRIPTS),
+            "--cuts-dir", str(LF_CUTS),
+        ])
+    except Exception as e:  # noqa: BLE001
+        print(f"[fillers] no se pudieron restar muletillas (sigo sin ellas): {e}", file=sys.stderr)
     return out
 
 

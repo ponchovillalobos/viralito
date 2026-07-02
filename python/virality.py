@@ -60,18 +60,34 @@ FACTOR_MAX = {
 }
 
 
+# Regexes y vocabularios pre-compilados una sola vez (se llaman cientos de veces por lote).
+_RE_DIGIT = re.compile(r"\d")
+_RE_NUMBER = re.compile(r"\d[\d.,]*\s?%?")
+
+
+def _pad_vocab(vocab: set[str]) -> tuple[tuple[str, str], ...]:
+    return tuple((" " + w + " ", " " + w) for w in vocab)
+
+
+_HOOK_PADDED = _pad_vocab(HOOK_WORDS)
+_EMPHASIS_PADDED = _pad_vocab(EMPHASIS)
+_CTA_PADDED = _pad_vocab(CTA_WORDS)
+_PADDED = {id(HOOK_WORDS): _HOOK_PADDED, id(EMPHASIS): _EMPHASIS_PADDED, id(CTA_WORDS): _CTA_PADDED}
+
+
 def _norm(s: str) -> str:
     return s.lower().strip()
 
 
 def _has_number(text: str) -> bool:
     # cifra real (no parte de palabra rara); incluye %, "3 veces", "$10", "10k"
-    return bool(re.search(r"\d", text))
+    return bool(_RE_DIGIT.search(text))
 
 
 def _count_hits(text: str, vocab: set[str]) -> int:
     low = " " + _norm(text) + " "
-    return sum(1 for w in vocab if (" " + w + " ") in low or (" " + w) in low)
+    padded = _PADDED.get(id(vocab)) or _pad_vocab(vocab)
+    return sum(1 for mid, pre in padded if mid in low or pre in low)
 
 
 def score_clip(words: list[dict], start: float, end: float, hook: str = "") -> dict[str, Any]:
@@ -106,7 +122,7 @@ def score_clip(words: list[dict], start: float, end: float, hook: str = "") -> d
 
     # 3) DATOS (0-15)
     data_score = 0.0
-    nums = len(re.findall(r"\d[\d.,]*\s?%?", text))
+    nums = len(_RE_NUMBER.findall(text))
     if nums >= 1:
         data_score = min(15.0, 6 + nums * 2)
         reasons.append("Menciona datos concretos")

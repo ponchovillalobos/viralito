@@ -129,6 +129,8 @@ export function MetricsTable() {
                               removeEntry(key, e.id);
                               toast.success("Entrada borrada");
                             }}
+                            aria-label={`Borrar la entrada D${e.day.toString().padStart(2, "0")}`}
+                            title={`Borrar la entrada D${e.day.toString().padStart(2, "0")}`}
                             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-400"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

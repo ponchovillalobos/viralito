@@ -9,6 +9,19 @@ export const dynamic = "force-dynamic";
 
 const LF_PROJECTS_DIR = path.join(LF_ROOT, "projects");
 
+// Caché por archivo (mtime): esta ruta se golpea ~100 veces por sesión y leía + parseaba
+// TODOS los JSON en cada request. Con el caché solo se re-lee lo que cambió en disco.
+const projectFileCache = new Map<string, { mtimeMs: number; data: Record<string, unknown> }>();
+
+// El shape mínimo que usa esta ruta; el resto de los campos del JSON viajan tal cual.
+interface ProjectRecord extends Record<string, unknown> {
+  id: string;
+  source: "short" | "long_form";
+  videoId?: string;
+  updatedAt?: unknown;
+  viralityScore?: number;
+}
+
 async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
   try {
     await fs.mkdir(dir, { recursive: true });
@@ -19,8 +32,15 @@ async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
         .map(async (f) => {
           try {
             const fp = path.join(dir, f);
-            const [raw, stat] = await Promise.all([fs.readFile(fp, "utf-8"), fs.stat(fp)]);
-            const data = JSON.parse(raw);
+            const stat = await fs.stat(fp);
+            const cached = projectFileCache.get(fp);
+            const data =
+              cached && cached.mtimeMs === stat.mtimeMs
+                ? cached.data
+                : (JSON.parse(await fs.readFile(fp, "utf-8")) as Record<string, unknown>);
+            if (!cached || cached.mtimeMs !== stat.mtimeMs) {
+              projectFileCache.set(fp, { mtimeMs: stat.mtimeMs, data });
+            }
             // El nombre de archivo es la fuente de verdad del `id`: el endpoint
             // [id]/route.ts resuelve `${id}.json` y los renders se escriben como
             // `${id}.mp4`. Algunos JSON (renders test A/B/C) guardaron un `id`
@@ -33,13 +53,18 @@ async function readProjectsFromDir(dir: string, source: "short" | "long_form") {
             // `updatedAt` en su JSON → sin esto caían al FINAL de "Mis videos". Ahora
             // los nuevos quedan al PRINCIPIO (orden por fecha real, más nuevo primero).
             const mtime = stat.mtime.toISOString();
-            return { ...data, id, source, updatedAt: data.updatedAt ?? mtime };
+            return {
+              ...data,
+              id,
+              source,
+              updatedAt: data.updatedAt ?? mtime,
+            } as ProjectRecord;
           } catch {
             return null;
           }
         })
     );
-    return projects.filter(Boolean);
+    return projects.filter((p): p is ProjectRecord => p !== null);
   } catch {
     return [];
   }

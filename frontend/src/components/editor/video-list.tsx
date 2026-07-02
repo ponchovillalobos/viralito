@@ -173,6 +173,8 @@ export function VideoList() {
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
+              aria-pressed={showArchived}
+              aria-label={showArchived ? "Ocultar los videos usados" : "Mostrar los videos usados"}
               className="rounded border border-border bg-card px-2 py-1 text-[10px] hover:bg-muted"
             >
               {showArchived ? "Ocultar usados" : "Mostrar usados"}
@@ -277,6 +279,7 @@ export function VideoList() {
                       setRenaming(v.id);
                     }}
                     className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={`Renombrar ${v.filename}`}
                     title="Renombrar"
                   >
                     <Pencil className="h-3 w-3" />
@@ -315,6 +318,7 @@ export function VideoList() {
                       setDeleting(v);
                     }}
                     className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-400"
+                    aria-label={`Borrar ${v.filename} para siempre (del disco)`}
                     title="Borrar para siempre (del disco)"
                   >
                     <Trash2 className="h-3 w-3" />

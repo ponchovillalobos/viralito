@@ -86,6 +86,7 @@ export function ExportPanel({ project, videoDurationSec }: Props) {
               key={q}
               type="button"
               onClick={() => setQuality(q)}
+              aria-pressed={quality === q}
               className={`rounded-md border p-2 text-xs ${
                 quality === q
                   ? "border-foreground/40 bg-muted"

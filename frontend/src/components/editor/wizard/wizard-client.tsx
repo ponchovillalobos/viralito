@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { StyleMiniDemo } from "@/components/editor/wizard/style-mini-demo";
+import { StyleMotionPreview } from "@/components/editor/wizard/style-motion-preview";
 import { CinematicStep } from "@/components/editor/wizard/cinematic-step";
 import { Confetti } from "@/components/ui/confetti";
 import {
@@ -2326,7 +2327,13 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                   <DialogDescription>{s.tagline}</DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col items-center gap-3 py-2">
-                  <StyleMiniDemo styleId={s.id} accent={accent} big />
+                  {/* Preview REAL en movimiento (3s del motor de render); si falta el
+                      MP4 pre-generado, cae al mini-demo CSS de siempre. */}
+                  <StyleMotionPreview
+                    styleId={s.id}
+                    className="max-h-[46vh] w-auto"
+                    fallback={<StyleMiniDemo styleId={s.id} accent={accent} big />}
+                  />
                   <p className="text-center text-xs text-muted-foreground">
                     Así se mueve este estilo. Tu video real saldrá con TU contenido y este look.
                   </p>

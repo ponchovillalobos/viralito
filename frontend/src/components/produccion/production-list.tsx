@@ -241,7 +241,7 @@ export function ProductionList() {
         setLinkedinHandle(d.handles?.linkedin ?? "");
         setLinkedinConnected(Boolean(d.linkedin?.hasAccessToken));
       })
-      .catch(() => {});
+      .catch((err) => toastError(err, "No se pudo verificar la conexión de tus redes"));
   }, []);
 
   // Cuando se abre el preview, carga el transcript y resetea el feedback de copiado.
@@ -411,6 +411,11 @@ export function ProductionList() {
                 type="button"
                 onClick={() => (selectMode ? toggleSelect(p.id) : setPreviewProject(p))}
                 title={selectMode ? "Toca para seleccionarlo" : "Toca para verlo"}
+                aria-label={
+                  selectMode
+                    ? `Seleccionar ${p.shortTitle || p.title || p.id}`
+                    : `Ver ${p.shortTitle || p.title || p.id}`
+                }
                 className="group relative aspect-[9/16] cursor-pointer overflow-hidden bg-zinc-900 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {/* Casilla de selección (solo en modo selección). */}
@@ -496,11 +501,13 @@ export function ProductionList() {
                           key={v.id}
                           type="button"
                           onClick={() => setActiveVariant((m) => ({ ...m, [g.key]: v.id }))}
+                          aria-pressed={v.id === p.id}
                           className={`rounded-full px-2 py-0.5 text-[10px] transition-colors ${
                             v.id === p.id
                               ? "bg-brand-pink/20 text-brand-pink ring-1 ring-inset ring-brand-pink/40"
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
+                          aria-label={`Ver la versión ${STYLE_LABEL[v.styleId ?? ""] ?? v.styleId}`}
                           title={`Ver la versión ${STYLE_LABEL[v.styleId ?? ""] ?? v.styleId}`}
                         >
                           {STYLE_LABEL[v.styleId ?? ""] ?? v.styleId ?? "—"}
@@ -542,6 +549,7 @@ export function ProductionList() {
                           type="button"
                           onClick={() => regenerate(p, "auto")}
                           disabled={regenerating === p.id}
+                          aria-label="Regenerar la descripción (la IA elige la mejor opción por ti)"
                           title="Regenerar la descripción (la IA elige la mejor opción por ti)"
                           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
                         >
@@ -582,6 +590,7 @@ export function ProductionList() {
                         type="button"
                         onClick={() => copyCaption(p)}
                         className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-brand-pink"
+                        aria-label="Copiar la descripción completa"
                         title="Copiar la descripción completa"
                       >
                         {copiedId === p.id ? (
@@ -639,6 +648,7 @@ export function ProductionList() {
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(p)}
+                        aria-label="Borrar este video (tu video original no se toca)"
                         title="Borrar este video (tu video original no se toca)"
                         className="flex items-center rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-400"
                       >
@@ -667,7 +677,7 @@ export function ProductionList() {
                             ? `Publicar AHORA en Instagram${instagramHandle ? ` (${instagramHandle})` : ""}`
                             : `Publicar en Instagram con un paso extra (te copia el video y abre IG)${instagramHandle ? ` — ${instagramHandle}` : ""}. Conecta IG en Configuración para publicar directo.`
                       }
-                      className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {publishingToInstagram === p.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

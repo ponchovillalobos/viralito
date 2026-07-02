@@ -39,6 +39,8 @@ interface ClipPatch {
   approved?: boolean;
   start?: number;
   end?: number;
+  /** Hooks A/B: gancho elegido por el usuario (reemplaza el generado). */
+  hook?: string;
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
@@ -123,6 +125,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     if (typeof p.approved === "boolean") {
       target.approved = p.approved;
+    }
+    if (typeof p.hook === "string") {
+      const hook = p.hook.trim();
+      if (hook.length < 3 || hook.length > 140) {
+        return NextResponse.json(
+          { error: "El gancho debe tener entre 3 y 140 caracteres." },
+          { status: 400 }
+        );
+      }
+      target.hook = hook;
     }
   }
 

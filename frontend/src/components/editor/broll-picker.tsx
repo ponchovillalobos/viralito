@@ -95,6 +95,8 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
               key={v.id}
               type="button"
               onClick={() => addClip(v)}
+              aria-label={`Agregar este clip de b-roll (${v.duration}s)`}
+              title={`Agregar este clip de b-roll (${v.duration}s)`}
               className="group relative overflow-hidden rounded-md border border-border bg-card aspect-[9/16]"
             >
               <img
@@ -150,6 +152,8 @@ export function BrollPicker({ clips, onChange, currentTime }: Props) {
                 <button
                   type="button"
                   onClick={() => removeClip(i)}
+                  aria-label={`Quitar el clip de ${c.start.toFixed(1)}s a ${c.end.toFixed(1)}s`}
+                  title={`Quitar el clip de ${c.start.toFixed(1)}s a ${c.end.toFixed(1)}s`}
                   className="rounded p-1 text-muted-foreground hover:text-red-400"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { StyleMiniDemo } from "@/components/editor/wizard/style-mini-demo";
+import { StyleMotionPreview } from "@/components/editor/wizard/style-motion-preview";
 
 // ─── Fuentes para el preview (mismas que el wizard de shorts; gratis, self-host) ──
 const _mont = Montserrat({ subsets: ["latin"], weight: "800", display: "swap" });
@@ -311,6 +312,13 @@ export function LongFormWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importingPath, setImportingPath] = useState(false);
+  // Progreso visible del upload ("Subiendo 52 de 120 MB") — antes solo giraba el spinner.
+  const [uploadProgress, setUploadProgress] = useState<{
+    name: string;
+    pct: number;
+    doneMB: number;
+    totalMB: number;
+  } | null>(null);
   const [pathInput, setPathInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeJob, setActiveJob] = useState<JobState | null>(null);
@@ -379,7 +387,13 @@ export function LongFormWizard() {
       a.pause(); // onPause limpia volPreviewOn
       return;
     }
-    if (volTracks.length === 0) return;
+    if (volTracks.length === 0) {
+      // Antes fallaba en silencio: el botón no hacía nada y el usuario no sabía por qué.
+      toast.error("No hay pistas de música para probar el volumen", {
+        description: "Revisa tu biblioteca de música en el editor.",
+      });
+      return;
+    }
     a.src = volTracks[Math.floor(volTracks.length / 2)] ?? volTracks[0];
     a.volume = Math.max(0, Math.min(1, musicVolumePct / 100));
     a.currentTime = 0;
@@ -483,25 +497,54 @@ export function LongFormWizard() {
   // El File se manda como body crudo (no FormData): el server lo vuelca a disco por chunks
   // (memoria ≈ constante), así un video de varios GB entra por el botón normal sin OOM.
   // El nombre viaja en el header X-Filename (encodeURIComponent: soporta acentos/espacios).
+  // XMLHttpRequest (no fetch) porque fetch NO expone progreso de subida: acá sale
+  // el "Subiendo X de Y MB" en vivo. El body sigue siendo el File crudo (streaming).
+  function uploadWithProgress(file: File): Promise<{ ok: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/long_form/import");
+      xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        setUploadProgress({
+          name: file.name,
+          pct: Math.min(100, Math.round((e.loaded / e.total) * 100)),
+          doneMB: Math.round(e.loaded / 1048576),
+          totalMB: Math.max(1, Math.round(e.total / 1048576)),
+        });
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ ok: true });
+          return;
+        }
+        let error: string | undefined;
+        try {
+          error = (JSON.parse(xhr.responseText) as { error?: string }).error;
+        } catch {
+          /* respuesta no-JSON */
+        }
+        resolve({ ok: false, error });
+      };
+      xhr.onerror = () => resolve({ ok: false });
+      xhr.send(file);
+    });
+  }
+
   async function importVideos(files: FileList | File[]) {
     const arr = Array.from(files);
     setImporting(true);
     let ok = 0;
     try {
       for (const file of arr) {
-        const r = await fetch("/api/long_form/import", {
-          method: "POST",
-          body: file,
-          headers: { "X-Filename": encodeURIComponent(file.name) },
-        });
+        const r = await uploadWithProgress(file);
         if (r.ok) {
           ok++;
         } else {
           // Mostrar el motivo real (ej. «video incompleto/corrupto, resúbelo»).
           // El server ya devuelve mensajes humanizados: se muestran tal cual.
-          const data = (await r.json().catch(() => ({}))) as { error?: string };
           toast.error(`No se pudo subir «${file.name}»`, {
-            description: data.error || undefined,
+            description: r.error || undefined,
           });
         }
       }
@@ -511,6 +554,7 @@ export function LongFormWizard() {
       toastError(err, "No se pudo subir el video");
     } finally {
       setImporting(false);
+      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -961,6 +1005,26 @@ export function LongFormWizard() {
             </div>
           </div>
 
+          {/* Barra de progreso del upload — "Subiendo X de Y MB" en vivo */}
+          {importing && uploadProgress && (
+            <div className="mb-4 rounded-md border border-violet-500/25 bg-violet-500/5 p-3">
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+                <span className="truncate text-violet-200">
+                  Subiendo «{uploadProgress.name}»
+                </span>
+                <span className="shrink-0 font-mono-tab text-muted-foreground">
+                  {uploadProgress.doneMB} de {uploadProgress.totalMB} MB · {uploadProgress.pct}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-violet-500 transition-[width] duration-300"
+                  style={{ width: `${uploadProgress.pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Importar por ruta — para videos GRANDES (cursos largos de varios GB). El
               navegador no puede subir archivos así por HTTP; aquí se importa directo del
               disco (la app corre en tu misma compu). */}
@@ -1257,6 +1321,13 @@ export function LongFormWizard() {
                   </button>
                   {open && (
                     <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+                      {/* Preview EN MOVIMIENTO: 3s reales del estilo (style-previews/{id}_{v|h}.mp4,
+                          pre-generado con generate-style-previews.mjs). Si falta el MP4, se oculta
+                          solo y quedan las 3 escenas estáticas de siempre. */}
+                      <StyleMotionPreview
+                        styleId={s.id}
+                        horizontal={aspectRatio === "16:9"}
+                      />
                       {/* Las escenas matchean el FORMATO elegido: horizontal (16:9) muestra
                           los {id}_h_n apilados; vertical (9:16) los {id}_v_n lado a lado. */}
                       <div
@@ -2221,7 +2292,7 @@ function ReviewView({
   const patchTimer = useRef<number | null>(null);
 
   const sendPatch = useCallback(
-    async (items: { index: number; approved?: boolean; start?: number; end?: number }[]) => {
+    async (items: { index: number; approved?: boolean; start?: number; end?: number; hook?: string }[]) => {
       try {
         const r = await fetch(`/api/long_form/proposals/${encodeURIComponent(videoId)}`, {
           method: "PATCH",
@@ -2338,6 +2409,12 @@ function ReviewView({
                 }
               },
               onAdjust: (which, delta) => adjustClip(i, which, delta),
+              onPickHook: (hook) => {
+                const next = [...clips];
+                next[i] = { ...clips[i], hook };
+                setClips(next);
+                void sendPatch([{ index: i, hook }]);
+              },
             }}
           />
         ))}
@@ -2550,6 +2627,8 @@ interface ReviewControls {
   onToggleAdjust: () => void;
   /** Mueve inicio o fin en ±0.5 s (el padre valida límites y persiste con PATCH). */
   onAdjust: (which: "start" | "end", delta: number) => void;
+  /** Hooks A/B: guarda el gancho elegido (el padre persiste con PATCH). */
+  onPickHook: (hook: string) => void;
 }
 
 function ProposalClipCard({
@@ -2567,6 +2646,38 @@ function ProposalClipCard({
   // "¿Por qué este clip?" — el badge 🔥 se expande solo si el proposal trae el
   // desglose de factores (los viejos no lo tienen y el badge queda como antes).
   const [open, setOpen] = useState(false);
+  // Hooks A/B — 3 variantes de gancho generadas por la IA local (solo en revisión).
+  const [variants, setVariants] = useState<string[] | null>(null);
+  const [variantsOpen, setVariantsOpen] = useState(false);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+
+  async function loadHookVariants() {
+    if (variantsOpen) {
+      setVariantsOpen(false);
+      return;
+    }
+    if (variants) {
+      setVariantsOpen(true);
+      return;
+    }
+    setLoadingVariants(true);
+    try {
+      const r = await fetch("/api/long_form/hook-variants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId, start: c.start, end: c.end, current: c.hook ?? "" }),
+      });
+      const d = (await r.json()) as { variants?: string[]; error?: string };
+      if (!r.ok || !d.variants?.length) throw new Error(d.error ?? `HTTP ${r.status}`);
+      setVariants(d.variants);
+      setVariantsOpen(true);
+    } catch (err) {
+      toastError(err, "No se pudieron generar los ganchos alternativos");
+    } finally {
+      setLoadingVariants(false);
+    }
+  }
+
   const score = c.viralityScore;
   const factorRows = c.factors
     ? FACTOR_LABELS.filter((f) => typeof c.factors?.[f.key] === "number")
@@ -2717,9 +2828,29 @@ function ProposalClipCard({
           </button>
           <button
             type="button"
-            onClick={review.onToggleAdjust}
+            onClick={loadHookVariants}
+            disabled={loadingVariants}
+            title="Genera 3 ganchos alternativos con la IA (pregunta / cifra / declaración) y elige el que más detenga el scroll"
             className={cn(
               "ml-auto flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors",
+              variantsOpen
+                ? "border-amber-400/50 bg-amber-500/10 text-amber-300"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {loadingVariants ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            Ganchos
+            <ChevronDown className={cn("h-2.5 w-2.5 transition-transform", variantsOpen && "rotate-180")} />
+          </button>
+          <button
+            type="button"
+            onClick={review.onToggleAdjust}
+            className={cn(
+              "flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors",
               review.adjusting
                 ? "border-violet-400/50 bg-violet-500/10 text-violet-300"
                 : "border-border text-muted-foreground hover:text-foreground"
@@ -2729,6 +2860,37 @@ function ProposalClipCard({
             Ajustar
             <ChevronDown className={cn("h-2.5 w-2.5 transition-transform", review.adjusting && "rotate-180")} />
           </button>
+        </div>
+      )}
+
+      {/* ── Hooks A/B: 3 variantes de gancho (pregunta / cifra / declaración) ── */}
+      {review && variantsOpen && variants && (
+        <div className="mt-2 space-y-1.5 rounded-md border border-amber-500/25 bg-amber-500/5 p-2.5">
+          <p className="font-mono-tab text-[10px] uppercase tracking-wider text-muted-foreground">
+            Elige el gancho de los primeros 3 segundos
+          </p>
+          {[c.hook, ...variants.filter((v) => v !== c.hook)].filter(Boolean).map((v, k) => {
+            const isCurrent = v === c.hook;
+            return (
+              <button
+                key={`${k}-${v}`}
+                type="button"
+                onClick={() => {
+                  if (!isCurrent && v) review.onPickHook(v);
+                }}
+                className={cn(
+                  "block w-full rounded border px-2 py-1.5 text-left text-[11px] transition-colors",
+                  isCurrent
+                    ? "border-amber-400/60 bg-amber-500/15 text-amber-200"
+                    : "border-border text-foreground/85 hover:border-amber-400/40 hover:bg-amber-500/10"
+                )}
+                title={isCurrent ? "Este es el gancho actual" : "Usar este gancho"}
+              >
+                {isCurrent && <span className="mr-1 font-mono-tab text-[9px] text-amber-400">ACTUAL</span>}
+                {v}
+              </button>
+            );
+          })}
         </div>
       )}
 
