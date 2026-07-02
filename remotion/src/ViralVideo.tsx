@@ -34,7 +34,7 @@ import { TrackedLayer, trackPointSchema, trackedItemSchema } from "./tracked-lay
 import { BrandWatermarkLayer } from "./layers/brand-watermark-layer";
 import { IconStickerLayer } from "./layers/icon-sticker-layer";
 import { EndScreenLayer } from "./layers/end-screen-layer";
-import { PipBRollLayer } from "./layers/pip-broll-layer";
+import { PipBRollLayer, EditorialCutaway } from "./layers/pip-broll-layer";
 import { FloatingEmojiLayer } from "./layers/floating-emoji-layer";
 import { WordStickerLayer } from "./layers/word-sticker-layer";
 import { EmphasisCardLayer } from "./layers/emphasis-card-layer";
@@ -924,6 +924,24 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           )
         )}
       </AbsoluteFill>
+      {/* EDITORIAL + B-ROLL — CORTINILLA DENTRO DEL PANEL (feedback del usuario):
+          el archivo SUSTITUYE brevemente al video original en SU MISMO panel
+          (mismas dimensiones, mismo recorte; el duotono de abajo lo tiñe igual que
+          al original) con fade de 0.35s, y después vuelve el original. Antes era
+          un PIP flotante que tapaba el texto/animaciones del lienzo Y al video. */}
+      {editorialLayout &&
+        bRoll.map((clip, i) => {
+          const durF = Math.ceil((clip.end - clip.start) * fps);
+          return (
+            <Sequence
+              key={`edbr-${clip.start}-${i}`}
+              from={Math.floor(clip.start * fps)}
+              durationInFrames={durF}
+            >
+              <EditorialCutaway url={clip.url} durationInFrames={durF} />
+            </Sequence>
+          );
+        })}
       {/* EDITORIAL — duotono del panel (look Economist): desatura el video y
           mapea sombras→tinta, luces→papel. Solo monta si el tema lo pide. */}
       {edLook && edLook.duotone > 0 && (
@@ -978,7 +996,10 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         );
       })}
 
+      {/* En modo editorial el b-roll ya se montó como CORTINILLA dentro del panel
+          (ver arriba) — acá se salta para no duplicarlo tapando el lienzo. */}
       {fullscreenBRoll &&
+        !editorialLayout &&
         bRoll.map((clip, i) => (
           <Sequence
             key={`${clip.start}-${i}`}
@@ -996,6 +1017,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         ))}
 
       {!fullscreenBRoll &&
+        !editorialLayout &&
         bRoll.map((clip, i) => (
           <Sequence
             key={`${clip.start}-${i}`}

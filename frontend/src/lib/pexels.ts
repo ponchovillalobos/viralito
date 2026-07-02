@@ -59,6 +59,120 @@ function cleanWord(w: string): string {
     .trim();
 }
 
+// ─── RELEVANCIA (feedback del usuario: "pone videos nada que ver con lo que se dice") ───
+// El matcher buscaba en Pexels con UNA palabra suelta EN ESPAÑOL ("seguimiento",
+// "clientes") → resultados pobres/aleatorios: el catálogo de Pexels está etiquetado
+// en INGLÉS y una palabra sin contexto trae stock genérico. Ahora:
+//   1. La IA LOCAL (Ollama) convierte la FRASE (keyword + ±3.5s de contexto) en un
+//      término de búsqueda EN INGLÉS de 2-3 palabras, concreto y FILMABLE.
+//   2. Sin Ollama (o si tarda >8s), cae a un diccionario ES→EN de conceptos
+//      frecuentes; y si tampoco, a la palabra tal cual (comportamiento anterior).
+// La búsqueda de b-roll ya es online por definición (Pexels); el render sigue offline.
+
+const OLLAMA_URL = process.env.VIRAL_OLLAMA_URL ?? "http://localhost:11434";
+
+/** Diccionario ES→EN de conceptos frecuentes → término de stock VISUAL. */
+const VISUAL_ES_EN: Record<string, string> = {
+  dinero: "money cash counting", ventas: "sales handshake deal", vender: "salesman talking client",
+  cliente: "customer meeting office", clientes: "customers business meeting",
+  equipo: "team working office", empresa: "modern office building", negocio: "small business owner",
+  trabajo: "person working laptop", exito: "success celebration office", meta: "goal target dartboard",
+  metas: "goals planning notebook", crecer: "growth chart rising", crecimiento: "business growth chart",
+  atencion: "eye close up focus", tiempo: "clock time lapse", reunion: "business meeting table",
+  llamada: "phone call business", telefono: "smartphone hands typing", correo: "email laptop typing",
+  redes: "social media phone scrolling", marca: "brand designer studio", precio: "price tag store",
+  producto: "product packaging hands", servicio: "customer service smiling", estrategia: "chess strategy board",
+  idea: "lightbulb idea creative", ideas: "brainstorming sticky notes", miedo: "anxious person dark",
+  estres: "stressed person desk", energia: "energetic morning run", habito: "morning routine journal",
+  habitos: "daily routine planner", aprender: "student studying books", libro: "reading book coffee",
+  cerebro: "brain neurons animation", mente: "meditation calm person", pregunta: "question mark thinking",
+  respuesta: "aha moment realization", conversacion: "two people talking cafe", historia: "storytelling campfire",
+  familia: "family together home", casa: "cozy home interior", ciudad: "city timelapse aerial",
+  mundo: "earth globe rotating", futuro: "futuristic technology city", tecnologia: "technology circuit close up",
+  inteligencia: "artificial intelligence robot", computadora: "laptop keyboard typing",
+  comida: "delicious food closeup", cafe: "coffee pouring cup", agua: "water splash slow motion",
+  deporte: "athlete training gym", salud: "healthy lifestyle jogging", doctor: "doctor hospital consult",
+  viaje: "travel airport suitcase", camino: "road trip highway", montaña: "mountain landscape aerial",
+  mar: "ocean waves aerial", corazon: "heart shape hands", amor: "couple holding hands sunset",
+  amigo: "friends laughing together", amigos: "friends group hangout", musica: "concert crowd lights",
+  celular: "person scrolling phone", video: "video editing screen", camara: "camera lens closeup",
+  contenido: "content creator filming", audiencia: "audience clapping event", seguidores: "social media likes",
+  millones: "stack of money bills", banco: "bank building finance", deuda: "empty wallet worried",
+  ahorro: "piggy bank coins", inversion: "stock market screen", oportunidad: "open door light",
+  problema: "person frustrated desk", solucion: "puzzle piece fitting", error: "mistake crossed paper",
+  riesgo: "tightrope walker risk", confianza: "handshake trust closeup", liderazgo: "leader speaking team",
+  jefe: "boss office executive", empleado: "employee working desk", oficina: "modern office interior",
+};
+
+/** Frase de contexto (±windowSec) alrededor del pick, para darle sentido a la búsqueda. */
+function contextPhrase(pick: Keyword, all: Keyword[], windowSec = 3.5): string {
+  return all
+    .filter((w) => Math.abs(w.start - pick.start) <= windowSec)
+    .map((w) => w.word)
+    .join(" ")
+    .slice(0, 220);
+}
+
+/** Sanitiza la respuesta del LLM a un término de búsqueda corto en inglés. */
+function sanitizeQuery(raw: string): string | null {
+  const q = raw
+    .replace(/["'`.,;:!?()\n\r]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!q || !/^[a-z0-9 -]+$/.test(q)) return null;
+  const words = q.split(" ").filter(Boolean).slice(0, 4);
+  if (words.length === 0) return null;
+  return words.join(" ");
+}
+
+/** Ollama local → término de búsqueda visual EN INGLÉS para la frase. Null si falla. */
+async function llmVisualQuery(phrase: string): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8_000);
+    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: process.env.VIRAL_OLLAMA_MODEL ?? "qwen3:4b",
+        prompt:
+          "You pick stock footage search terms. For this Spanish phrase, give an English " +
+          "search query of 2-3 words describing something CONCRETE and FILMABLE (an object, " +
+          `action or scene — never abstract words). Phrase: "${phrase}". ` +
+          'Reply ONLY this JSON: {"query": "..."}',
+        stream: false,
+        // format json + think:false: sin ambos, qwen3 (thinking) vuelca su razonamiento
+        // en `response` en vez del término (verificado en pruebas).
+        format: "json",
+        think: false,
+        options: { temperature: 0.3, num_ctx: 1024, num_predict: 32 },
+      }),
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { response?: string };
+    try {
+      const parsed = JSON.parse(data.response ?? "{}") as { query?: string };
+      return sanitizeQuery(String(parsed.query ?? ""));
+    } catch {
+      return sanitizeQuery(data.response ?? "");
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Query visual final para un pick: LLM local → diccionario ES→EN → palabra tal cual. */
+async function buildVisualQuery(pick: Keyword, all: Keyword[]): Promise<string> {
+  const word = cleanWord(pick.word);
+  const phrase = contextPhrase(pick, all);
+  const fromLlm = phrase ? await llmVisualQuery(phrase) : null;
+  if (fromLlm) return fromLlm;
+  return VISUAL_ES_EN[word] ?? word;
+}
+
 /** Elige `count` keywords visuales repartidas a lo largo del video. */
 function selectVisualKeywords(keywords: Keyword[], count: number): Keyword[] {
   const seen = new Set<string>();
@@ -126,7 +240,9 @@ export async function autoMatchBroll(
 
   const clips: BrollClip[] = [];
   for (const kw of picks) {
-    const q = cleanWord(kw.word);
+    // Query VISUAL en inglés (IA local con contexto de la frase → diccionario →
+    // palabra tal cual). Ver bloque RELEVANCIA arriba.
+    const q = await buildVisualQuery(kw, keywords);
     if (!q) continue;
     try {
       const res = await fetch(
