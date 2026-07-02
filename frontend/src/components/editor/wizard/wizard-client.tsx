@@ -444,10 +444,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // Combo "videoId::estilo" que se está re-creando desde el paso final.
   const [retryingStyle, setRetryingStyle] = useState<string | null>(null);
 
-  // F4 — Vista previa REAL: un frame (o clip de 3s) del video del user con el estilo.
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewIsVideo, setPreviewIsVideo] = useState(false);
   // Redes fijas: la descripción se genera SOLA para todas (en /produccion están los
   // copys por red). Ya no hay botones de redes en el wizard — un paso menos de fricción.
   const selectedPlatforms: PlatformId[] = ["instagram", "linkedin"];
@@ -676,9 +672,11 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   }
 
   // La descripción se genera SOLA al llegar al paso final (sin tocar botones).
-  // El botón "Regenerar" queda para pedir otra versión.
+  // El botón "Regenerar" queda para pedir otra versión. Si el video AÚN no tiene
+  // transcripción (wizard homogéneo: se escucha recién al crear), se salta — el
+  // job genera la descripción solo, por video, al final.
   useEffect(() => {
-    if (step === 4 && !caption && !generatingCaption && firstSelected) {
+    if (step === 4 && !caption && !generatingCaption && firstSelected?.status.transcribed) {
       generateCaptionAI();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -704,39 +702,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
     };
   }
 
-  // F4 — Genera la vista previa real (still del 35% o clip de 3s EN MOVIMIENTO).
-  // Manda los MISMOS overrides que la creación final → vista previa honesta.
-  async function generateStylePreview(motion = false) {
-    if (!firstSelected || selectedStyles.length === 0) return;
-    setPreviewLoading(true);
-    setPreviewUrl(null);
-    try {
-      const r = await fetch("/api/editor/style-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          videoId: firstSelected.id,
-          styleId: selectedStyles[0],
-          accentColor: accent,
-          subtitleFont,
-          subtitleColor,
-          ...overridesPayload(),
-          motion,
-        }),
-      });
-      const d = await r.json();
-      if (!r.ok || !d.url) throw new Error(d.error ?? "no se pudo crear la vista previa");
-      setPreviewIsVideo(Boolean(d.motion));
-      setPreviewUrl(`${d.url}&ts=${Date.now()}`);
-      if (d.cached) toast.success("Vista previa lista — al instante");
-    } catch (e) {
-      toastError(e, "No se pudo crear la vista previa", {
-        action: { label: "Reintentar", onClick: () => generateStylePreview(motion) },
-      });
-    } finally {
-      setPreviewLoading(false);
-    }
-  }
+  // La vista previa REAL ("Mira cómo queda TU video") se quitó a pedido del usuario:
+  // los estilos ya muestran miniaturas reales + previews EN MOVIMIENTO pre-generados
+  // (style-thumbs / style-previews), y además requería transcript a mitad del wizard.
 
   function toggleStyle(s: StyleId) {
     setSelectedStyles((prev) =>
@@ -789,16 +757,13 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
     }
   }
 
-  // Avanza al paso 2; primero escucha los videos del set que aún no tienen subtítulos.
+  // Avanza al paso 2 DIRECTO (wizard homogéneo con largos): ya no se escucha el
+  // video a mitad del flujo — TODO el trabajo (transcribir → construir → renderizar)
+  // ocurre al final, cuando el usuario ya eligió todo. auto-build transcribe solo
+  // si falta la transcripción (primer paso del job).
   async function advanceFromStep1() {
     if (selectedVideos.size === 0) return;
-    const needsTranscribe = selectedVideoList.filter((v) => !v.status.transcribed);
-    if (needsTranscribe.length === 0) {
-      setStep(2);
-      return;
-    }
-    const allOk = await runTranscription(needsTranscribe);
-    if (allOk) setStep(2);
+    setStep(2);
   }
 
   // Elige la descripción correcta según la primera plataforma seleccionada.
@@ -1051,52 +1016,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       });
     }
   }
-
-  // F4 — Vista previa REAL, compartida entre el paso 2 (estilo) y el paso 3 (color):
-  // ver cómo queda TU video es lo que más confianza da; debe estar al frente.
-  const previewPanel = (
-    <div className="mt-5 rounded-lg border-2 border-brand-pink/30 bg-brand-pink/5 p-4 text-center">
-      <p className="mb-2 text-sm font-medium">👁️ Mira cómo queda TU video antes de crearlo</p>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={() => generateStylePreview(false)}
-          disabled={previewLoading || selectedStyles.length === 0 || selectedVideos.size === 0}
-          className="rounded-md bg-brand-pink/15 px-4 py-2 text-sm font-medium text-brand-pink ring-1 ring-brand-pink/40 transition hover:bg-brand-pink/25 disabled:opacity-50"
-        >
-          {previewLoading ? "Generando…" : "🎬 Foto (~30s)"}
-        </button>
-        <button
-          type="button"
-          onClick={() => generateStylePreview(true)}
-          disabled={previewLoading || selectedStyles.length === 0 || selectedVideos.size === 0}
-          className="rounded-md bg-violet-500/15 px-4 py-2 text-sm font-medium text-violet-300 ring-1 ring-violet-500/40 transition hover:bg-violet-500/25 disabled:opacity-50"
-        >
-          {previewLoading ? "Generando…" : "▶ En movimiento (3s, ~1-2 min)"}
-        </button>
-      </div>
-      <p className="mt-1 text-[10px] text-muted-foreground">
-        Tu video con el estilo &quot;{STYLES.find((s) => s.id === selectedStyles[0])?.name ?? "—"}&quot; y lo que hayas elegido. La segunda vez es al instante.
-      </p>
-      {previewUrl && previewIsVideo && (
-        <video
-          src={previewUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="mx-auto mt-3 max-h-[420px] rounded-lg border border-border shadow-lg"
-        />
-      )}
-      {previewUrl && !previewIsVideo && (
-        <img
-          src={previewUrl}
-          alt="Vista previa del estilo sobre tu video"
-          className="mx-auto mt-3 max-h-[420px] rounded-lg border border-border shadow-lg"
-        />
-      )}
-    </div>
-  );
 
   // Submenús del paso 2 definidos UNA vez y rendereados donde toque: dentro de su
   // tarjeta-preset activa, o sueltos cuando el estilo vino del modo avanzado
@@ -1695,7 +1614,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
           {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) && musicPanel}
 
           {/* La vista previa REAL también vive acá: elegir estilo viendo cómo queda. */}
-          {previewPanel}
+
 
           <p className="mt-4 text-xs text-muted-foreground">
             {selectedStyles.length === 0
@@ -1899,7 +1818,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
           )}
 
           {/* F4 — Vista previa REAL (compartida con el paso 2). */}
-          {previewPanel}
+
 
           {!editorialOnly && (
             <>
@@ -2066,7 +1985,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
 
           {/* Vista previa REAL del video con el estilo elegido, justo antes de crear:
               el usuario ve una foto/gif de cómo queda antes de tocar "Crear". */}
-          {previewPanel}
+
 
           {/* Botón GRANDE y prominente: el momento clave del wizard. */}
           <Button

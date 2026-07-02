@@ -124,16 +124,40 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
   const { accentColor, caption, captionMeta, platforms, day } = body;
   const hasWizardCopy = Boolean(captionMeta && caption);
 
-  // 1. Verificar transcript
+  // 1. Verificar transcript — y si FALTA, transcribir ACÁ como primer paso del job.
+  // Wizard homogéneo (paridad con largos): el wizard de cortos ya NO escucha el video
+  // a mitad de flujo; TODO el trabajo (transcribir → construir → renderizar) ocurre al
+  // final, cuando el usuario ya eligió todo. Mismo candado serial que /api/videos/
+  // transcribe (varias transcripciones a la vez saturan CPU/VRAM).
   const transcriptPath = path.join(TRANSCRIPTS_DIR, `${videoId}.json`);
   let transcript: { duration: number; words: TranscriptWord[] };
   try {
     transcript = JSON.parse(await fs.readFile(transcriptPath, "utf-8"));
   } catch {
     for (const s of job.styles) {
-      updateStep(job.id, s, { status: "fail", error: "transcripción no existe" });
+      updateStep(job.id, s, { status: "building", progress: 2 });
     }
-    return;
+    console.log(`[auto-build] ${videoId}: sin transcripción — escuchando el video primero…`);
+    try {
+      const files = await fs.readdir(RAW_DIR);
+      const match = files.find((f) => path.basename(f, path.extname(f)) === videoId);
+      if (!match) throw new Error("el video ya no está en la carpeta de videos");
+      const { runPythonJson } = await import("@/lib/run-python");
+      const { withSerialLock } = await import("@/lib/serial-lock");
+      const tr = await withSerialLock("transcribe", () =>
+        runPythonJson("transcribe.py", [path.join(RAW_DIR, match)], {
+          idleTimeoutMs: 8 * 60 * 1000,
+        })
+      );
+      if (!tr.ok) throw new Error(tr.stderr.slice(-300) || "transcribe.py falló");
+      transcript = JSON.parse(await fs.readFile(transcriptPath, "utf-8"));
+    } catch (err) {
+      const human = humanizeError(String(err), "No se pudo escuchar el audio del video.");
+      for (const s of job.styles) {
+        updateStep(job.id, s, { status: "fail", error: human.message });
+      }
+      return;
+    }
   }
 
   // 2. Cuts si es necesario
