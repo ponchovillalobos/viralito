@@ -67,6 +67,44 @@ def smooth_ema(history: deque, alpha: float = 0.7) -> tuple[float, float, float,
     return smoothed
 
 
+class OneEuroFilter:
+    """Filtro 1€ (Casiez et al. 2012) para el CENTRO del crop que sigue la cara.
+
+    Cutoff adaptativo: a velocidad baja filtra FUERTE (mata el jitter/tembleque de la
+    detección frame a frame), a velocidad alta filtra POCO (sigue movimientos rápidos
+    sin lag). Es el estándar para señales de tracking; el EMA fijo obligaba a elegir
+    entre temblar o arrastrarse. w/h siguen con EMA (el tamaño no debe saltar).
+    """
+
+    def __init__(self, min_cutoff: float = 0.35, beta: float = 0.4, d_cutoff: float = 1.0) -> None:
+        self.min_cutoff = min_cutoff  # Hz — más bajo = más suave en reposo
+        self.beta = beta              # cuánto abre el cutoff con la velocidad
+        self.d_cutoff = d_cutoff
+        self._prev_t: float | None = None
+        self._prev_x: float | None = None
+        self._prev_dx = 0.0
+
+    @staticmethod
+    def _alpha(cutoff: float, dt: float) -> float:
+        import math
+        tau = 1.0 / (2.0 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, t: float, x: float) -> float:
+        if self._prev_t is None or t <= self._prev_t:
+            self._prev_t, self._prev_x, self._prev_dx = t, x, 0.0
+            return x
+        dt = t - self._prev_t
+        dx = (x - self._prev_x) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        dx_hat = a_d * dx + (1 - a_d) * self._prev_dx
+        cutoff = self.min_cutoff + self.beta * abs(dx_hat)
+        a = self._alpha(cutoff, dt)
+        x_hat = a * x + (1 - a) * (self._prev_x if self._prev_x is not None else x)
+        self._prev_t, self._prev_x, self._prev_dx = t, x_hat, dx_hat
+        return x_hat
+
+
 class FaceDetector:
     """Detector de rostros con dos backends. Preferencia BlazeFace (MediaPipe,
     más preciso); fallback Haar (OpenCV, sin descargas, offline). El atributo
@@ -166,6 +204,9 @@ def process_video(
 
     samples: list[dict] = []
     bbox_history: deque = deque(maxlen=5)
+    # Centro del crop con filtro 1€ (jitter muerto, sin lag); w/h se quedan en EMA.
+    euro_cx = OneEuroFilter()
+    euro_cy = OneEuroFilter()
     detected_count = 0
     sampled_count = 0
     frame_idx = 0
@@ -204,7 +245,12 @@ def process_video(
 
             smoothed = smooth_ema(bbox_history, alpha=0.7)
             if smoothed:
-                cx, cy, w, h = smoothed
+                _, _, w, h = smoothed
+                # cx/cy: filtro 1€ sobre la detección cruda (con gap-fill) — adaptativo
+                # a la velocidad. En single-frame pasa directo (primer sample = x).
+                raw = bbox_history[-1]
+                cx = euro_cx(t, raw[0])
+                cy = euro_cy(t, raw[1])
                 samples.append({
                     "t": round(t, 3),
                     "cx": round(max(0.0, min(1.0, cx)), 4),

@@ -697,6 +697,22 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
         }
       }
 
+      // LOUDNESS -14 LUFS — las redes normalizan a ~-14; nuestros mixes salían a ~-21
+      // y la red los subía amplificando ruido. 2-pass loudnorm SOLO del audio
+      // (-c:v copy → segundos). Best-effort: si falla, el render queda tal cual.
+      try {
+        const ln = await runProcess(
+          PYTHON_EXE,
+          [path.join(PYTHON_DIR, "normalize_audio.py"), outPath],
+          PYTHON_DIR,
+          undefined,
+          180_000
+        );
+        if (ln.ok) console.log(`[auto-build] loudnorm -14 LUFS ok: ${path.basename(outPath)}`);
+      } catch (err) {
+        console.warn(`[auto-build] loudnorm skipped:`, err);
+      }
+
       // Publicar atómicamente: el .mp4 final aparece de una sola pieza recién acá.
       // (con retry ante locks transitorios de antivirus/indexador sobre el archivo)
       await renameWithRetry(outPath, finalOut);

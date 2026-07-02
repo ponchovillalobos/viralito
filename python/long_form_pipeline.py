@@ -43,6 +43,7 @@ from config import (
 from hw_profile import ffmpeg_full_args
 from lib.ffmpeg_safe_run import safe_ffmpeg
 from postencode import post_encode
+from normalize_audio import normalize as normalize_loudness
 
 
 PYTHON_DIR = Path(__file__).resolve().parent
@@ -1128,6 +1129,16 @@ def step_render_clip(
                 print(f"[post-encode] skipped: {res.get('error')}", file=sys.stderr)
         except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
             print(f"[post-encode] skipped: {e}", file=sys.stderr)
+    # 6) LOUDNESS -14 LUFS (estándar de todas las redes): el master de arriba comprime
+    #    pero no fija loudness — los mixes salían a ~-21 LUFS y la red los subía
+    #    amplificando ruido. 2-pass loudnorm SOLO del audio (-c:v copy, segundos).
+    #    Best-effort: nunca rompe el clip.
+    try:
+        ln = normalize_loudness(out)
+        if ln.get("normalized"):
+            print(f"[loudnorm] {out.name}: {ln.get('measured_i')} → -14 LUFS", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
+        print(f"[loudnorm] skipped: {e}", file=sys.stderr)
     return out
 
 
