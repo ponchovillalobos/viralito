@@ -814,12 +814,17 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         overflow: "hidden",
         boxShadow:
           editorialPanel.r > 1 ? "0 24px 90px rgba(0,0,0,0.65)" : "none",
-        // Ola 6 — temas de papel: bordes del panel RASGADOS (displacement map;
-        // seed fijo = determinista). Solo cuando el panel no es fullscreen.
-        filter:
-          edLook?.tornPanel && editorialPanel.r > 1 ? "url(#ed-torn-edge)" : undefined,
+        // Ola 6 → FIX: el borde rasgado YA NO se aplica al video. El displacement
+        // map desplazaba TODOS los píxeles del panel (no solo el borde) → caras
+        // "onduladas como espejo" (feedback del usuario). El rasgado vive ahora en
+        // un RESPALDO de papel plano detrás del video (ver ed-torn backing abajo):
+        // mismo look de papel rasgado, video 100% nítido.
       }
     : { position: "absolute", inset: 0 };
+  // Respaldo de papel rasgado (solo temas tornPanel con panel no-fullscreen):
+  // un rect de color plano un poco MÁS GRANDE que el video, con el displacement
+  // aplicado a ÉL — como es color liso, la ondulación solo se ve en sus bordes.
+  const tornBacking = Boolean(edLook?.tornPanel && editorialPanel && editorialPanel.r > 1);
 
   return (
     <AbsoluteFill
@@ -852,6 +857,25 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           currentTime={currentTime}
           width={compWidth}
           height={compHeight}
+        />
+      )}
+      {/* Respaldo de papel RASGADO detrás del video (temas de papel). El filtro de
+          displacement se aplica a este rect de color liso → borde rasgado visible,
+          y el video de arriba queda nítido (sin ondulaciones en las caras). */}
+      {tornBacking && editorialPanel && (
+        <div
+          style={{
+            position: "absolute",
+            left: editorialPanel.x - 14,
+            top: editorialPanel.y - 14,
+            width: editorialPanel.w + 28,
+            height: editorialPanel.h + 28,
+            background: edLook?.canvas.bg ?? "#f3eddc",
+            // brightness(1.06) lo deja un pelo más claro que el lienzo para que el
+            // rasgado se lea como papel pegado encima; drop-shadow sigue la SILUETA rasgada.
+            filter:
+              "url(#ed-torn-edge) brightness(1.06) drop-shadow(0 18px 36px rgba(0,0,0,0.35))",
+          }}
         />
       )}
       <div style={videoContainerStyle}>
