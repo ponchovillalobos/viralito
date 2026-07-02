@@ -20,6 +20,7 @@ import {
   imageOverlaySchema,
   cameraMoveSchema,
 } from "./cinematic-layers";
+import { VhsOverlayLayer } from "./layers/vhs-overlay-layer";
 import {
   SceneFxLayer,
   ProTransitionLayer,
@@ -267,6 +268,9 @@ export const viralVideoSchema = z.object({
   imageOverlays: z.array(imageOverlaySchema).default([]),
   cameraMoves: z.array(cameraMoveSchema).default([]),
   filmGrain: z.boolean().default(false),
+  // VHS — overlay camcorder analógico (scanlines + timestamp + REC + tracking
+  // glitch), 100% procedural. Opt-in del estilo "vhs"; false = render idéntico.
+  vhsLook: z.boolean().default(false),
   // CINE CLÁSICO — ventanas de DRAMA donde la imagen del video base se vuelve
   // blanco y negro (cine antiguo) y luego revierte. Cada ventana {at, duration}.
   // Vacío = sin B&W (render idéntico al histórico para todos los demás estilos).
@@ -369,6 +373,7 @@ export const defaultProps: ViralVideoProps = {
   imageOverlays: [],
   cameraMoves: [],
   filmGrain: false,
+  vhsLook: false,
   bwWindows: [],
   cinematicDensity: "medium",
   sceneFx: [],
@@ -433,6 +438,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   imageOverlays,
   cameraMoves,
   filmGrain,
+  vhsLook,
   bwWindows,
   cinematicDensity,
   sceneFx,
@@ -1335,6 +1341,8 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
       {/* Cuando isCinematicMode=true → imágenes FULLSCREEN + TV grain siempre + Ken Burns amplio */}
       <ImageOverlayLayer overlays={imageOverlays} fullscreenCinematic={isCinematicMode} />
       <FilmGrainLayer enabled={filmGrain} />
+      {/* VHS — overlay camcorder (opt-in, aditivo): encima del video, debajo de subs. */}
+      {vhsLook && <VhsOverlayLayer currentTime={currentTime} enabled={vhsLook} />}
 
       {/* === CapCut Pro FX (opt-in, ADITIVO) — solo montan si traen datos === */}
       {sceneFx.length > 0 && <SceneFxLayer fx={sceneFx} currentTime={currentTime} />}

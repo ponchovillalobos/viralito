@@ -282,6 +282,33 @@ emocional** entra el drama de cine antiguo.
 El drama por-pico se arma automáticamente desde el director emocional; no requiere
 configuración manual.
 
+## 11. VHS Retro — `vhs` 📼
+
+**Tagline**: Cámara de los 90: grano, scanlines, ► PLAY con contador y glitch de tracking.
+
+**Cuándo usar**: contenido que gana con lo "imperfecto/analógico" — storytime, humor,
+nostalgia, behind-the-scenes. Tendencia sostenida 2026 ("analog nostalgia"): el grano
+lee como REAL contra la estética AI-perfecta.
+
+**Elementos** (100% procedurales, `remotion/src/layers/vhs-overlay-layer.tsx`):
+- **Scanlines CRT** (repeating-linear-gradient, multiply) + viñeta de tubo.
+- **OSD VCR**: `▶ PLAY 0:MM:SS` (contador real del clip) abajo-izquierda y `● REC`
+  parpadeante arriba-derecha, en monospace con halo y jitter de 1px.
+- **Tracking glitch** cada ~5s: 2 bandas horizontales que saltan con tinte RGB +
+  banda de ruido inferior (feTurbulence). Determinista (seeds fijos, sin Date.now).
+- **Flicker de brillo** sutil senoidal + micro-ruido.
+- **Base**: subtítulos bebas, film grain + viñeta, LUT `vintage_film.cube` (post-fx).
+  Sin sceneFx ni proTransitions: el glitch del overlay ES la transición (look raw).
+- Prop opt-in `vhsLook` (boolean; default false = render idéntico para el resto).
+  Cableado en `build-props.mjs` y `build-clip-props.mjs`.
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "vhs"
+}
+```
+
 ## 16 SFX disponibles
 
 Curados en `C:\viral-data\videos\assets\sfx\curated\`:

@@ -876,6 +876,25 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     );
   }
 
+  // VHS — camcorder analógico 90s ("analog nostalgia" 2026): scanlines + ► PLAY +
+  // ● REC + tracking glitch (vhs-overlay-layer, 100% procedural) sobre grano/viñeta
+  // + LUT vintage_film. Raw a propósito: sin sceneFx ni transiciones extra — el
+  // glitch del overlay ES la transición.
+  if (styleId === "vhs") {
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "bebas" as const,
+        vignette: true,
+        filmGrain: true,
+        vhsLook: true,
+        emphasisCards: buildEmphasisCards(ctx),
+      },
+      ctx,
+      { lut: "vintage_film.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   if (styleId === "hype") {
     return applyCapcutFx(
       {

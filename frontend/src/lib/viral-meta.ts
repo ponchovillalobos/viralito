@@ -40,7 +40,7 @@ const STYLES = [
   "editorial_full", "editorial_broll", "editorial", "supreme", "hype_max_sfx", "hype_max", "hype",
   "silent", "punch", "cinematic_pro", "broll_full", "broll_pip", "text_behind", "pop_reels",
   "graphics_pro", "graphics_max", "motion_pro", "motion_beat", "motion_grid", "kinetic_type",
-  "lottie_pop", "paper_cut", "cine_clasico",
+  "lottie_pop", "paper_cut", "cine_clasico", "vhs",
 ];
 
 /** Estilo/diseño del video, sacado del sufijo del id (ej. "..._editorial" → "editorial"). Pure. */
@@ -122,7 +122,7 @@ export function contentSlugFromId(id: string): string {
   return id
     .replace(/^.*?_c\d+_/i, "")
     .replace(
-      /_(editorial(_full|_broll)?|supreme|hype(_max)?(_sfx)?|silent|punch|cinematic_pro|broll_(full|pip)|text_behind|pop_reels|graphics_(pro|max)|motion_(pro|beat|grid)|kinetic_type|lottie_pop|paper_cut|cine_clasico)$/i,
+      /_(editorial(_full|_broll)?|supreme|hype(_max)?(_sfx)?|silent|punch|cinematic_pro|broll_(full|pip)|text_behind|pop_reels|graphics_(pro|max)|motion_(pro|beat|grid)|kinetic_type|lottie_pop|paper_cut|cine_clasico|vhs)$/i,
       "",
     );
 }

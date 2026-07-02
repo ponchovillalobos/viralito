@@ -38,6 +38,7 @@ export const STYLE_LABEL: Record<string, string> = {
   motion_beat: "Animado al ritmo",
   motion_grid: "Animado en cuadrícula",
   editorial: "Editorial",
+  vhs: "VHS Retro",
 };
 
 export interface ProjectExt extends Project {

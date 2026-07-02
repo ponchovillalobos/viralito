@@ -185,6 +185,8 @@ const props = {
   brandKit: project.brandKit ?? null,
   cameraMoves: Array.isArray(project.cameraMoves) ? project.cameraMoves : [],
   filmGrain: project.filmGrain ?? false,
+  // VHS — overlay camcorder analógico (estilo "vhs"). Boolean puro.
+  vhsLook: project.vhsLook ?? false,
   cinematicDensity: project.cinematicDensity ?? "medium",
   // Voz IA (largos no la cablea aún → null = sin voz). Pass-through por si un futuro
   // estilo/flag la setea en el project.

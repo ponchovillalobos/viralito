@@ -609,6 +609,22 @@ export function buildProjectForStyle(ctx, styleId) {
     );
   }
 
+  // VHS — camcorder analógico 90s (paridad EXACTA con style-templates.ts).
+  if (styleId === "vhs") {
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "bebas",
+        vignette: true,
+        filmGrain: true,
+        vhsLook: true,
+        emphasisCards: buildEmphasisCards(ctx),
+      },
+      ctx,
+      { lut: "vintage_film.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
   if (styleId === "hype") {
     return applyCapcutFx(
       {

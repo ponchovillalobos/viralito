@@ -232,5 +232,15 @@
     "families": ["music"],
     "longForm": true,
     "hasGraphics": false
+  },
+  {
+    "id": "vhs",
+    "name": "VHS Retro",
+    "tagline": "Cámara de los 90: grano, scanlines, ► PLAY y glitch de tracking",
+    "emoji": "📼",
+    "shortLabel": "VHS",
+    "families": [],
+    "longForm": true,
+    "hasGraphics": false
   }
 ]

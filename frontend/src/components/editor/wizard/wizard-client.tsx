@@ -60,7 +60,7 @@ const FONT_PREVIEW: Record<string, string> = {
   playfair: "'Playfair Display', Georgia, serif",
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico";
+type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico" | "vhs";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -120,6 +120,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "lottie_pop", name: "Animado con stickers", tagline: "Lleno de vida: stickers animados, íconos y fondo aurora. Juguetón y enérgico.", emoji: "✨" },
   { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: tu video en un panel de papel recortado + titulares serif.", emoji: "✂️" },
   { id: "cine_clasico", name: "Cine clásico", tagline: "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro, con efectos de máquina de escribir y proyector.", emoji: "🎞️" },
+  { id: "vhs", name: "VHS Retro", tagline: "Cámara de los 90: grano, scanlines, ► PLAY con contador y glitch de tracking. Se siente grabado en cinta — lo 'imperfecto' que hoy se ve real.", emoji: "📼" },
 ];
 
 // Tarjetas-preset del paso 2: 5 familias con variantes (selección ÚNICA y simple).
@@ -192,6 +193,7 @@ const PRESETS: PresetDef[] = [
     variants: [
       { id: "cinematic_pro", label: "Cine 🎬" },
       { id: "cine_clasico", label: "Cine clásico 🎞️🎙️" },
+      { id: "vhs", label: "VHS Retro 📼" },
     ],
   },
   {

@@ -237,6 +237,8 @@ const props = {
     : [],
   cameraMoves: Array.isArray(project.cameraMoves) ? project.cameraMoves : [],
   filmGrain: project.filmGrain ?? false,
+  // VHS — overlay camcorder analógico (estilo "vhs"). Boolean puro, sin remapear.
+  vhsLook: project.vhsLook ?? false,
   // CINE CLÁSICO — ventanas de B&W (drama). Tienen `at` → remapear con jump cuts.
   bwWindows: filterAndRemap(project.bwWindows || [], ["at"]),
   // F3 SUPREME — mood-aware color grading (KODAK/FUJI/BLEACH según densidad).

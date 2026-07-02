@@ -372,6 +372,48 @@ export function StyleMiniDemo({
                 />
               </Screen>
             );
+          case "vhs":
+            return (
+              <Screen bg="#181410">
+                {/* escena cálida con viñeta de tubo */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse at 50% 45%, rgba(226,190,140,0.35), transparent 60%), radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%)",
+                  }}
+                />
+                {/* scanlines CRT */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0 1px, transparent 1px 3px)",
+                  }}
+                />
+                {/* banda de tracking glitch que sube */}
+                <div
+                  className="absolute inset-x-0 h-1.5"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(255,80,80,0.5), rgba(255,255,255,0.35), rgba(80,255,240,0.5))",
+                    animation: "smd-slide 2.2s ease-in-out infinite",
+                    top: "30%",
+                  }}
+                />
+                {/* OSD ► PLAY + REC */}
+                <div className="absolute bottom-3 left-1 font-mono text-[5px] font-bold text-zinc-100/90">
+                  ▶ PLAY 0:04
+                </div>
+                <div
+                  className="absolute right-1 top-2 font-mono text-[5px] font-bold text-zinc-100/90"
+                  style={{ animation: "smd-onair 2s steps(1) infinite" }}
+                >
+                  <span className="text-red-500">●</span> REC
+                </div>
+                <Caption color={accent} />
+              </Screen>
+            );
           default:
             return <Screen><Caption color={accent} /></Screen>;
         }
