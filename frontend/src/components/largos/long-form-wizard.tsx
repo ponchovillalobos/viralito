@@ -170,6 +170,9 @@ interface JobState {
   steps: JobStep[];
   log: string[];
   clipsCount?: number;
+  /** Request original persistido — permite REANUDAR el trabajo con un clic
+   *  (el pipeline salta lo ya hecho: transcript/clips/renders existentes). */
+  request?: Record<string, unknown>;
 }
 
 interface IaLocalStatus {
@@ -327,6 +330,7 @@ export function LongFormWizard() {
   const [proposals, setProposals] = useState<ProposalsResponse | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
   // Semáforo de la IA local (modo inteligente): null = todavía no se chequeó.
   const [iaStatus, setIaStatus] = useState<IaLocalStatus | null>(null);
   const [checkingIa, setCheckingIa] = useState(false);
@@ -857,6 +861,40 @@ export function LongFormWizard() {
     }
   }
 
+  // REANUDA un trabajo fallido/interrumpido: re-encola su request original.
+  // El pipeline salta lo ya hecho (transcript/clips/renders existentes), así que
+  // retoma donde iba en vez de repetir horas de trabajo.
+  async function resumeActiveJob() {
+    if (!activeJob) return;
+    if (!activeJob.request) {
+      toast.error("Este trabajo no guardó su configuración", {
+        description: "Arrancalo de nuevo desde el paso 1 — lo ya generado se salta solo.",
+      });
+      return;
+    }
+    setResuming(true);
+    try {
+      const r = await fetch("/api/long_form/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activeJob.request),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.error === "string" ? data.error : `HTTP ${r.status}`);
+      const jobIds: string[] = data.jobIds ?? (data.jobId ? [data.jobId] : []);
+      if (jobIds.length === 0) throw new Error("no se encoló el trabajo");
+      toast.success("Trabajo reanudado ✓", {
+        description: "Retoma saltando lo que ya estaba hecho.",
+      });
+      const jr = await fetch(`/api/long_form/progress?jobId=${jobIds[0]}`);
+      if (jr.ok) setActiveJob((await jr.json()) as JobState);
+    } catch (err) {
+      toastError(err, "No se pudo reanudar el trabajo");
+    } finally {
+      setResuming(false);
+    }
+  }
+
   function cancelView() {
     setActiveJob(null);
     setProposals(null);
@@ -911,6 +949,8 @@ export function LongFormWizard() {
             onClose={cancelView}
             onCancel={cancelActiveJob}
             cancelling={cancelling}
+            onResume={resumeActiveJob}
+            resuming={resuming}
           />
         )}
       </div>
@@ -2017,6 +2057,8 @@ function JobView({
   onClose,
   onCancel,
   cancelling,
+  onResume,
+  resuming,
 }: {
   job: JobState;
   now: number;
@@ -2024,6 +2066,9 @@ function JobView({
   onClose: () => void;
   onCancel: () => void;
   cancelling: boolean;
+  /** Re-encola el request original del job (retoma saltando lo hecho). */
+  onResume: () => void;
+  resuming: boolean;
 }) {
   const elapsed = (job.finishedAt ?? now) - job.startedAt;
   const isLive = job.status === "running" || job.status === "queued";
@@ -2237,18 +2282,45 @@ function JobView({
         </div>
       )}
 
-      {job.status === "failed" && (
-        <div className="mt-5 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-red-200">
-            <XCircle className="h-4 w-4" />
-            El procesamiento falló
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Causas comunes: la IA local está apagada (ábrela desde el menú Inicio), el video
-            no tiene voz, o el archivo está dañado. El detalle está arriba, en «Detalle del proceso».
-          </p>
-        </div>
-      )}
+      {job.status === "failed" &&
+        (() => {
+          // Mensaje HONESTO según la causa: si fue un reinicio de la app, no es culpa
+          // del video ni de la IA — y el botón Reanudar retoma saltando lo ya hecho.
+          const interrupted = job.steps.some((s) =>
+            /interrumpido por reinicio|pausado porque la app se reinició/i.test(s.message ?? ""),
+          );
+          return (
+            <div className="mt-5 rounded-md border border-red-500/30 bg-red-500/5 p-3">
+              <p className="flex items-center gap-2 text-sm font-medium text-red-200">
+                <XCircle className="h-4 w-4" />
+                {interrupted ? "El trabajo se interrumpió" : "El procesamiento falló"}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {interrupted
+                  ? "La app se reinició a mitad del trabajo — tu video está bien. Tocá «Reanudar» y retoma saltando lo que ya estaba hecho."
+                  : "Causas comunes: la IA local está apagada (ábrela desde el menú Inicio), el video no tiene voz, o el archivo está dañado. El detalle está arriba, en «Detalle del proceso»."}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={onResume}
+                  disabled={resuming}
+                  className="bg-violet-500 text-white hover:bg-violet-400"
+                >
+                  {resuming ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {resuming ? "Reanudando…" : "Reanudar trabajo"}
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  Retoma donde iba — lo ya generado no se repite.
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
       {job.status === "cancelled" && (
         <div className="mt-5 rounded-md border border-border bg-muted/20 p-3">

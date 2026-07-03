@@ -23,9 +23,13 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::Manager;
+
+/// true cuando la ventana se está cerrando: el watchdog NO debe revivir el server.
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 /// CREATE_NO_WINDOW: sin este flag, cada proceso hijo (tasklist, taskkill, el
 /// node del server) abre una consola negra fantasma encima de la app.
@@ -297,10 +301,63 @@ pub fn run() {
                     }
                 }
             });
+
+            // WATCHDOG (feedback del usuario: "falta un botón de reiniciar"): si el
+            // motor (node) muere — crash, kill externo, o el botón "Reiniciar motor"
+            // de Ajustes que hace process.exit(0) — este hilo lo REVIVE solo con
+            // backoff, y recarga la ventana cuando vuelve a responder. Con esto la
+            // app nunca queda "muerta" hasta reabrir la ventana.
+            let wd_handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_secs(2));
+                if SHUTTING_DOWN.load(Ordering::SeqCst) {
+                    break;
+                }
+                let state = wd_handle.state::<ServerProc>();
+                let died = {
+                    let mut guard = state.0.lock().unwrap();
+                    match guard.as_mut() {
+                        Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+                        None => true,
+                    }
+                };
+                if !died {
+                    continue;
+                }
+                eprintln!("[studio] el motor murió — reviviéndolo…");
+                std::thread::sleep(Duration::from_millis(1500)); // backoff (rebuilds, etc.)
+                if SHUTTING_DOWN.load(Ordering::SeqCst) {
+                    break;
+                }
+                let respawned = spawn_server(port);
+                {
+                    let mut guard = state.0.lock().unwrap();
+                    *guard = respawned;
+                }
+                // Cuando el server vuelva a aceptar conexiones, recargar la ventana.
+                let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+                let deadline = std::time::Instant::now() + Duration::from_secs(40);
+                while std::time::Instant::now() < deadline {
+                    if SHUTTING_DOWN.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    if TcpStream::connect_timeout(&addr, Duration::from_millis(400)).is_ok() {
+                        if let Some(win) = wd_handle.get_webview_window("main") {
+                            let url = format!("http://localhost:{port}").parse().unwrap();
+                            let _ = win.navigate(url);
+                        }
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(400));
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Cierre real: apagar el watchdog ANTES de matar el server (si no,
+                // lo reviviría en el backoff).
+                SHUTTING_DOWN.store(true, Ordering::SeqCst);
                 if let Some(state) = window.app_handle().try_state::<ServerProc>() {
                     if let Ok(mut guard) = state.0.lock() {
                         if let Some(child) = guard.as_mut() {

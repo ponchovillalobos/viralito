@@ -25,6 +25,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Download,
+  RefreshCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
@@ -258,6 +259,41 @@ export function SettingsDialog({ open, onOpenChange, onSaved }: SettingsDialogPr
       toast.error("No se pudo verificar la instalación");
     } finally {
       setDoctorLoading(false);
+    }
+  }
+
+  // REINICIAR MOTOR: apaga el node del server; el watchdog de la app de
+  // escritorio lo revive y recarga la ventana. Acá solo esperamos a que vuelva.
+  const [restartingEngine, setRestartingEngine] = useState(false);
+  async function restartEngine() {
+    setRestartingEngine(true);
+    try {
+      await fetch("/api/maintenance/restart-engine", { method: "POST" });
+      toast("Reiniciando el motor…", {
+        description: "La app vuelve sola en unos segundos.",
+      });
+      // Esperar a que el motor vuelva a responder y recargar la página.
+      const deadline = Date.now() + 45_000;
+      await new Promise((r) => setTimeout(r, 2_500));
+      while (Date.now() < deadline) {
+        try {
+          const ping = await fetch("/api/doctor/diagnose", { cache: "no-store" });
+          if (ping.ok) {
+            location.reload();
+            return;
+          }
+        } catch {
+          /* aún abajo */
+        }
+        await new Promise((r) => setTimeout(r, 1_000));
+      }
+      toast.error("El motor no volvió solo", {
+        description: "Cierra y abre Viralito para levantarlo de nuevo.",
+      });
+    } catch (err) {
+      toastError(err, "No se pudo reiniciar el motor");
+    } finally {
+      setRestartingEngine(false);
     }
   }
 
@@ -999,18 +1035,37 @@ export function SettingsDialog({ open, onOpenChange, onSaved }: SettingsDialogPr
 
             {/* ── VERIFICAR INSTALACIÓN ──────────────────── */}
             <section className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-mono-tab text-xs uppercase tracking-wider text-muted-foreground">
                   Estado de la instalación
                 </h3>
-                <Button type="button" variant="outline" size="sm" onClick={runDoctor} disabled={doctorLoading}>
-                  {doctorLoading ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {doctorLoading ? "Verificando…" : "Verificar instalación"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Reinicia el motor (node): el watchdog de la app de escritorio lo
+                      revive solo y recarga la ventana. Para cuando algo "se traba". */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={restartEngine}
+                    disabled={restartingEngine}
+                    title="Apaga y enciende el motor de la app — la ventana se recarga sola en unos segundos"
+                  >
+                    {restartingEngine ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {restartingEngine ? "Reiniciando…" : "Reiniciar motor"}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={runDoctor} disabled={doctorLoading}>
+                    {doctorLoading ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {doctorLoading ? "Verificando…" : "Verificar instalación"}
+                  </Button>
+                </div>
               </div>
               {doctorChecks && (
                 <ul className="space-y-1 text-xs">

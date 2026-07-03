@@ -448,6 +448,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "videoId (o videoIds[]) requerido" }, { status: 400 });
     }
 
+    // PREFLIGHT DE IA (feedback del usuario: "la app no debería arrancar si no está
+    // todo preparado"): los modos que ANALIZAN con IA (full/analyze sin heurístico)
+    // necesitan Ollama local O internet (providers OAuth). Verificarlo ACÁ, antes de
+    // encolar horas de trabajo, en vez de fallar a mitad del proceso con un mensaje
+    // genérico. render-approved y el modo heurístico no analizan → no se bloquean.
+    if (mode !== "render-approved" && !body.useHeuristic) {
+      const ollamaOk = await fetch(
+        `${process.env.VIRAL_OLLAMA_URL ?? "http://localhost:11434"}/api/tags`,
+        { signal: AbortSignal.timeout(3_000) },
+      )
+        .then((r) => r.ok)
+        .catch(() => false);
+      const internetOk = ollamaOk
+        ? true
+        : await fetch("https://www.gstatic.com/generate_204", {
+            signal: AbortSignal.timeout(4_000),
+          })
+            .then(() => true)
+            .catch(() => false);
+      if (!ollamaOk && !internetOk) {
+        return NextResponse.json(
+          {
+            error:
+              "La IA local está apagada y no hay internet. Abre Ollama desde el menú Inicio (o conéctate a internet) y vuelve a intentar — así el análisis no falla a la mitad.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     // render-approved necesita el proposals JSON ya escrito (el análisis previo).
     if (mode === "render-approved") {
       for (const vid of videoIdList) {
