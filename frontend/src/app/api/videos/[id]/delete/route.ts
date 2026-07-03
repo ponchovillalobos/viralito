@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { RAW_DIR } from "@/lib/paths";
-import { sweepShortOrphans } from "@/lib/orphan-sweep";
 import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +9,14 @@ export const dynamic = "force-dynamic";
 const USED_DIR = path.join(RAW_DIR, "used");
 
 /**
- * BORRADO DEFINITIVO de un video subido. Elimina del disco el archivo raw
- * ({id}.mp4/.mov/…) y su variante _cut, tanto en RAW_DIR como en used/. Después
- * dispara el barrido de huérfanos para limpiar sus derivados (proyectos, renders,
- * transcripts, cuts) — así el video desaparece de TODAS las pantallas del portal.
+ * BORRADO de un video subido: elimina del disco SOLO el archivo raw
+ * ({id}.mp4/.mov/…) y su intermedio _cut, en RAW_DIR y used/.
  *
- * Es irreversible (a diferencia de "archivar", que solo mueve a used/). El botón en
- * la UI pide confirmación antes de llamar aquí.
+ * ⚠️ INVARIANTE (incidente 2026-07-03): borrar el video original NO toca sus
+ * renders/proyectos — los videos YA GENERADOS son el producto del usuario y se
+ * conservan en "Mis videos" aunque el original se borre. Antes esta ruta disparaba
+ * el barrido de huérfanos que destruía renders terminados. Solo el usuario borra
+ * sus videos generados, uno a uno, desde Mis videos.
  */
 async function deleteMatching(dir: string, videoId: string): Promise<string[]> {
   const files = await fs.readdir(dir).catch(() => [] as string[]);
@@ -53,16 +53,9 @@ export async function POST(
     return NextResponse.json({ error: "video no encontrado", id }, { status: 404 });
   }
 
-  // Limpiar derivados (proyectos/renders/transcripts/cuts) del video ya borrado.
-  let sweptCount = 0;
-  try {
-    sweptCount = (await sweepShortOrphans()).deleted;
-  } catch {
-    /* el video ya se borró; el barrido es best-effort */
-  }
-
+  // Los derivados (proyectos/renders) NO se tocan — ver invariante arriba.
   return NextResponse.json(
-    { ok: true, deleted, derivedDeleted: sweptCount },
+    { ok: true, deleted, derivedDeleted: 0 },
     { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }

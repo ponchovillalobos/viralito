@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { LF_RAW, LF_CLEAN, LF_CLIPS, LF_RENDERS } from "@/lib/paths";
-import { LF_TRANSCRIPTS, LF_PROPOSALS } from "@/lib/paths-long-form";
+import { LF_RAW, LF_CLEAN } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
 /**
- * BORRADO DEFINITIVO de un video largo y todos sus derivados. Elimina del disco el
- * raw en LF_RAW ({videoId}.mp4/.mov/…) y los archivos asociados a ese videoId en
- * LF_CLEAN, LF_CLIPS, LF_RENDERS, LF_TRANSCRIPTS y LF_PROPOSALS. Es irreversible: la
- * UI pide confirmación antes de llamar aquí.
+ * BORRADO de un video largo: elimina del disco SOLO el raw en LF_RAW y su
+ * intermedio _clean en LF_CLEAN.
+ *
+ * ⚠️ INVARIANTE (incidente 2026-07-03): borrar el video original NO toca sus
+ * CLIPS ni sus RENDERS ni sus proposals/transcripts — los videos generados son el
+ * producto del usuario (siguen en Mis videos, publicables, con su score) y los
+ * clips permiten re-generar otros estilos aunque el original ya no esté. Antes
+ * esta ruta borraba TODO en cascada y destruyó renders terminados.
  *
  * SEGURIDAD: el videoId viene de la URL → se valida que NO contenga separadores de
  * ruta ni "..", y se normaliza con path.basename para cerrar el path traversal.
@@ -57,7 +60,8 @@ export async function POST(
     return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
   }
 
-  const dirs = [LF_RAW, LF_CLEAN, LF_CLIPS, LF_RENDERS, LF_TRANSCRIPTS, LF_PROPOSALS];
+  // SOLO raw + clean (intermedio de proceso). Clips/renders/metadata se conservan.
+  const dirs = [LF_RAW, LF_CLEAN];
   const deleted: string[] = [];
   for (const dir of dirs) {
     deleted.push(...(await deleteMatching(dir, videoId)));

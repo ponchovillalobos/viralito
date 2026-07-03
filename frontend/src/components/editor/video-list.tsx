@@ -356,7 +356,8 @@ export function VideoList() {
           <DialogHeader>
             <DialogTitle>¿Borrar «{deleting?.filename}» para siempre?</DialogTitle>
             <DialogDescription>
-              Se elimina el video y todo lo generado con él. No se puede deshacer.
+              Se elimina SOLO este video original. Los videos ya generados con él se
+              conservan en Mis videos. No se puede deshacer.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">

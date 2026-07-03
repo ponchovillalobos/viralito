@@ -1,20 +1,25 @@
 /**
- * Limpieza de huérfanos: cuando el usuario BORRA un video de la carpeta, sus
- * metadatos derivados (transcripts, clips, renders, proposals, projects, graphics…)
- * quedan colgados. Este módulo:
- *   1. `videoBackingExists()` — usado por los endpoints de listado para NO mostrar
- *      entradas cuyo video ya no existe (desaparición instantánea al borrar el raw).
- *   2. `sweepLongFormOrphans()` — borra del disco los derivados de largos cuyo raw
- *      ya no existe. Best-effort, conservador (no borra si no pudo leer LF_RAW).
- *   3. `maybeSweepOrphans()` — dispara el sweep a lo sumo ~2x/día (throttle 12h),
- *      llamado perezosamente desde los listados + una vez al boot.
+ * Detección de huérfanos + limpieza de ARTEFACTOS de proceso.
  *
- * Diseño conservador: el auto-borrado solo toca LARGOS (naming limpio `{id}_cNN_…`).
- * Los shorts solo se FILTRAN del listado (no se auto-borran del disco) por seguridad.
+ * ⚠️ INVARIANTE (incidente 2026-07-03): NINGÚN proceso automático borra archivos
+ * del usuario. NUNCA. El sweep viejo asumía "raw ausente ⇒ borrar todos los
+ * derivados" y cuando el usuario borró/movió sus videos originales (organización
+ * normal de disco), le DESTRUYÓ los renders terminados — su producto final.
+ * Desde entonces:
+ *   1. `videoBackingExists()` — los listados FILTRAN lo que no tiene render válido
+ *      (visual, no destruye nada). Sin cambios.
+ *   2. `sweepLongFormOrphans()` / `sweepShortOrphans()` — SOLO DETECTAN candidatos
+ *      huérfanos y los escriben en `{DATA_ROOT}/orphan-report.json` para una futura
+ *      pantalla manual de "Liberar espacio". No borran NADA (deleted siempre 0).
+ *   3. `sweepStaleArtifacts()` — lo único que sí borra, y SOLO basura de proceso:
+ *      temporales `.__rendering`, locks, intermedios `_raw/_nolut` >24h y previews
+ *      >7d (caché regenerable). Jamás un render/clip final.
+ *   4. `maybeSweepOrphans()` — dispara lo anterior a lo sumo ~2x/día.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  DATA_ROOT as DATA_ROOT_DIR,
   LF_RAW,
   LF_CLEAN,
   LF_CLIPS,
@@ -122,14 +127,39 @@ export async function buildBackingChecker(): Promise<
     source === "long_form" ? lfRenders.has(id) : shortRenders.has(id);
 }
 
+/** Escribe el reporte de huérfanos (para la futura pantalla manual "Liberar espacio").
+ *  Merge por sección; NUNCA borra nada. Best-effort. */
+async function writeOrphanReport(
+  section: "long_form" | "short",
+  candidates: string[],
+): Promise<void> {
+  const reportPath = path.join(DATA_ROOT_DIR, "orphan-report.json");
+  try {
+    let report: Record<string, unknown> = {};
+    try {
+      report = JSON.parse(await fs.readFile(reportPath, "utf-8"));
+    } catch {
+      /* primer reporte */
+    }
+    report[section] = candidates;
+    report.generatedAt = new Date().toISOString();
+    report.note =
+      "Candidatos huérfanos DETECTADOS (su video original ya no está). NADA se borra automáticamente — invariante desde 2026-07-03.";
+    await fs.writeFile(reportPath, JSON.stringify(report, null, 2), "utf-8");
+  } catch {
+    /* el reporte es informativo, nunca bloquea */
+  }
+}
+
 /**
- * Borra los derivados de LARGOS cuyo raw ya no existe. Conservador: si LF_RAW no
- * se pudo leer (set vacío), NO borra nada (evita nukear todo por un error de FS).
+ * DETECTA (no borra) derivados de LARGOS cuyo raw ya no existe y los reporta en
+ * orphan-report.json. `deleted` es SIEMPRE 0 — ver invariante del módulo: el sweep
+ * viejo destruyó renders terminados del usuario cuando él movió sus raws.
  */
 export async function sweepLongFormOrphans(): Promise<{ deleted: number; orphans: string[] }> {
   const raw = await rawStems(LF_RAW);
   if (raw.size === 0) {
-    // Sin raws (o error leyendo): no borrar. Podría ser FS temporalmente inaccesible.
+    // Sin raws (o error leyendo): podría ser FS temporalmente inaccesible.
     return { deleted: 0, orphans: [] };
   }
   const dirs = [
@@ -137,35 +167,36 @@ export async function sweepLongFormOrphans(): Promise<{ deleted: number; orphans
     LF_RENDERS, LF_CLEAN, LF_PROJECTS_DIR, LF_GRAPHICS, LF_FACE_TRACKS,
   ];
   const orphanIds = new Set<string>();
-  let deleted = 0;
+  const candidates: string[] = [];
   for (const dir of dirs) {
     const files = await listSafe(dir);
     for (const f of files) {
+      const full = path.join(dir, f);
+      // Los DIRECTORIOS son organización del usuario (ej. renders/Publicados): jamás se tocan.
+      try {
+        if ((await fs.stat(full)).isDirectory()) continue;
+      } catch {
+        continue;
+      }
       const owner = longFormOwner(f);
       if (!owner || raw.has(owner)) continue;
       orphanIds.add(owner);
-      try {
-        await fs.rm(path.join(dir, f), { force: true });
-        deleted++;
-      } catch {
-        /* best-effort */
-      }
+      candidates.push(full);
     }
   }
-  if (deleted > 0) {
+  await writeOrphanReport("long_form", candidates);
+  if (candidates.length > 0) {
     console.log(
-      `[orphan-sweep] borrados ${deleted} derivados de ${orphanIds.size} video(s) eliminado(s): ${[...orphanIds].join(", ")}`,
+      `[orphan-sweep] ${candidates.length} huérfano(s) de largos DETECTADOS (no se borra nada) — ver orphan-report.json`,
     );
   }
-  return { deleted, orphans: [...orphanIds] };
+  return { deleted: 0, orphans: [...orphanIds] };
 }
 
 /**
- * Borra los derivados de SHORTS cuyo video raw fuente ya no existe: project JSONs,
- * renders, transcripts y cuts. Conservador igual que el de largos: si RAW_DIR no se
- * pudo leer (set vacío) NO borra nada. La lógica de "huérfano" espeja EXACTAMENTE la
- * del filtro de Producción (buildBackingChecker): lo que se oculta es lo que se borra,
- * y nada visible se toca.
+ * DETECTA (no borra) derivados de SHORTS cuyo raw ya no existe y los reporta en
+ * orphan-report.json. `deleted` es SIEMPRE 0 — mismo invariante que largos: los
+ * renders/proyectos son el PRODUCTO del usuario y solo él los borra a mano.
  */
 export async function sweepShortOrphans(): Promise<{ deleted: number; orphans: string[] }> {
   const raw = await rawStems(RAW_DIR);
@@ -180,14 +211,15 @@ export async function sweepShortOrphans(): Promise<{ deleted: number; orphans: s
   };
 
   const orphanOwners = new Set<string>();
-  let deleted = 0;
-  const del = async (dir: string, f: string) => {
+  const candidates: string[] = [];
+  const flag = async (dir: string, f: string) => {
+    const full = path.join(dir, f);
     try {
-      await fs.rm(path.join(dir, f), { force: true });
-      deleted++;
+      if ((await fs.stat(full)).isDirectory()) return; // carpetas del usuario: jamás
     } catch {
-      /* best-effort */
+      return;
     }
+    candidates.push(full);
   };
 
   // projects/*.json → huérfano si su videoId (o, si falta, el owner por prefijo) no existe.
@@ -203,50 +235,46 @@ export async function sweepShortOrphans(): Promise<{ deleted: number; orphans: s
     const owner = videoId || ownerByPrefix(id);
     if (owner && raw.has(owner)) continue;
     orphanOwners.add(owner || id);
-    await del(PROJECTS_DIR, f);
+    await flag(PROJECTS_DIR, f);
   }
 
-  // renders/* → huérfano si ningún raw es prefijo del id del render, PERO sólo se
-  // auto-borran los de naming de máquina `{videoStem}_{styleId}`. Los renders ya
-  // publicados se renombran a título legible ("Empatía Ambos Editorial.mp4") y no
-  // tienen prefijo de raw — esos NUNCA se tocan (sólo el usuario los borra a mano).
+  // renders de naming de máquina `{videoStem}_{styleId}` sin raw → solo se REPORTAN.
   for (const f of await listSafe(RENDERS_DIR)) {
     const id = path.basename(f, path.extname(f));
     if (!MACHINE_RENDER.test(id)) continue;
     if (ownerByPrefix(id)) continue;
     orphanOwners.add(id);
-    await del(RENDERS_DIR, f);
+    await flag(RENDERS_DIR, f);
   }
 
-  // transcripts/ y cuts/ → keyed por videoId exacto (stem). Huérfano si no está en raw.
+  // transcripts/ y cuts/ → keyed por videoId exacto (stem).
   for (const dir of [TRANSCRIPTS_DIR, CUTS_DIR]) {
     for (const f of await listSafe(dir)) {
       const stem = path.basename(f, path.extname(f));
       if (raw.has(stem)) continue;
-      await del(dir, f);
+      await flag(dir, f);
     }
   }
 
-  if (deleted > 0) {
+  await writeOrphanReport("short", candidates);
+  if (candidates.length > 0) {
     console.log(
-      `[orphan-sweep] shorts: borrados ${deleted} derivados de video(s) eliminado(s): ${[...orphanOwners].join(", ")}`,
+      `[orphan-sweep] ${candidates.length} huérfano(s) de shorts DETECTADOS (no se borra nada) — ver orphan-report.json`,
     );
   }
-  return { deleted, orphans: [...orphanOwners] };
+  return { deleted: 0, orphans: [...orphanOwners] };
 }
 
 /**
  * F0.5 — Limpieza de ARTEFACTOS de render (no huérfanos, sino basura del proceso):
  *   - SIEMPRE: temporales `__rendering.mp4`, intermedios `_raw.mp4`/`_nolut.mp4` y
  *     locks `.__lock` con más de 24h (un render real nunca dura tanto).
- *   - OPT-IN (env `VIRAL_RENDER_RETENTION_DAYS=N`): renders finales con más de N días.
- *     Por default NO se borran renders finales — el user puede tener renders viejos
- *     que aún quiere publicar. Activar sólo si el disco preocupa.
+ *   - Los renders FINALES no se tocan JAMÁS (la retención opt-in por días se RETIRÓ
+ *     tras el incidente 2026-07-03: ningún proceso borra videos del usuario).
  * Cada borrado queda auditado en `{DATA_ROOT}/disk-audit.log`.
  */
 export async function sweepStaleArtifacts(): Promise<{ deleted: number }> {
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const retentionDays = Number(process.env.VIRAL_RENDER_RETENTION_DAYS);
   const auditLines: string[] = [];
   let deleted = 0;
 
@@ -273,13 +301,6 @@ export async function sweepStaleArtifacts(): Promise<{ deleted: number }> {
         f.endsWith("_raw.mp4") || f.endsWith("_nolut.mp4");
       if (isArtifact && ageMs > DAY_MS) {
         await rmAudited(dir, f, "artefacto de render >24h");
-        continue;
-      }
-      if (
-        Number.isFinite(retentionDays) && retentionDays >= 1 &&
-        f.endsWith(".mp4") && !isArtifact && ageMs > retentionDays * DAY_MS
-      ) {
-        await rmAudited(dir, f, `retención ${retentionDays}d`);
       }
     }
   }

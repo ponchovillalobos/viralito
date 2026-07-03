@@ -1168,7 +1168,7 @@ export function LongFormWizard() {
                     <button
                       type="button"
                       onClick={() => setVideoToDelete(v)}
-                      title="Borrar este video y sus clips (no se puede deshacer)"
+                      title="Borrar este video original (los clips y videos generados se conservan)"
                       className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1904,11 +1904,12 @@ export function LongFormWizard() {
           <DialogHeader>
             <DialogTitle>¿Borrar este video?</DialogTitle>
             <DialogDescription>
-              Esto borra el video{" "}
+              Esto borra SOLO el video original{" "}
               <span className="font-mono-tab text-foreground break-all">
                 {videoToDelete?.filename}
-              </span>{" "}
-              y sus clips, no se puede deshacer.
+              </span>
+              . Los clips y videos ya generados se conservan en Mis videos. No se puede
+              deshacer.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
