@@ -144,9 +144,19 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       if (!match) throw new Error("el video ya no está en la carpeta de videos");
       const { runPythonJson } = await import("@/lib/run-python");
       const { withSerialLock } = await import("@/lib/serial-lock");
+      // Progreso VISIBLE mientras se escucha el video: cada señal de vida del
+      // proceso sube la barra de a poco (2→14%). Sin esto el paso quedaba clavado
+      // y el usuario no sabía si la app seguía viva (feedback real).
+      let heardProgress = 2;
       const tr = await withSerialLock("transcribe", () =>
         runPythonJson("transcribe.py", [path.join(RAW_DIR, match)], {
           idleTimeoutMs: 8 * 60 * 1000,
+          onProgress: () => {
+            heardProgress = Math.min(14, heardProgress + 0.5);
+            for (const s of job.styles) {
+              updateStep(job.id, s, { status: "building", progress: Math.round(heardProgress) });
+            }
+          },
         })
       );
       if (!tr.ok) throw new Error(tr.stderr.slice(-300) || "transcribe.py falló");

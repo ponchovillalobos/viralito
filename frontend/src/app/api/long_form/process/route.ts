@@ -243,6 +243,31 @@ export async function processJob(
         // sin return: estas líneas no matchean headers/skips, no hay conflicto.
       }
 
+      // Sub-progreso del ANÁLISIS CON IA — la fase que parecía CONGELADA (17+ min sin
+      // señales de vida en videos largos; feedback del usuario). analyze_clips.py ya
+      // emite "[chunking] N chunks" y "[chunk i/N]": acá se convierten en mensaje +
+      // progreso del paso (y el progreso del paso mueve la barra GENERAL del job).
+      const chunkTotal = line.match(/\[chunking\]\s*(\d+)\s*chunks/i);
+      if (chunkTotal) {
+        updateLongFormStep(jobId, "analyze", {
+          status: "running",
+          progress: 2,
+          message: `la IA va a leer tu video en ${chunkTotal[1]} bloques`,
+        });
+      }
+      const chunkM = line.match(/\[chunk (\d+)\/(\d+)\]/i);
+      if (chunkM) {
+        const cur = parseInt(chunkM[1], 10);
+        const tot = parseInt(chunkM[2], 10);
+        if (tot > 0) {
+          updateLongFormStep(jobId, "analyze", {
+            status: "running",
+            progress: Math.max(2, Math.round(((cur - 1) / tot) * 100)),
+            message: `la IA está eligiendo los mejores momentos · bloque ${cur} de ${tot}`,
+          });
+        }
+      }
+
       // Detectar headers de step
       for (const p of STEP_HEADER_PATTERNS) {
         if (p.regex.test(line)) {
@@ -252,10 +277,22 @@ export async function processJob(
           currentStep = p.key;
           // El render arranca su sub-progreso en 0 para que la barra suba con cada clip
           // (N/M listos), en vez de saltar de 75% hacia atrás al completarse el 1ro.
+          // Los pasos LARGOS (transcribir/analizar) arrancan con un mensaje que fija
+          // EXPECTATIVAS — sin esto el panel parecía congelado y el usuario pensaba
+          // que la app crasheó (feedback real tras 17 min sin señales).
+          const initialMsg: Partial<Record<LongFormStepKey, string>> = {
+            transcribe:
+              "escuchando tu video — un video largo puede tardar varios minutos",
+            re_transcribe: "afinando los subtítulos de cada momento",
+            analyze:
+              "la IA está leyendo tu video — puede tardar varios minutos, acá se muestra el avance",
+          };
           updateLongFormStep(
             jobId,
             p.key,
-            p.key === "render" ? { status: "running", progress: 0 } : { status: "running" }
+            p.key === "render"
+              ? { status: "running", progress: 0 }
+              : { status: "running", message: initialMsg[p.key] }
           );
           return;
         }

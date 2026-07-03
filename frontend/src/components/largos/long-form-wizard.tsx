@@ -2216,6 +2216,15 @@ function JobView({
               {step.message && (
                 <p className="font-mono-tab text-[10px] text-muted-foreground">{step.message}</p>
               )}
+              {/* LATIDO del paso en curso: tiempo transcurrido EN VIVO. Aunque el paso
+                  no emita sub-progreso, el usuario VE que la app sigue trabajando
+                  (feedback: 17 min sin señales = "¿crasheó?"). `now` ya tickea. */}
+              {step.status === "running" && step.startedAt && (
+                <p className="font-mono-tab text-[10px] text-amber-300/90">
+                  <Loader2 className="mr-1 inline h-2.5 w-2.5 animate-spin" />
+                  trabajando… lleva {fmtElapsed(Math.max(0, now - step.startedAt))}
+                </p>
+              )}
               {step.startedAt && step.finishedAt && (
                 <p className="font-mono-tab text-[10px] text-muted-foreground">
                   {fmtElapsed(step.finishedAt - step.startedAt)}
