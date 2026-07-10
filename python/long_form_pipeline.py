@@ -53,6 +53,59 @@ REMOTION_DIR = PROJECT_ROOT / "remotion"
 # paquete distribuible (la ruta hardcodeada al venv rompía en máquinas de usuarios).
 VENV_PYTHON = Path(sys.executable)
 
+# ── Catálogo de estilos: fuente de verdad = frontend/src/lib/style-registry.data.json ──
+# VALID_STYLES y GRAPHICS_STYLES vivían HARDCODEADOS acá y se DESINCRONIZARON del
+# registro: faltaban editorial_full/editorial_broll/paper_cut/lottie_pop en
+# GRAPHICS_STYLES, así que generate_graphics.py NO corría para ellos → esos estilos
+# renderizaban SIN tarjetas editoriales/ilustraciones/charts (bug "solo títulos").
+# Ahora se DERIVAN del registro (hasGraphics:true = necesita generate_graphics).
+# Si el JSON no se puede leer, cae a un fallback correcto (nunca rompe el pipeline).
+_STYLE_REGISTRY_PATH = PROJECT_ROOT / "frontend" / "src" / "lib" / "style-registry.data.json"
+
+_FALLBACK_VALID_STYLES = {
+    "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
+    "cinematic_pro", "broll_full", "broll_pip", "text_behind", "pop_reels",
+    "graphics_pro", "graphics_max", "motion_pro", "motion_beat", "motion_grid",
+    "editorial", "editorial_broll", "editorial_full", "kinetic_type",
+    "lottie_pop", "paper_cut", "cine_clasico", "vhs", "audiogram",
+}
+_FALLBACK_GRAPHICS_STYLES = {
+    "hype", "hype_max", "hype_max_sfx", "supreme", "graphics_pro", "graphics_max",
+    "motion_pro", "motion_beat", "motion_grid",
+    "editorial", "editorial_full", "editorial_broll", "lottie_pop", "paper_cut",
+}
+_FALLBACK_ILLUSTRATION_STYLES = {
+    "editorial", "editorial_full", "editorial_broll", "lottie_pop", "paper_cut",
+}
+
+
+def _load_style_catalog() -> tuple[set[str], set[str], set[str]]:
+    """(VALID_STYLES, GRAPHICS_STYLES, ILLUSTRATION_STYLES) del registro compartido.
+
+    GRAPHICS_STYLES = hasGraphics:true → necesitan que corra generate_graphics.py
+    (editorialCards, dataViz, kineticHeadlines, íconos). ILLUSTRATION_STYLES =
+    illustrations:true → además reciben ilustraciones CC0 (concept_illustrations, la
+    flag --illustrations de generate_graphics). Derivar del registro evita el drift
+    (los editoriales salían "solo con títulos" y sin ilustraciones). Fallback si el
+    JSON no se puede leer (paquete sin frontend/, etc.)."""
+    try:
+        entries = json.loads(_STYLE_REGISTRY_PATH.read_text(encoding="utf-8"))
+        valid = {e["id"] for e in entries if e.get("id")}
+        graphics = {e["id"] for e in entries if e.get("hasGraphics")}
+        illustrations = {e["id"] for e in entries if e.get("illustrations")}
+        if valid and graphics:
+            return valid, graphics, illustrations
+    except Exception as e:  # noqa: BLE001 — registro ausente/ilegible → fallback
+        print(f"[styles] no pude leer el registro ({e}); uso el fallback.", file=sys.stderr)
+    return (
+        set(_FALLBACK_VALID_STYLES),
+        set(_FALLBACK_GRAPHICS_STYLES),
+        set(_FALLBACK_ILLUSTRATION_STYLES),
+    )
+
+
+VALID_STYLES, GRAPHICS_STYLES, ILLUSTRATION_STYLES = _load_style_catalog()
+
 # ── Render paralelo de clips (F0.2 auditoría) ───────────────────────────────
 # Cuántos renders de Remotion corren A LA VEZ — ADAPTATIVO según los cores del
 # equipo (4 cores → 1, 8 → 2, 16+ → 3). Override con env LF_RENDER_WORKERS.
@@ -179,6 +232,13 @@ def _remotion_render_cmd(out: Path, remotion_concurrency: int, props_name: str) 
         # delayRender amplio: el dev server sirviendo el clip bajo carga puede
         # tardar >28s (default) en responder un seek de OffthreadVideo.
         "--timeout=120000",
+        # disableWebSecurity: los estilos audio-reactivos (audiogram + fondos
+        # animatedBackground.audioReactive de motion_*/kinetic_type/lottie_pop) hacen
+        # fetch CLIENT-SIDE del audio (useWindowedAudioData). El bundle de Remotion vive
+        # en su puerto y el API en otro → cross-origin; sin este flag CORS bloquea el
+        # fetch y el render FALLA ("Failed to fetch"). El CLI directo (node remotion-cli.js)
+        # NO carga remotion.config.ts, así que va explícito acá.
+        "--disable-web-security",
         _offthread_cache_flag(),
         f"--props={props_name}",
     ]
@@ -544,11 +604,15 @@ def step_explain_virality(
         pass
 
 
-def step_graphics(clip_id: str, use_llm: bool = True) -> None:
-    """Modo Gráficos: genera charts + titulares para un clip (best-effort, no rompe el job)."""
+def step_graphics(clip_id: str, use_llm: bool = True, illustrations: bool = False) -> None:
+    """Modo Gráficos: genera charts + titulares (+ ilustraciones CC0 opt-in) para un
+    clip (best-effort, no rompe el job). illustrations=True cuando algún estilo pedido
+    tiene illustrations:true (editorial*/lottie_pop) → emite illustrationStickers."""
     cmd = [str(VENV_PYTHON), str(PYTHON_DIR / "generate_graphics.py"), clip_id]
     if not use_llm:
         cmd.append("--no-llm")
+    if illustrations:
+        cmd.append("--illustrations")
     try:
         run(cmd)
     except subprocess.CalledProcessError as e:
@@ -1434,20 +1498,26 @@ def main() -> int:
     for c in clips_info:
         print(f"  - {c['clip_id']} ({c.get('duration', '?')}s)", file=sys.stderr)
 
-    # Modo Gráficos & Motion: charts + íconos visuales por clip, auto desde el
-    # transcript de cada clip (que extract_clips ya dejó alineado palabra-por-palabra).
-    # Se activa con --graphics O si algún estilo elegido los trae (paridad con shorts:
-    # hype/hype_max/hype_max_sfx/supreme/graphics_* generan graphics: true).
-    GRAPHICS_STYLES = {
-        "hype", "hype_max", "hype_max_sfx", "supreme", "graphics_pro", "graphics_max",
-        "motion_pro", "motion_beat", "motion_grid", "editorial",
-    }
+    # Modo Gráficos & Motion: charts + íconos visuales + TARJETAS EDITORIALES por clip,
+    # auto desde el transcript de cada clip (que extract_clips ya dejó alineado
+    # palabra-por-palabra). Se activa con --graphics O si algún estilo pedido tiene
+    # hasGraphics:true en el registro. GRAPHICS_STYLES se DERIVA del registro (arriba)
+    # → ya no se desincroniza (los editoriales editorial_full/editorial_broll/paper_cut
+    # y lottie_pop quedaban fuera y salían sin tarjetas).
     requested_styles = {s.strip() for s in args.styles.split(",") if s.strip()}
     wants_graphics = args.graphics or bool(requested_styles & GRAPHICS_STYLES)
+    # Ilustraciones CC0 (personas/escenas multicolor): solo si algún estilo pedido
+    # tiene illustrations:true (editorial*/lottie_pop). El merge en build-clip-props
+    # las aplica SOLO al estilo que las declara (gate por styleHasIllustrations).
+    wants_illustrations = bool(requested_styles & ILLUSTRATION_STYLES)
     if wants_graphics and clips_info:
         print("\n========== Modo Gráficos: charts + íconos por clip ==========", file=sys.stderr)
         for c in clips_info:
-            step_graphics(c["clip_id"], use_llm=not args.use_heuristic)
+            step_graphics(
+                c["clip_id"],
+                use_llm=not args.use_heuristic,
+                illustrations=wants_illustrations,
+            )
 
     # Contadores de render para el resumen final (existen aunque no se renderice).
     # Distinguen clips EXTRAÍDOS de clips realmente RENDERIZADOS: antes el JSON solo
@@ -1460,17 +1530,9 @@ def main() -> int:
     if args.render and clips_info:
         print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
         styles = [s.strip() for s in args.styles.split(",") if s.strip()]
-        # Fuente de verdad del catálogo: frontend/src/lib/style-registry.data.json
-        # (22 estilos). Mantener sincronizado para no rechazar estilos válidos como
-        # cine_clasico / editorial_broll / kinetic_type / etc. en --render.
-        VALID_STYLES = {
-            "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
-            "cinematic_pro", "broll_full", "broll_pip", "text_behind", "pop_reels",
-            "graphics_pro", "graphics_max",
-            "motion_pro", "motion_beat", "motion_grid",
-            "editorial", "editorial_broll", "editorial_full",
-            "kinetic_type", "lottie_pop", "paper_cut", "cine_clasico",
-        }
+        # VALID_STYLES se DERIVA del registro (módulo, _load_style_catalog): antes vivía
+        # hardcodeado acá y se desincronizaba (le faltaban vhs/audiogram → los rechazaba
+        # como inválidos). El registro es la única fuente de verdad del catálogo.
         invalid = [s for s in styles if s not in VALID_STYLES]
         if invalid:
             print(f"[error] estilos inválidos: {invalid}. Válidos: {sorted(VALID_STYLES)}", file=sys.stderr)

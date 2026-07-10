@@ -22,6 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProjectForStyle } from "./style-templates.mjs";
 import { needsTrialWatermark } from "./license-check.mjs";
+import { VALID_STYLE_IDS } from "./style-catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,19 +78,13 @@ const { width: aspectWidth, height: aspectHeight } =
     ? { width: 1920, height: 1080 }
     : { width: 1080, height: 1920 };
 
-const VALID_STYLES = [
-  "silent", "punch", "hype", "hype_max", "hype_max_sfx", "supreme",
-  "graphics_pro", "graphics_max",
-  "motion_pro", "motion_beat", "motion_grid", "editorial",
-  // Editorial pantalla completa (documental): video original full + tipografía encima.
-  "editorial_full",
-  // Estilos de archivo: buildProjectForStyle ya los maneja; el b-roll lo puebla
-  // el pipeline (_apply_broll → /api/long_form/broll). Antes faltaban acá, así que
-  // elegirlos en largos fallaba con "style_id inválido".
-  "editorial_broll", "broll_full", "broll_pip",
-];
-if (!VALID_STYLES.includes(styleId)) {
-  console.error(`style_id inválido '${styleId}'. Válidos: ${VALID_STYLES.join(", ")}`);
+// VALID_STYLE_IDS se DERIVA del registro (style-catalog.mjs), la única fuente de
+// verdad. Antes vivía hardcodeado acá y se DESINCRONIZABA: faltaban vhs, audiogram,
+// cinematic_pro, kinetic_type, lottie_pop, paper_cut, cine_clasico → esos estilos
+// (todos longForm:true, ofrecidos en el wizard) hard-failaban y NO renderizaban en
+// largos. buildProjectForStyle ya maneja TODOS los estilos del registro.
+if (!VALID_STYLE_IDS.has(styleId)) {
+  console.error(`style_id inválido '${styleId}'. Válidos: ${[...VALID_STYLE_IDS].join(", ")}`);
   process.exit(1);
 }
 

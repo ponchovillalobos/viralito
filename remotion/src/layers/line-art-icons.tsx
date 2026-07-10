@@ -23,7 +23,11 @@ export const LINE_ART_KINDS: LineArtKind[] = [
   "network", "shield", "coin", "heart",
 ];
 
-const STROKE = "#e9e2d4"; // crema
+// Trazo base por DEFECTO (crema) — pensado para fondo OSCURO. En editorial se pasa
+// `ink` = color del TEXTO del tema para que la ilustración contraste con el fondo:
+// en fondo claro (cream/riso) el crema desaparecía ("ilustraciones blancas en fondo
+// blanco"); con el color del texto siempre se ve (oscuro sobre claro, claro sobre oscuro).
+const DEFAULT_INK = "#e9e2d4"; // crema (fondo oscuro)
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
@@ -47,7 +51,10 @@ export const LineArtLucide: React.FC<{
   elapsed: number;
   size?: number;
   gold?: string;
-}> = ({ name, elapsed, size = 300, gold = "#f0b429" }) => {
+  /** Color del TRAZO (default crema, para fondo oscuro). En editorial = color del
+   *  texto del tema → contrasta con fondos claros (antes salía blanco sobre blanco). */
+  ink?: string;
+}> = ({ name, elapsed, size = 300, gold = "#f0b429", ink = DEFAULT_INK }) => {
   const Cmp = (Lucide as unknown as Record<string, React.ComponentType<{
     size?: number; color?: string; strokeWidth?: number; absoluteStrokeWidth?: boolean;
   }>>)[toPascal(name)];
@@ -75,7 +82,7 @@ export const LineArtLucide: React.FC<{
           __html: `.${cls} svg * { stroke-dasharray: 130; stroke-dashoffset: ${off.toFixed(2)}; }`,
         }}
       />
-      <Cmp size={size} color={STROKE} strokeWidth={1.4} />
+      <Cmp size={size} color={ink} strokeWidth={1.4} />
       {/* nodo de acento que late (vida infinita, como los dibujados a mano) */}
       <div
         style={{
@@ -105,8 +112,14 @@ export const LineArtIcon: React.FC<{
   size?: number;
   /** Color de acento (default dorado clásico). */
   gold?: string;
-}> = ({ kind, elapsed, size = 300, gold = "#f0b429" }) => {
+  /** Color del TRAZO base (default crema). En editorial = color del texto del tema
+   *  → contrasta con fondos claros (antes salía blanco sobre blanco). */
+  ink?: string;
+}> = ({ kind, elapsed, size = 300, gold = "#f0b429", ink = DEFAULT_INK }) => {
   const GOLD = gold;
+  // Alias local: todo el cuerpo dibuja el trazo base con `STROKE`; ahora = `ink`
+  // (color del texto en editorial claro) en vez del crema fijo.
+  const STROKE = ink;
   const common: React.SVGProps<SVGSVGElement> = {
     width: size,
     height: size,

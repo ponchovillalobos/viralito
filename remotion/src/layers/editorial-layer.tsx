@@ -117,6 +117,32 @@ export type EditorialLayout = z.infer<typeof editorialLayoutSchema>;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+// ─── CONTRASTE DE ILUSTRACIONES ──────────────────────────────────────────────
+// Las ilustraciones line-art se dibujan con el color del TEXTO (siempre contrasta
+// con el fondo del tema) para el trazo, y con el ACENTO para los detalles — pero
+// SOLO si el acento se ve sobre el fondo. Un acento claro sobre lienzo claro
+// (cream/riso) desaparecía ("ilustraciones blancas en fondo blanco"): en ese caso
+// el detalle también cae al color del texto. Determinístico, sin estado.
+function _relLuminance(hex: string): number {
+  const h = (hex || "").replace("#", "").trim();
+  const s = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.slice(0, 6).padEnd(6, "0");
+  const ch = (i: number) => {
+    const c = parseInt(s.slice(i, i + 2), 16) / 255;
+    return Number.isFinite(c) ? (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)) : 0;
+  };
+  return 0.2126 * ch(0) + 0.7152 * ch(2) + 0.0722 * ch(4);
+}
+function _contrastRatio(a: string, b: string): number {
+  const la = _relLuminance(a);
+  const lb = _relLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+/** Color legible para el DETALLE de una ilustración sobre `bg`: el acento si
+ *  contrasta lo suficiente; si no, el color del texto (que siempre se ve). */
+export function illustrationAccent(accent: string, bg: string, text: string): string {
+  return _contrastRatio(accent, bg) >= 2 ? accent : text;
+}
+
 /** [familia del titular, familia de kickers] resueltas del tema (la usa el
  *  chart layer de Ola 5 — misma lógica que las tarjetas). */
 export function editorialFontsFor(layout: EditorialLayout): [string, string] {
@@ -615,6 +641,9 @@ export const EditorialCardLayer: React.FC<{
   const theme = look.canvas;
   const TEXT = theme.text;
   const MUTED = theme.muted;
+  // Color del DETALLE de las ilustraciones: el acento si contrasta con el lienzo,
+  // si no el color del texto (evita "ilustraciones claras invisibles en fondo claro").
+  const illoAccent = illustrationAccent(GOLD, theme.bg, TEXT);
   // Reloj gráfico a 12 fps (las tarjetas entran/animan en pasos — look editorial).
   const now = stepTime(currentTime, layout.fps12);
   const t = now - card.at;
@@ -696,13 +725,16 @@ export const EditorialCardLayer: React.FC<{
         };
   const iconNode = card.iconSvg ? (
     // Icono EXTERNO embebido (Phosphor duotone / Tabler — Ola 4): currentColor
-    // lo pinta del acento; entra con fade+scale y flota suave.
-    <InlineSvgIcon svg={card.iconSvg} size={iconSize * 0.92} gold={GOLD} elapsed={Math.max(0, t - 0.4)} />
+    // lo pinta del acento GUARDADO (cae al texto si el acento no se ve sobre el fondo);
+    // entra con fade+scale y flota suave.
+    <InlineSvgIcon svg={card.iconSvg} size={iconSize * 0.92} gold={illoAccent} elapsed={Math.max(0, t - 0.4)} />
   ) : hasIcon ? (
+    // ink = color del TEXTO (trazo siempre visible sobre cualquier fondo);
+    // gold = acento guardado por contraste (detalles).
     LINE_ART_KINDS.includes(card.icon as LineArtKind) ? (
-      <LineArtIcon kind={card.icon as LineArtKind} elapsed={Math.max(0, t - 0.4)} size={iconSize} gold={GOLD} />
+      <LineArtIcon kind={card.icon as LineArtKind} elapsed={Math.max(0, t - 0.4)} size={iconSize} gold={illoAccent} ink={TEXT} />
     ) : (
-      <LineArtLucide name={card.icon} elapsed={Math.max(0, t - 0.4)} size={iconSize * 0.88} gold={GOLD} />
+      <LineArtLucide name={card.icon} elapsed={Math.max(0, t - 0.4)} size={iconSize * 0.88} gold={illoAccent} ink={TEXT} />
     )
   ) : null;
 

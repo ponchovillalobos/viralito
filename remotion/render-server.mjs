@@ -197,7 +197,14 @@ async function handleRequest(req) {
     // gl=angle (opt-in) también se pasa a selectComposition para que el browser
     // headless que abre el calculateMetadata use el mismo backend. null → no se pasa.
     const gl = effectiveGl();
-    const chromiumOptions = gl ? { gl } : undefined;
+    // disableWebSecurity: SIEMPRE. Los layers audio-reactivos (audiogram + fondos
+    // animatedBackground.audioReactive de motion_*/kinetic_type/lottie_pop) usan
+    // useWindowedAudioData/visualizeAudio, que hacen fetch CLIENT-SIDE del audio. En el
+    // render el bundle de Remotion vive en su propio puerto (≠ el server del API que
+    // sirve /api/.../stream), así que ese fetch es cross-origin y sin este flag CORS lo
+    // bloquea → el render de esos estilos FALLA ("Failed to fetch"). Música/video usan
+    // <Audio>/<OffthreadVideo> (fetch server-side, sin CORS) → por eso NO se veía antes.
+    const chromiumOptions = { disableWebSecurity: true, ...(gl ? { gl } : {}) };
 
     // selectComposition respeta calculateMetadata (duración/dims dinámicas).
     const composition = await selectComposition({

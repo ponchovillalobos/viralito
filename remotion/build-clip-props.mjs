@@ -20,6 +20,7 @@ import { resolveEditorialCardIcons, resolveIconStickerSvg } from "./editorial-ic
 import { needsTrialWatermark } from "./license-check.mjs";
 import { applyHookTemplate } from "./hook-templates.mjs";
 import { localizeBrollClips } from "./broll-localize.mjs";
+import { styleHasIllustrations } from "./style-catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { existsSync as _existsSync } from "node:fs";
@@ -151,6 +152,13 @@ const props = {
   // PRO — transiciones oficiales de Remotion + ilustraciones CC0 (duotono opcional)
   // + overlay de textura. Pass-through (los clips no remapean). Defaults = idéntico.
   proTransitionSeries: project.proTransitionSeries || [],
+  // AUDIOGRAMA (F2.a) — config del estilo 'audiogram' (null = sin onda). Pass-through.
+  audiogram: project.audiogram ?? null,
+  // LENS FX (F2.d) — halación + aberración cromática (null = sin FX). Pass-through.
+  lensFx: project.lensFx ?? null,
+  // CALLOUTS (F2.c) — statPops + lower-thirds. Pass-through (los clips no remapean).
+  statPops: project.statPops || [],
+  lowerThirds: project.lowerThirds || [],
   illustrationStickers: project.illustrationStickers || [],
   overlayTexture: project.overlayTexture ?? null,
   // TEXTO DETRÁS DEL SUJETO (matte estático, paridad con shorts). SOLO se activa con
@@ -217,6 +225,21 @@ if (_existsSync(graphicsPath)) {
     // Íconos de concepto (visuales) generados desde el transcript — se suman a los del estilo.
     if (Array.isArray(g.iconStickers) && g.iconStickers.length) {
       props.iconStickers = [...(props.iconStickers || []), ...g.iconStickers];
+    }
+    // ILUSTRACIONES CC0 (personas/escenas multicolor): SOLO para estilos con
+    // illustrations:true en el registro (editorial*/lottie_pop). El graphics-file las
+    // trae para el clip; el gate por estilo evita que un estilo NO-ilustración las
+    // reciba (paridad con shorts, donde applyIllustrations gatea por styleHasIllustrations).
+    if (
+      styleId &&
+      styleHasIllustrations(styleId) &&
+      Array.isArray(g.illustrationStickers) &&
+      g.illustrationStickers.length
+    ) {
+      props.illustrationStickers = [
+        ...(props.illustrationStickers || []),
+        ...g.illustrationStickers,
+      ];
     }
     // EDITORIAL: tarjetas tipográficas (solo se usan si el estilo es editorial; en
     // ese caso reemplazan charts/íconos para no saturar el lado oscuro).

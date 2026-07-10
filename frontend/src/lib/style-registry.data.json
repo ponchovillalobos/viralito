@@ -221,7 +221,8 @@
     "shortLabel": "PapelCut",
     "families": [],
     "longForm": true,
-    "hasGraphics": false
+    "hasGraphics": true,
+    "illustrations": true
   },
   {
     "id": "cine_clasico",
@@ -240,6 +241,16 @@
     "emoji": "📼",
     "shortLabel": "VHS",
     "families": [],
+    "longForm": true,
+    "hasGraphics": false
+  },
+  {
+    "id": "audiogram",
+    "name": "Audiograma",
+    "tagline": "Clip de podcast: onda de barras que baila con la voz + branding del show",
+    "emoji": "🎙️",
+    "shortLabel": "Podcast",
+    "families": ["motion"],
     "longForm": true,
     "hasGraphics": false
   }
