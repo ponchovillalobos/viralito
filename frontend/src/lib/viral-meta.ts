@@ -23,6 +23,8 @@ export function shortTitle(idOrSlug: string): string {
   // Supercut: el id es `{videoId}_supercut_{style}` — el "slug" serían los números
   // de la fecha del video largo (ilegible). Nombre fijo y claro.
   if (/_supercut(_|$)/i.test(idOrSlug)) return "Supercut";
+  // Mejores Momentos: `{videoId}_highlights_c01_reel_{style}` → nombre fijo y claro.
+  if (/_highlights(_|$)/i.test(idOrSlug)) return "Mejores Momentos";
   // quitar prefijo base y sufijos de clip/estilo comunes para quedarse con el slug del contenido
   const s = contentSlugFromId(idOrSlug);
   const words = s

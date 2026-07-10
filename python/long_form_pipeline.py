@@ -1206,6 +1206,91 @@ def step_render_clip(
     return out
 
 
+def _run_highlights(args, raw_path: Path, t_total: float) -> int:
+    """MODO MEJORES MOMENTOS: transcribe → highlights.py (elige+ordena+arma el montage
+    como clip sintético) → render supreme del montage → resumen. One-shot, UN render."""
+    video_id = args.video_id
+    # STEP 1 — transcribe (highlights.py necesita el transcript del raw). Header real
+    # para la barra de progreso; los pasos 2-4 no aplican (no se recortan silencios).
+    print("\n========== STEP 1: transcribe ==========", file=sys.stderr)
+    if not args.skip_transcribe:
+        step_transcribe(raw_path, video_id, chunked=True)
+    for _skip in ("detect_silences", "cut_silences", "re-transcribe"):
+        print(f"[skip] {_skip} (mejores momentos: se arma un montage del raw)", file=sys.stderr)
+
+    # STEP 5 — selección + ensamblado del reel (highlights.py deja proposal sintética,
+    # el montage en clips/ y su transcript). Reusa el header "analyze" del store.
+    print("\n========== STEP 5: analyze (elegir los mejores momentos) ==========", file=sys.stderr)
+    hl_cmd = [
+        str(VENV_PYTHON), str(PYTHON_DIR / "highlights.py"), video_id,
+        "--max-seconds", str(args.highlights_max_seconds),
+        "--aspect-ratio", args.aspect_ratio,
+        "--face-tracking", args.face_tracking,
+    ]
+    try:
+        r = subprocess.run(hl_cmd, capture_output=True, text=True, cwd=str(PYTHON_DIR))
+    except Exception as e:  # noqa: BLE001
+        print(f"[highlights] fallo al ejecutar highlights.py: {e}", file=sys.stderr)
+        print(json.dumps({"ok": False, "error": str(e), "video_id": video_id}))
+        return 1
+    if r.stderr:
+        print(r.stderr, file=sys.stderr)
+    hl = None
+    for line in reversed((r.stdout or "").splitlines()):
+        if line.strip().startswith("{"):
+            try:
+                hl = json.loads(line)
+                break
+            except Exception:  # noqa: BLE001
+                continue
+    if not hl or not hl.get("ok"):
+        err = (hl or {}).get("error", "no se pudo armar el reel de mejores momentos")
+        print(json.dumps({"ok": False, "error": err, "video_id": video_id}))
+        return 1
+    synth_video = hl["synth_video"]  # {video_id}_highlights
+    print(f"[highlights] {hl['moments']} momentos · {hl['seconds']}s · mood {hl.get('mood')}", file=sys.stderr)
+
+    # STEP 7 — render supreme del clip sintético (subs+música+estilo+ducking unificados).
+    print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
+    styles = [s.strip() for s in (args.styles or "supreme").split(",") if s.strip()] or ["supreme"]
+    styles = [s for s in styles if s in VALID_STYLES] or ["supreme"]
+    rc = _remotion_concurrency(_render_workers())
+    rendered: list[str] = []
+    for style_id in styles:
+        try:
+            out = step_render_clip(
+                synth_video, 1, "reel",
+                style_id=style_id,
+                accent_color=args.accent_color,
+                aspect_ratio=args.aspect_ratio,
+                remotion_concurrency=rc,
+                subtitle_font=args.subtitle_font,
+                subtitle_color=args.subtitle_color,
+                editorial_theme=args.editorial_theme,
+                music_volume=args.music_volume,
+                render_pool=None,
+            )
+            if out and Path(out).exists():
+                rendered.append(str(out))
+        except Exception as e:  # noqa: BLE001
+            print(f"[highlights] render {style_id} falló: {e}", file=sys.stderr)
+
+    ok = len(rendered) > 0
+    print(f"\n[ok] mejores momentos en {time.time() - t_total:.1f}s", file=sys.stderr)
+    print(json.dumps({
+        "ok": ok,
+        "video_id": video_id,
+        "kind": "highlights",
+        "clips": 1,
+        "rendered": len(rendered),
+        "render_tasks": len(styles),
+        "seconds": hl.get("seconds"),
+        "moments": hl.get("moments"),
+        "renders": rendered,
+    }, ensure_ascii=False))
+    return 0 if ok else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id", help="ID del video largo (sin extensión, en long_form/raw/)")
@@ -1300,10 +1385,28 @@ def main() -> int:
             "off=center crop ciego (default). single=detección 1-frame. per-frame=preciso."
         ),
     )
+    parser.add_argument(
+        "--highlights",
+        action="store_true",
+        help=(
+            "MODO MEJORES MOMENTOS: de UN video largo genera UN solo video de ≤3 min con "
+            "los mejores momentos secuenciados por emoción (one-shot). Excluyente con "
+            "--analyze-only / --from-proposals."
+        ),
+    )
+    parser.add_argument(
+        "--highlights-max-seconds",
+        type=float,
+        default=180.0,
+        help="Tope de duración del reel de mejores momentos (default 180 = 3 min).",
+    )
     args = parser.parse_args()
 
     if args.analyze_only and args.from_proposals:
         print("[error] --analyze-only y --from-proposals son excluyentes", file=sys.stderr)
+        return 1
+    if args.highlights and (args.analyze_only or args.from_proposals):
+        print("[error] --highlights es excluyente con --analyze-only / --from-proposals", file=sys.stderr)
         return 1
 
     ensure_long_form_dirs()
@@ -1322,6 +1425,10 @@ def main() -> int:
 
     t_total = time.time()
     clean_path = None  # se setea solo en el modo completo (no en clips rápidos)
+
+    # ── MODO MEJORES MOMENTOS (highlights) — UN video ≤3 min de lo mejor, one-shot ──
+    if args.highlights:
+        return _run_highlights(args, raw_path, t_total)
 
     if args.from_proposals:
         # ── MODO GENERAR APROBADOS (flujo REVISAR, acto 2) ────────────────────

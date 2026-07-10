@@ -161,8 +161,8 @@ interface JobState {
     styles?: string[];
     accentColor?: string;
     platforms?: string[];
-    /** Tipo de corrida: "analyze" = solo encontrar momentos; "render-approved" = generar aprobados. */
-    mode?: "full" | "analyze" | "render-approved";
+    /** Tipo de corrida: "analyze" = solo encontrar momentos; "render-approved" = generar aprobados; "highlights" = 1 video de mejores momentos. */
+    mode?: "full" | "analyze" | "render-approved" | "highlights";
   };
   startedAt: number;
   finishedAt?: number;
@@ -670,13 +670,17 @@ export function LongFormWizard() {
    *               se muestra el paso de revisión para aprobar/descartar/ajustar.
    *   "full"    → modo clásico de un jalón (fallback): analiza+recorta+genera todo.
    */
-  async function startPipeline(runMode: "analyze" | "full" = "full") {
+  async function startPipeline(runMode: "analyze" | "full" | "highlights" = "full") {
     if (selectedIds.size === 0) {
       toast.error("Elige al menos un video primero");
       return;
     }
     if (runMode === "full" && doRender && selectedStyles.length === 0) {
       toast.error("Elige al menos un estilo para generar los videos");
+      return;
+    }
+    if (runMode === "highlights" && selectedStyles.length === 0) {
+      toast.error("Elige un estilo para tu video de mejores momentos");
       return;
     }
     setSubmitting(true);
@@ -699,8 +703,8 @@ export function LongFormWizard() {
       const body: Record<string, unknown> = {
         videoIds,
         mode: runMode,
-        // En análisis no se genera nada: el render llega después, ya aprobados.
-        render: runMode === "analyze" ? false : doRender,
+        // En análisis no se genera nada; en mejores momentos SIEMPRE se arma el video.
+        render: runMode === "analyze" ? false : runMode === "highlights" ? true : doRender,
         skipTranscribe,
         useHeuristic,
         graphicsMode,
@@ -1899,6 +1903,30 @@ export function LongFormWizard() {
           >
             🔍 Prefiero revisar los momentos antes de generar
           </Button>
+
+          {/* 5TA OPCIÓN — MEJORES MOMENTOS: en vez de N clips sueltos, UN solo video de
+              ≤3 min con lo mejor de la charla, secuenciado por emoción (one-shot). */}
+          <div className="mt-4 rounded-lg border border-amber-400/40 bg-amber-500/5 p-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+              <span>🏆</span> Mejores Momentos
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Un solo video con los momentos más increíbles de la charla, pegados en
+              secuencia por emoción. Hasta 3 min (o menos si el material no da para tanto).
+            </p>
+            <Button
+              onClick={() => startPipeline("highlights")}
+              disabled={submitting || selectedIds.size === 0}
+              className="mt-2 w-full bg-amber-500 hover:bg-amber-400 text-black"
+            >
+              {submitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <span className="mr-2">🎬</span>
+              )}
+              Crear video de mejores momentos (≤3 min)
+            </Button>
+          </div>
 
           {/* Entrada directa a la revisión si este video ya se analizó antes. */}
           {selectedIds.size === 1 && selectedList[0]?.hasProposals && (

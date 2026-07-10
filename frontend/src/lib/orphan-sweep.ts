@@ -77,6 +77,11 @@ async function rawStems(dir: string): Promise<Set<string>> {
 /** videoId dueño de un archivo derivado de largos a partir de su nombre. */
 export function longFormOwner(filename: string): string {
   let stem = path.basename(filename, path.extname(filename));
+  // Mejores Momentos: {id}_highlights_c01_reel_{style} — el owner es el video REAL.
+  // Va ANTES del match de _cNN (si no, {id}_highlights quedaría como owner y no
+  // matchearía ningún raw). El sweep nunca borra, pero así agrupa bien en "Mis videos".
+  const highlights = stem.match(/^(.+?)_highlights(_|$)/);
+  if (highlights) return highlights[1];
   const clip = stem.match(/^(.+?)_c\d+/); // clips/renders/projects/graphics: {id}_cNN_…
   if (clip) return clip[1];
   // Supercuts: {id}_supercut_{style} — sin esto el sweep los trataba como huérfanos

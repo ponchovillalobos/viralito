@@ -66,6 +66,7 @@ LF_CLIPS = LONG_FORM_ROOT / "clips"
 LF_PROJECTS = LONG_FORM_ROOT / "projects"
 LF_RENDERS = LONG_FORM_ROOT / "renders"
 LF_GRAPHICS = LONG_FORM_ROOT / "graphics"  # Modo Gráficos: specs dataViz/kineticHeadlines por clip
+LF_HIGHLIGHTS = LONG_FORM_ROOT / "highlights"  # Modo Mejores Momentos: curaduría de momentos + emoción por video
 
 OLLAMA_URL = os.environ.get("VIRAL_OLLAMA_URL", "http://localhost:11434")
 # OLLAMA_MODEL se define cerca del FINAL de este módulo (_ollama_model()), DESPUÉS de
@@ -131,7 +132,7 @@ def ensure_dirs() -> None:
 
 
 def ensure_long_form_dirs() -> None:
-    for d in [LF_RAW, LF_TRANSCRIPTS, LF_CUTS, LF_CLEAN, LF_PROPOSALS, LF_CLIPS, LF_PROJECTS, LF_RENDERS, LF_GRAPHICS]:
+    for d in [LF_RAW, LF_TRANSCRIPTS, LF_CUTS, LF_CLEAN, LF_PROPOSALS, LF_CLIPS, LF_PROJECTS, LF_RENDERS, LF_GRAPHICS, LF_HIGHLIGHTS]:
         d.mkdir(parents=True, exist_ok=True)
 
 

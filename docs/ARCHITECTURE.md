@@ -245,6 +245,15 @@ long_form/projects/<id>_cNN_<slug>.json
 long_form/renders/<id>_cNN_<slug>_supreme.mp4 ← OUTPUT 2 (5-7 clips)
 ```
 
+### Modo Mejores Momentos (`--highlights`)
+
+Alternativa one-shot al flujo de N clips: de un video largo arma UN solo video de ≤3 min
+con lo mejor, secuenciado por emoción. `python/highlights.py` fusiona LLM (prompt dedicado)
++ `virality.py` + `emotion_director.py` (picos de arousal), selecciona adaptativo ≤180s y
+ordena por arco emocional; extrae los momentos, los concatena (corte duro) y re-transcribe
+el montage, que se renderiza como un **clip sintético** (`{id}_highlights_c01_reel`) por el
+pipeline supreme normal (sin tocar el render). Detalle: `docs/HIGHLIGHTS.md`.
+
 ### Reanudable y resiliente (largos)
 
 - **Export incremental**: cada render se escribe a su `.mp4` final apenas termina, así un

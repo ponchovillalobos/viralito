@@ -129,6 +129,8 @@ export async function processJob(
       args.push("--clips", body.clips.join(","));
     }
   }
+  // MEJORES MOMENTOS: one-shot, SIEMPRE produce el video (el pipeline lo renderiza solo).
+  if (mode === "highlights") args.push("--highlights");
   if (body.graphicsMode) args.push("--graphics");
   if (body.styles && body.styles.length > 0) {
     args.push("--styles", body.styles.join(","));
@@ -447,7 +449,7 @@ export async function POST(req: NextRequest) {
 
     // ── Flujo REVISAR: normalizar/validar el modo ANTES de encolar nada ──
     const mode: LongFormRunMode = body.mode ?? "full";
-    if (!["full", "analyze", "render-approved"].includes(mode)) {
+    if (!["full", "analyze", "render-approved", "highlights"].includes(mode)) {
       return NextResponse.json(
         { error: "Modo de proceso no reconocido. Recarga la pantalla e intenta de nuevo." },
         { status: 400 }

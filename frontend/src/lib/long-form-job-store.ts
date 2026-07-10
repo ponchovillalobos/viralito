@@ -47,8 +47,9 @@ export interface LongFormStep {
  *   "full"            → comportamiento clásico: analiza + extrae + genera todo de un jalón.
  *   "analyze"         → solo hasta el proposals JSON (el usuario revisa los momentos).
  *   "render-approved" → salta el análisis y solo extrae + genera los clips aprobados.
+ *   "highlights"      → MEJORES MOMENTOS: 1 solo video ≤3 min con lo mejor, one-shot.
  */
-export type LongFormRunMode = "full" | "analyze" | "render-approved";
+export type LongFormRunMode = "full" | "analyze" | "render-approved" | "highlights";
 
 export interface LongFormJob {
   id: string;
@@ -123,6 +124,11 @@ const STEPS_BY_MODE: Record<LongFormRunMode, { key: LongFormStepKey; label: stri
   "render-approved": [
     { key: "extract_clips", label: "Recortar los clips aprobados" },
     { key: "render", label: "Generar los videos finales con tu estilo" },
+  ],
+  highlights: [
+    { key: "transcribe", label: "Convertir a texto lo que se dice en el video" },
+    { key: "analyze", label: "Elegir y ordenar los mejores momentos" },
+    { key: "render", label: "Armar tu video único con lo mejor" },
   ],
 };
 
