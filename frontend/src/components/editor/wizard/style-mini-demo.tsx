@@ -414,6 +414,26 @@ export function StyleMiniDemo({
                 <Caption color={accent} />
               </Screen>
             );
+          case "audiogram":
+            return (
+              <Screen bg="#0e1216">
+                {/* nombre del show arriba-izquierda */}
+                <div className="absolute left-1 top-1.5 font-mono text-[5px] font-bold text-white/85">
+                  🎙 TU SHOW
+                </div>
+                {/* onda de barras mono-color (hint estático del audiograma) */}
+                <div className="absolute left-1/2 top-[56%] flex -translate-x-1/2 items-center gap-[1.5px]">
+                  {[5, 9, 15, 22, 13, 26, 11, 19, 7, 17, 10, 24, 14, 8, 15].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-[2px] rounded-full"
+                      style={{ height: h, background: accent, boxShadow: `0 0 3px ${accent}88` }}
+                    />
+                  ))}
+                </div>
+                <Caption color={accent} />
+              </Screen>
+            );
           default:
             return <Screen><Caption color={accent} /></Screen>;
         }

@@ -804,6 +804,8 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         // acompañe sin sonar raro sobre la voz.
         musicTrack: pickRandomMusicTrack(ctx.videoId, "inspirador"),
         musicVolume: 0.06,
+        // LENS FX (F2.d) — halación sutil (bloom de acento), sin aberración (look limpio).
+        lensFx: { halation: 0.28, chromatic: 0 },
       },
       ctx,
       { lut: "teal_orange.cube", kinetic: "none" }
@@ -888,10 +890,34 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         vignette: true,
         filmGrain: true,
         vhsLook: true,
+        // LENS FX (F2.d) — halación + aberración cromática: el look analógico se refuerza.
+        lensFx: { halation: 0.5, chromatic: 0.55 },
         emphasisCards: buildEmphasisCards(ctx),
       },
       ctx,
       { lut: "vintage_film.cube", kinetic: "none", sceneFx: false, transitions: false }
+    );
+  }
+
+  // AUDIOGRAMA (F2.a) — clip de podcast: onda de barras mono-color que baila con la
+  // VOZ real (audiogram-layer, visualizeAudio) + branding del show. El video del
+  // hablante sigue visible con viñeta para que la onda resalte. Sin sceneFx/transiciones.
+  if (styleId === "audiogram") {
+    return applyCapcutFx(
+      {
+        ...base,
+        subtitleStyle: "anton" as const,
+        vignette: true,
+        audiogram: {
+          handle: "",
+          logoUrl: "",
+          bars: 44,
+          y: 0.64,
+          height: 150,
+        },
+      },
+      ctx,
+      { lut: "", kinetic: "none", sceneFx: false, transitions: false }
     );
   }
 
@@ -1373,6 +1399,8 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         captionBounce: false,
         musicTrack: pickRandomMusicTrack(ctx.videoId),
         musicVolume: 0.1,
+        // LENS FX (F2.d) — halación cálida (bloom de acento) del cine antiguo, sin aberración.
+        lensFx: { halation: 0.32, chromatic: 0 },
       },
       ctx,
       { lut: "kodak_warm.cube", kinetic: "none" }

@@ -53,6 +53,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { StyleMiniDemo } from "@/components/editor/wizard/style-mini-demo";
 import { StyleMotionPreview } from "@/components/editor/wizard/style-motion-preview";
+import { BrandKitPicker } from "@/components/editor/wizard/brand-kit-picker";
 
 // ─── Fuentes para el preview (mismas que el wizard de shorts; gratis, self-host) ──
 const _mont = Montserrat({ subsets: ["latin"], weight: "800", display: "swap" });
@@ -117,7 +118,7 @@ type StyleId =
   | "motion_pro" | "motion_beat" | "motion_grid"
   | "editorial" | "editorial_broll" | "editorial_full"
   | "kinetic_type" | "lottie_pop" | "paper_cut"
-  | "cine_clasico" | "vhs";
+  | "cine_clasico" | "vhs" | "audiogram";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -229,6 +230,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = 
   { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: panel de papel + titulares serif", emoji: "✂️" },
   { id: "cine_clasico", name: "Cine clásico", tagline: "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve B&N", emoji: "🎞️" },
   { id: "vhs", name: "VHS Retro", tagline: "Cámara de los 90: grano, scanlines, ► PLAY con contador y glitch de tracking — se siente grabado en cinta", emoji: "📼" },
+  { id: "audiogram", name: "Audiograma", tagline: "Clip de podcast: una onda de barras baila con la voz del clip + el nombre de tu show. Ideal para entrevistas y episodios.", emoji: "🎙️" },
 ];
 
 const PALETTE = [
@@ -1490,6 +1492,16 @@ export function LongFormWizard() {
               ? "En el estilo Editorial este color pinta las palabras destacadas de los titulares y las ilustraciones animadas."
               : "Un solo color para todos los clips del lote (subtítulos highlight, stickers, vignette, border)."}
           </p>
+          {/* F1.b — Marca automática: deriva acento + tema del logo/URL en un paso. */}
+          <BrandKitPicker
+            themeIds={EDITORIAL_THEMES.map((t) => t.id)}
+            onApply={(r) => {
+              setAccent(r.accent);
+              if (hasEditorial && EDITORIAL_THEMES.some((t) => t.id === r.themeId)) {
+                setEditorialTheme(r.themeId);
+              }
+            }}
+          />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {PALETTE.map((c) => {
               const sel = accent === c.value;
@@ -2174,6 +2186,55 @@ function JobView({
         </div>
       )}
 
+      {job.status === "failed" &&
+        (() => {
+          // Panel de fallo ARRIBA del todo: el botón de recuperación no puede vivir
+          // escondido al fondo (bajo «Detalle del proceso» nadie lo veía). Mensaje
+          // HONESTO según la causa — Reanudar retoma saltando lo ya hecho
+          // (transcript/análisis/clips/renders existentes no se repiten).
+          const interrupted = job.steps.some((s) =>
+            /interrumpido por reinicio|pausado porque la app se reinició/i.test(s.message ?? ""),
+          );
+          const timedOut = job.steps.some((s) => /dejó de responder/i.test(s.message ?? ""));
+          return (
+            <div className="mb-5 rounded-md border border-red-500/30 bg-red-500/5 p-3">
+              <p className="flex items-center gap-2 text-sm font-medium text-red-200">
+                <XCircle className="h-4 w-4" />
+                {interrupted
+                  ? "El trabajo se interrumpió"
+                  : timedOut
+                    ? "El trabajo se detuvo por falta de señales"
+                    : "El procesamiento falló"}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {interrupted
+                  ? "La app se reinició a mitad del trabajo — tu video está bien. Tocá «Reanudar» y retoma saltando lo que ya estaba hecho."
+                  : timedOut
+                    ? "El proceso pasó 20 minutos sin reportar avance y se detuvo por seguridad. Tu video está bien y lo ya avanzado se conservó — tocá «Reanudar» y retoma donde iba."
+                    : "Causas comunes: la IA local está apagada (ábrela desde el menú Inicio), el video no tiene voz, o el archivo está dañado. El detalle está abajo, en «Detalle del proceso»."}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={onResume}
+                  disabled={resuming}
+                  className="bg-violet-500 text-white hover:bg-violet-400"
+                >
+                  {resuming ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {resuming ? "Reanudando…" : "Reanudar trabajo"}
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  Retoma donde iba — lo ya generado no se repite.
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
       <div className="mb-5 space-y-1">
         <div className="flex items-center justify-between font-mono-tab text-[10px] text-muted-foreground">
           <span>Progreso global</span>
@@ -2290,46 +2351,6 @@ function JobView({
           </div>
         </div>
       )}
-
-      {job.status === "failed" &&
-        (() => {
-          // Mensaje HONESTO según la causa: si fue un reinicio de la app, no es culpa
-          // del video ni de la IA — y el botón Reanudar retoma saltando lo ya hecho.
-          const interrupted = job.steps.some((s) =>
-            /interrumpido por reinicio|pausado porque la app se reinició/i.test(s.message ?? ""),
-          );
-          return (
-            <div className="mt-5 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-              <p className="flex items-center gap-2 text-sm font-medium text-red-200">
-                <XCircle className="h-4 w-4" />
-                {interrupted ? "El trabajo se interrumpió" : "El procesamiento falló"}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {interrupted
-                  ? "La app se reinició a mitad del trabajo — tu video está bien. Tocá «Reanudar» y retoma saltando lo que ya estaba hecho."
-                  : "Causas comunes: la IA local está apagada (ábrela desde el menú Inicio), el video no tiene voz, o el archivo está dañado. El detalle está arriba, en «Detalle del proceso»."}
-              </p>
-              <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={onResume}
-                  disabled={resuming}
-                  className="bg-violet-500 text-white hover:bg-violet-400"
-                >
-                  {resuming ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {resuming ? "Reanudando…" : "Reanudar trabajo"}
-                </Button>
-                <span className="text-[10px] text-muted-foreground">
-                  Retoma donde iba — lo ya generado no se repite.
-                </span>
-              </div>
-            </div>
-          );
-        })()}
 
       {job.status === "cancelled" && (
         <div className="mt-5 rounded-md border border-border bg-muted/20 p-3">

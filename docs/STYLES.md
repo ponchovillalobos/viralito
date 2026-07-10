@@ -309,6 +309,28 @@ lee como REAL contra la estética AI-perfecta.
 }
 ```
 
+### 25. Audiograma (`audiogram`) 🎙️
+
+Clip de podcast: una **onda de barras mono-color baila con la VOZ real** del clip
+(`voiceoverUrl ?? rawVideoUrl`) + branding del show. Desbloquea el vertical
+podcast/entrevista sin depender de la imagen.
+
+- **Motor**: `remotion/src/layers/audiogram-layer.tsx` reusa `useWindowedAudioData` +
+  `visualizeAudio` de `@remotion/media-utils` (mismo patrón que `AudioPulse`). 100%
+  offline, cero deps nuevas.
+- **Reglas**: TODAS las barras usan el `accentColor` único (mono-color); la onda vive en
+  una banda media (~64% de altura) para NO tapar los subtítulos (abajo) ni los stickers
+  (arriba-centro).
+- Prop opt-in `audiogram` (`{handle, logoUrl, bars, y, height}` o `null` = render idéntico).
+  Cableado en `build-props.mjs`, `build-clip-props.mjs` y `ViralVideo.tsx`.
+
+**Configuración mínima**:
+```json
+{
+  "styleId": "audiogram"
+}
+```
+
 ## 16 SFX disponibles
 
 Curados en `C:\viral-data\videos\assets\sfx\curated\`:

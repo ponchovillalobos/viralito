@@ -31,6 +31,7 @@ import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
 import { flip } from "@remotion/transitions/flip";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
+import { fade } from "@remotion/transitions/fade";
 import { none } from "@remotion/transitions/none";
 
 export const proTransitionSeriesSchema = z.object({
@@ -38,7 +39,7 @@ export const proTransitionSeriesSchema = z.object({
   /** Duración del barrido (frames). El overlay total dura un poco más para enmarcar. */
   durationFrames: z.number().default(14),
   kind: z
-    .enum(["slide", "wipe", "flip", "clockWipe", "none"])
+    .enum(["slide", "wipe", "flip", "clockWipe", "fade", "none"])
     .default("slide"),
   /** Dirección para slide/wipe/flip (las que la soportan). */
   direction: z
@@ -87,6 +88,8 @@ export const ProTransitionSeriesLayer: React.FC<{
               return flip({ direction: tr.direction }) as unknown as AnyPresentation;
             case "clockWipe":
               return clockWipe({ width, height }) as unknown as AnyPresentation;
+            case "fade":
+              return fade() as unknown as AnyPresentation;
             case "none":
               return none() as unknown as AnyPresentation;
             case "slide":
@@ -96,7 +99,7 @@ export const ProTransitionSeriesLayer: React.FC<{
         })();
 
         const timing =
-          tr.kind === "none"
+          tr.kind === "none" || tr.kind === "fade"
             ? linearTiming({ durationInFrames: dur })
             : springTiming({
                 config: { damping: 26, mass: 0.7 },

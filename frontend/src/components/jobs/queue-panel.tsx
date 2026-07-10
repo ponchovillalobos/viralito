@@ -409,29 +409,61 @@ function QueueRow({ entry, onDismiss }: { entry: QueueEntryView; onDismiss: () =
 /**
  * Fila de un trabajo terminado: "Listo ✓" con link a Mis videos, o "Falló" con el
  * motivo humano expandible + botón Reintentar (re-encola el mismo video y estilos).
+ * Para largos, Reintentar REANUDA: re-encola el request persistido del job y el
+ * pipeline salta lo ya hecho (transcript/análisis/clips/renders existentes).
  */
 function FinishedRow({ entry, onDismiss }: { entry: QueueEntryView; onDismiss: () => void }) {
   const ok = entry.status === "done";
   const [showReason, setShowReason] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
-  const canRetry = Boolean(entry.params?.videoId && entry.params.styles?.length);
+  const canRetry =
+    entry.kind === "long_form" ||
+    Boolean(entry.params?.videoId && entry.params.styles?.length);
+
+  async function retryLongForm() {
+    // El job de largos persiste su request original — lo re-encolamos tal cual.
+    const pr = await fetch(`/api/long_form/progress?jobId=${encodeURIComponent(entry.jobId)}`);
+    if (!pr.ok) throw new Error(`HTTP ${pr.status}`);
+    const job = (await pr.json()) as { request?: Record<string, unknown> };
+    if (!job?.request) {
+      throw new Error("este trabajo no guardó su configuración — arrancalo de nuevo desde Videos largos");
+    }
+    const r = await fetch("/api/long_form/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(job.request),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => null);
+      throw new Error(
+        data && typeof data.error === "string" ? data.error : `HTTP ${r.status}`
+      );
+    }
+  }
 
   async function retry() {
-    if (!entry.params) return;
     setRetrying(true);
     try {
-      const r = await fetch("/api/editor/auto-build", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          videoId: entry.params.videoId,
-          styles: entry.params.styles,
-          accentColor: entry.params.accentColor,
-        }),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      toast.success("Va de nuevo — lo verás aquí mientras se edita.");
+      if (entry.kind === "long_form") {
+        await retryLongForm();
+        toast.success("Trabajo reanudado ✓", {
+          description: "Retoma saltando lo que ya estaba hecho.",
+        });
+      } else {
+        if (!entry.params) return;
+        const r = await fetch("/api/editor/auto-build", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            videoId: entry.params.videoId,
+            styles: entry.params.styles,
+            accentColor: entry.params.accentColor,
+          }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        toast.success("Va de nuevo — lo verás aquí mientras se edita.");
+      }
       onDismiss();
     } catch (err) {
       toastError(err, "No se pudo reintentar la edición", {
@@ -494,7 +526,7 @@ function FinishedRow({ entry, onDismiss }: { entry: QueueEntryView; onDismiss: (
                   ) : (
                     <RotateCcw className="h-2.5 w-2.5" />
                   )}
-                  Reintentar
+                  {entry.kind === "long_form" ? "Reanudar" : "Reintentar"}
                 </button>
               )}
             </>

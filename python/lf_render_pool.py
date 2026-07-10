@@ -183,6 +183,12 @@ class _ServerInstance:
         self._result_evt = threading.Event()
         self._reader: threading.Thread | None = None
         self._next_id = 0
+        # Throttle del progreso re-emitido a stderr (frame y timestamp del último print).
+        self._prog_frame = -10_000
+        self._prog_ts = 0.0
+        # Última vez que ESTA instancia imprimió algo a stderr (progreso o log del srv).
+        # El heartbeat de render() solo habla si esto envejece.
+        self._last_out_ts = time.time()
 
     def start(self) -> bool:
         """Arranca el proceso y espera el `ready` (bundle armado). False si falla."""
@@ -226,6 +232,7 @@ class _ServerInstance:
             for line in proc.stderr:
                 line = line.rstrip()
                 if line:
+                    self._last_out_ts = time.time()
                     _log(f"srv{self.idx}: {line}")
         except (ValueError, OSError):
             pass
@@ -254,7 +261,27 @@ class _ServerInstance:
                 elif t == "result":
                     self._result = msg
                     self._result_evt.set()
-                # progress / pong → se ignoran (no rompen el render)
+                elif t == "progress":
+                    # CRÍTICO: re-emitir el progreso a stderr. El caller (ruta del job)
+                    # resetea su idle-timeout de 20 min con CADA línea; si el pool se
+                    # queda mudo durante un render largo, el job entero se mata como
+                    # "colgado" aunque el render iba bien (causa del bug "dejó de
+                    # responder por 20 minutos"). Formato "Rendered X/Y" = el mismo del
+                    # CLI, que processLine ya parsea para la barra. Throttle: cada 30
+                    # frames o 15s, y siempre el frame final.
+                    cur = int(msg.get("renderedFrames") or 0)
+                    tot = int(msg.get("totalFrames") or 0)
+                    now = time.time()
+                    if tot > 0 and (
+                        cur - self._prog_frame >= 30
+                        or now - self._prog_ts >= 15
+                        or cur >= tot
+                    ):
+                        self._prog_frame = cur
+                        self._prog_ts = now
+                        self._last_out_ts = now
+                        _log(f"srv{self.idx}: Rendered {cur}/{tot}")
+                # pong → se ignora (no rompe el render)
         except (ValueError, OSError):
             pass
         # stdout cerrado: el proceso murió. Desbloquear cualquier espera.
@@ -272,6 +299,8 @@ class _ServerInstance:
             req_id = f"{self.idx}-{self._next_id}"
             self._result = None
             self._result_evt.clear()
+            self._prog_frame = -10_000
+            self._prog_ts = 0.0
             req = {
                 "id": req_id,
                 "propsPath": str(props_path),
@@ -287,7 +316,24 @@ class _ServerInstance:
             except (OSError, ValueError) as e:
                 _log(f"instancia {self.idx}: no pude escribir el pedido ({e})")
                 return False
-            if not self._result_evt.wait(timeout=_RENDER_HARD_TIMEOUT_S):
+            # Espera en rebanadas de 60s con HEARTBEAT: si la instancia lleva >55s sin
+            # imprimir nada (ni progreso ni logs), avisamos que sigue viva para que el
+            # idle-timeout del job no la dé por muerta. Un cuelgue REAL lo corta el
+            # tope duro de _RENDER_HARD_TIMEOUT_S y ese clip cae al CLI directo.
+            t_wait0 = time.time()
+            got_result = False
+            while time.time() - t_wait0 < _RENDER_HARD_TIMEOUT_S:
+                if self._result_evt.wait(timeout=60):
+                    got_result = True
+                    break
+                if time.time() - self._last_out_ts > 55:
+                    self._last_out_ts = time.time()
+                    mins = (time.time() - t_wait0) / 60
+                    _log(
+                        f"instancia {self.idx}: render en curso, sin progreso nuevo "
+                        f"({mins:.0f} min)…"
+                    )
+            if not got_result:
                 _log(f"instancia {self.idx}: render timeout ({_RENDER_HARD_TIMEOUT_S:.0f}s)")
                 # Render colgado: matar la instancia (el caller cae a CLI directo).
                 self.stop()
@@ -333,6 +379,11 @@ class RenderPool:
     def __init__(self, instances: list[_ServerInstance]):
         self._instances = instances
         self._free: queue.Queue[_ServerInstance] = queue.Queue()
+        # Instancias VIVAS restantes. Cuando llega a 0, render_clip devuelve False
+        # al instante (todo cae al CLI directo) en vez de esperar una instancia que
+        # jamás va a volver a la cola.
+        self._alive_count = len(instances)
+        self._count_lock = threading.Lock()
         for inst in instances:
             self._free.put(inst)
 
@@ -345,8 +396,21 @@ class RenderPool:
     ) -> bool:
         """Renderiza un clip usando una instancia libre del pool. True si ok; False
         si la instancia murió/falló (el caller cae al CLI directo para ESE clip).
-        Una instancia muerta NO se reencola (se retira del pool)."""
-        inst = self._free.get()
+        Una instancia muerta NO se reencola (se retira del pool).
+
+        DEADLOCK FIX (2026-07-06): el get() era BLOQUEANTE SIN TIMEOUT. Si todas las
+        instancias morían en la primera ola, la cola quedaba vacía para siempre y los
+        workers de la ola siguiente se colgaban aquí — el job entero moría a los 20 min
+        por "dejó de responder" sin emitir una sola línea. Ahora: si no quedan vivas
+        → False inmediato; si no hay libre en 10s → False (ese clip va por CLI)."""
+        with self._count_lock:
+            if self._alive_count <= 0:
+                return False
+        try:
+            inst = self._free.get(timeout=10)
+        except queue.Empty:
+            _log("sin instancia libre en 10s → este clip va por CLI directo")
+            return False
         try:
             if not inst.alive():
                 return False
@@ -357,7 +421,10 @@ class RenderPool:
             if inst.alive():
                 self._free.put(inst)
             else:
-                _log(f"instancia {inst.idx} retirada del pool (muerta)")
+                with self._count_lock:
+                    self._alive_count -= 1
+                    left = self._alive_count
+                _log(f"instancia {inst.idx} retirada del pool (muerta); quedan {left} viva(s)")
 
     def shutdown(self) -> None:
         for inst in self._instances:

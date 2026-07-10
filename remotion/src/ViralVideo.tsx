@@ -44,6 +44,10 @@ import {
   ProTransitionSeriesLayer,
   proTransitionSeriesSchema,
 } from "./layers/pro-transition-series-layer";
+import { AudiogramLayer, audiogramSchema } from "./layers/audiogram-layer";
+import { LensFxLayer, lensFxSchema } from "./layers/lens-fx-layer";
+import { StatPopLayer, statPopSchema } from "./layers/stat-pop-layer";
+import { LowerThirdLayer, lowerThirdSchema } from "./layers/lower-third-layer";
 import { IllustrationStickerLayer } from "./layers/illustration-sticker-layer";
 import { OverlayTextureLayer } from "./layers/overlay-texture-layer";
 import {
@@ -327,6 +331,16 @@ export const viralVideoSchema = z.object({
   // PRO — transiciones oficiales de Remotion (@remotion/transitions): slide/wipe/
   // flip/clockWipe/none como overlay en cortes. ADITIVO a las caseras. [] = idéntico.
   proTransitionSeries: z.array(proTransitionSeriesSchema).default([]),
+  // AUDIOGRAMA (F2.a) — onda de barras que baila con la VOZ (clip de podcast).
+  // null = sin audiograma (render idéntico). Solo el estilo 'audiogram' lo setea.
+  audiogram: audiogramSchema.nullable().default(null),
+  // LENS FX (F2.d) — halación (bloom de acento) + aberración cromática como overlay.
+  // null = sin FX de lente (render idéntico). Lo setean vhs/cinematic/cine_clasico.
+  lensFx: lensFxSchema.nullable().default(null),
+  // CALLOUTS (F2.c) — cifras grandes (statPops) + lower-thirds cronometrados a la
+  // palabra. Aditivos: [] = render idéntico. Los puebla word_callouts.py (opt-in).
+  statPops: z.array(statPopSchema).default([]),
+  lowerThirds: z.array(lowerThirdSchema).default([]),
   // ILUSTRACIONES CC0 multicolor (open-doodles/open-peeps) con duotono opcional al
   // tema, usadas como overlay/sticker de personas. [] = render idéntico.
   illustrationStickers: z.array(illustrationStickerSchema).default([]),
@@ -404,6 +418,10 @@ export const defaultProps: ViralVideoProps = {
   editorialCutout: null,
   editorialMap: null,
   proTransitionSeries: [],
+  audiogram: null,
+  lensFx: null,
+  statPops: [],
+  lowerThirds: [],
   illustrationStickers: [],
   overlayTexture: null,
   textBehind: null,
@@ -467,6 +485,10 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   editorialCutout,
   editorialMap,
   proTransitionSeries,
+  audiogram,
+  lensFx,
+  statPops,
+  lowerThirds,
   illustrationStickers,
   overlayTexture,
   textBehind,
@@ -1384,6 +1406,35 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           currentTime={currentTime}
         />
       )}
+
+      {/* LENS FX (F2.d) — halación (bloom de acento) + aberración cromática (VHS/Y2K).
+          Overlay bajo subtítulos/stickers; null = render idéntico. */}
+      {lensFx && (lensFx.halation > 0 || lensFx.chromatic > 0) && (
+        <LensFxLayer config={lensFx} accent={subtitleHighlight} />
+      )}
+
+      {/* AUDIOGRAMA (F2.a) — onda de barras que baila con la VOZ (voiceoverUrl ?? rawVideoUrl).
+          Solo el estilo 'audiogram' lo setea; mono-color, banda media (no tapa subtítulos). */}
+      {audiogram && (voiceoverUrl || rawVideoUrl) && (
+        <AudiogramLayer
+          config={audiogram}
+          audioSrc={voiceoverUrl ?? rawVideoUrl}
+          accent={subtitleHighlight}
+        />
+      )}
+
+      {/* CALLOUTS (F2.c) — lower-thirds (nombre/cargo) + cifras grandes cronometradas a
+          la palabra. Aditivos; [] = render idéntico. Filtrados a la ventana activa. */}
+      {lowerThirds
+        .filter((lt) => currentTime >= lt.at - 0.05 && currentTime <= lt.at + lt.duration + 0.4)
+        .map((lt, i) => (
+          <LowerThirdLayer key={`lt-${i}-${lt.at}`} item={lt} currentTime={currentTime} accent={subtitleHighlight} />
+        ))}
+      {statPops
+        .filter((sp) => currentTime >= sp.at - 0.05 && currentTime <= sp.at + sp.duration + 0.3)
+        .map((sp, i) => (
+          <StatPopLayer key={`sp-${i}-${sp.at}`} pop={sp} currentTime={currentTime} accent={subtitleHighlight} />
+        ))}
 
       {/* ILUSTRACIONES CC0 multicolor (open-doodles/open-peeps) como sticker de
           personas, con duotono opcional al tema. Aditivo: [] = render idéntico. */}

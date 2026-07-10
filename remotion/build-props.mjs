@@ -261,6 +261,14 @@ const props = {
   // PRO — transiciones oficiales de Remotion + ilustraciones CC0 (duotono opcional)
   // + overlay de textura. Aditivo: defaults []/null = render idéntico.
   proTransitionSeries: proTransitionSeriesRemapped,
+  // AUDIOGRAMA (F2.a) — config del estilo 'audiogram' (null = sin onda). Objeto simple,
+  // sin timestamps que remapear → pasa tal cual.
+  audiogram: project.audiogram ?? null,
+  // LENS FX (F2.d) — halación + aberración cromática (null = sin FX). Pass-through.
+  lensFx: project.lensFx ?? null,
+  // CALLOUTS (F2.c) — statPops + lower-thirds (remap de timestamp `at`). [] = idéntico.
+  statPops: filterAndRemap(project.statPops || [], ["at"]),
+  lowerThirds: filterAndRemap(project.lowerThirds || [], ["at"]),
   illustrationStickers: illustrationStickersRemapped,
   overlayTexture: project.overlayTexture ?? null,
   // TEXTO DETRÁS DEL SUJETO (matte estático, NUEVO). Compone en Remotion: video →

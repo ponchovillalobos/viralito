@@ -23,6 +23,7 @@ import {
 import { StyleMiniDemo } from "@/components/editor/wizard/style-mini-demo";
 import { StyleMotionPreview } from "@/components/editor/wizard/style-motion-preview";
 import { CinematicStep } from "@/components/editor/wizard/cinematic-step";
+import { BrandKitPicker } from "@/components/editor/wizard/brand-kit-picker";
 import { Confetti } from "@/components/ui/confetti";
 import {
   Montserrat, Poppins, Oswald, Bangers, Luckiest_Guy, Archivo_Black, Teko, Righteous,
@@ -60,7 +61,7 @@ const FONT_PREVIEW: Record<string, string> = {
   playfair: "'Playfair Display', Georgia, serif",
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico" | "vhs";
+type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico" | "vhs" | "audiogram";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -121,6 +122,7 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "paper_cut", name: "Papel recortado", tagline: "Collage editorial: tu video en un panel de papel recortado + titulares serif.", emoji: "✂️" },
   { id: "cine_clasico", name: "Cine clásico", tagline: "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro, con efectos de máquina de escribir y proyector.", emoji: "🎞️" },
   { id: "vhs", name: "VHS Retro", tagline: "Cámara de los 90: grano, scanlines, ► PLAY con contador y glitch de tracking. Se siente grabado en cinta — lo 'imperfecto' que hoy se ve real.", emoji: "📼" },
+  { id: "audiogram", name: "Audiograma", tagline: "Clip de podcast: una onda de barras baila con la voz + el nombre de tu show. Perfecto para entrevistas y episodios sin depender de la imagen.", emoji: "🎙️" },
 ];
 
 // Tarjetas-preset del paso 2: 5 familias con variantes (selección ÚNICA y simple).
@@ -194,6 +196,7 @@ const PRESETS: PresetDef[] = [
       { id: "cinematic_pro", label: "Cine 🎬" },
       { id: "cine_clasico", label: "Cine clásico 🎞️🎙️" },
       { id: "vhs", label: "VHS Retro 📼" },
+      { id: "audiogram", label: "Audiograma 🎙️" },
     ],
   },
   {
@@ -410,6 +413,12 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       : ["hype"]
   );
   const [accent, setAccent] = useState<string>("#fb7185");
+  // F2.b — Bumper de marca (intro/outro). Opt-in; default apagado = render idéntico.
+  const [bumperEnabled, setBumperEnabled] = useState(false);
+  const [bumperTagline, setBumperTagline] = useState("");
+  const [bumperSubtitle, setBumperSubtitle] = useState("");
+  const [bumperLogoUrl, setBumperLogoUrl] = useState("");
+  const [bumperOutro, setBumperOutro] = useState(true);
   const [subtitleFont, setSubtitleFont] = useState<string>("auto");
   // Color del TEXTO de los subtítulos ("auto" = el del estilo, normalmente blanco).
   const [subtitleColor, setSubtitleColor] = useState<string>("auto");
@@ -832,6 +841,17 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
             filmGrain: cinematicConfig.filmGrain,
             vignette: cinematicConfig.vignette,
             subtitleCinematic: cinematicConfig.subtitleStyleCinematic,
+          }
+        : undefined,
+      // F2.b — Bumper de marca (intro/outro). Opt-in: si no está activo, no viaja.
+      brandBumper: bumperEnabled
+        ? {
+            enabled: true,
+            tagline: bumperTagline || undefined,
+            subtitle: bumperSubtitle || undefined,
+            logoUrl: bumperLogoUrl || undefined,
+            outro: bumperOutro,
+            background: "dark" as const,
           }
         : undefined,
     };
@@ -1705,6 +1725,65 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               ? "En el estilo Editorial este color pinta las palabras destacadas de los titulares y las ilustraciones animadas."
               : "Este color se usa en todo el video: el resaltado de los subtítulos, los stickers y los detalles. Elige el que mejor vaya con tu marca o tu mensaje."}
           </p>
+          {/* F1.b — Marca automática: deriva acento + tema del logo/URL en un paso. */}
+          <BrandKitPicker
+            themeIds={EDITORIAL_THEMES.map((t) => t.id)}
+            onApply={(r) => {
+              setAccent(r.accent);
+              setAccentTouched(true);
+              if (hasEditorial && EDITORIAL_THEMES.some((t) => t.id === r.themeId)) {
+                setEditorialTheme(r.themeId);
+              }
+            }}
+          />
+
+          {/* F2.b — Bumper de marca (intro/outro con logo animado + tagline). Opt-in. */}
+          <div className="mb-4 rounded-lg border border-border bg-muted/20 p-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={bumperEnabled}
+                onChange={(e) => setBumperEnabled(e.target.checked)}
+                className="h-4 w-4 accent-violet-500"
+              />
+              <span className="text-sm font-medium">🎬 Agregar intro/outro de marca</span>
+            </label>
+            <p className="mt-1 pl-6 text-[11px] text-muted-foreground">
+              Un sting corto con tu logo animado + una frase, al inicio (y cierre) del video.
+            </p>
+            {bumperEnabled && (
+              <div className="mt-3 space-y-2 pl-6">
+                <input
+                  type="text"
+                  value={bumperTagline}
+                  onChange={(e) => setBumperTagline(e.target.value)}
+                  placeholder="Frase principal (ej. ESTRATEGIA VIRAL)"
+                  maxLength={40}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500/60"
+                />
+                <input
+                  type="text"
+                  value={bumperSubtitle}
+                  onChange={(e) => setBumperSubtitle(e.target.value)}
+                  placeholder="Subtexto opcional (ej. @tu_handle)"
+                  maxLength={30}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500/60"
+                />
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={bumperOutro}
+                    onChange={(e) => setBumperOutro(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-violet-500"
+                  />
+                  También al final (outro)
+                </label>
+                {bumperLogoUrl && (
+                  <p className="text-[10px] text-emerald-400">✓ Usando el logo de tu marca</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {(() => {
               // Si hay tema editorial con acento propio, se antepone como swatch

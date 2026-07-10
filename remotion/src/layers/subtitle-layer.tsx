@@ -76,15 +76,21 @@ export const SubtitleLayer: React.FC<{
 
   const isCinematic = subtitleStyle === "cinematic";
   const entryFrame = elapsed * fps;
-  const entrySpring = isCinematic
-    ? spring({
-        frame: entryFrame,
-        fps,
-        config: { damping: 14, stiffness: 110, mass: 0.7 },
-      })
-    : 1;
+  // Entrada con SPRING (motion orgánico) también para bebas/anton, no solo cinematic:
+  // un pop suave (0.9→1) + leve subida, en vez del corte lineal seco. NO toca la
+  // opacidad (el fade in/out por palabra sigue igual → "subtítulos siempre visibles").
+  const entrySpring = spring({
+    frame: entryFrame,
+    fps,
+    config: isCinematic
+      ? { damping: 14, stiffness: 110, mass: 0.7 }
+      : { damping: 12, stiffness: 200, mass: 0.6 },
+  });
   const cinematicScale = isCinematic ? 0.88 + entrySpring * 0.12 : 1;
   const cinematicTranslateY = isCinematic ? (1 - entrySpring) * 28 : 0;
+  // Pop sutil para el path viral (bebas/anton). Se combina con `bounce` si está.
+  const popScale = isCinematic ? 1 : 0.9 + entrySpring * 0.1;
+  const popTranslateY = isCinematic ? 0 : (1 - entrySpring) * 12;
   const cinematicGlow = isCinematic
     ? `drop-shadow(0 0 40px ${highlight}) drop-shadow(0 0 20px ${highlight}cc) drop-shadow(0 0 8px rgba(0,0,0,1)) drop-shadow(0 5px 30px rgba(0,0,0,1))`
     : undefined;
@@ -119,7 +125,7 @@ export const SubtitleLayer: React.FC<{
           opacity,
           transform: isCinematic
             ? `scale(${cinematicScale * scale}) translateY(${cinematicTranslateY}px)`
-            : `scale(${scale})`,
+            : `scale(${scale * popScale}) translateY(${popTranslateY}px)`,
           transformOrigin: "center center",
         }}
       >

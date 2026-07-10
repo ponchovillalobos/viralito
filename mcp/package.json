@@ -1,0 +1,13 @@
+{
+  "name": "viralito-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor MCP de Viralito — edita videos desde cualquier agente (Claude/ChatGPT/Cursor). Cero dependencias, 100% local.",
+  "bin": {
+    "viralito-mcp": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}

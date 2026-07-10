@@ -463,6 +463,12 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
             "--concurrency",
             String(remotionConcurrency()),
             `--timeout=${REMOTION_DELAY_TIMEOUT_MS}`,
+            // disableWebSecurity: los estilos audio-reactivos (audiogram + fondos
+            // animatedBackground.audioReactive de motion_*/kinetic_type/lottie_pop) hacen
+            // fetch CLIENT-SIDE del audio (useWindowedAudioData) que en el render es
+            // cross-origin; sin este flag CORS lo bloquea y el render FALLA. (El pool
+            // render-server.mjs lo setea en chromiumOptions; este es el fallback CLI.)
+            "--disable-web-security",
             offthreadCacheFlag(),
             "--props=props.json",
           ],
@@ -745,6 +751,49 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
         if (ln.ok) console.log(`[auto-build] loudnorm -14 LUFS ok: ${path.basename(outPath)}`);
       } catch (err) {
         console.warn(`[auto-build] loudnorm skipped:`, err);
+      }
+
+      // BRAND BUMPER (F2.b) — intro/outro de marca CONCATENADO en post (opt-in).
+      // Composición SEPARADA (BrandBumper) → NO toca el render del clip ni el timeline.
+      // best-effort: si algo falla, el video queda sin bumper (nunca rompe el render).
+      const bumper = (body as {
+        brandBumper?: {
+          enabled?: boolean; logoUrl?: string; tagline?: string;
+          subtitle?: string; background?: string; outro?: boolean;
+        };
+      }).brandBumper;
+      if (bumper?.enabled && (bumper.tagline || bumper.logoUrl)) {
+        try {
+          const bumperDir = path.dirname(outPath);
+          const introMp4 = path.join(bumperDir, `${projectId}.__introbumper.mp4`);
+          const outroMp4 = path.join(bumperDir, `${projectId}.__outrobumper.mp4`);
+          const bumperArgs = (m: string, out: string, sec: string) => [
+            path.join(REMOTION_DIR, "render-bumper.mjs"),
+            "--mode", m, "--out", out,
+            "--tagline", bumper.tagline ?? "",
+            "--subtitle", bumper.subtitle ?? "",
+            "--logo", bumper.logoUrl ?? "",
+            "--accent", accentColor,
+            "--background", bumper.background === "accent" ? "accent" : "dark",
+            "--width", String(width), "--height", String(height), "--sec", sec,
+          ];
+          await runProcess(process.execPath, bumperArgs("intro", introMp4, "1.4"), REMOTION_DIR, undefined, 240_000);
+          const doOutro = bumper.outro === true;
+          if (doOutro) {
+            await runProcess(process.execPath, bumperArgs("outro", outroMp4, "1.6"), REMOTION_DIR, undefined, 240_000);
+          }
+          const concatArgs = [
+            path.join(PYTHON_DIR, "bumper_concat.py"),
+            "--main", outPath, "--out", outPath, "--intro", introMp4,
+          ];
+          if (doOutro) concatArgs.push("--outro", outroMp4);
+          const bc = await runProcess(PYTHON_EXE, concatArgs, PYTHON_DIR, undefined, 180_000);
+          if (bc.ok) console.log(`[auto-build] brand bumper concatenado (${projectId})`);
+          await fs.rm(introMp4, { force: true }).catch(() => {});
+          await fs.rm(outroMp4, { force: true }).catch(() => {});
+        } catch (err) {
+          console.warn(`[auto-build] brand bumper skipped:`, err);
+        }
       }
 
       // Publicar atómicamente: el .mp4 final aparece de una sola pieza recién acá.
