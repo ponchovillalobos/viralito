@@ -464,8 +464,13 @@ def assemble_montage(raw_path: Path, segments: list[dict], clip_id: str,
         for i, m in enumerate(segments):
             seg = tmp / f"seg_{i:02d}.mp4"
             try:
+                # NO recortar a 9:16 acá: se deja el aspecto del SOURCE (igual que los
+                # clips normales de largos, que quedan 16:9). ViralVideo cubre (objectFit
+                # cover) el montage al aspecto de salida y LLENA el frame. Recortar acá a
+                # 608x1080 daba un video de baja resolución que cover NO reescalaba →
+                # barras negras. El reframe/encuadre lo maneja el render (como siempre).
                 extract_clip(raw_path, m["start"], m["end"], seg,
-                             target_aspect=aspect_ratio, face_tracking=face_tracking,
+                             target_aspect=None, face_tracking="off",
                              clip_id=f"{clip_id}_seg{i:02d}")
             except Exception as e:  # noqa: BLE001
                 print(f"[highlights] segmento {i} falló, se salta: {e}", file=sys.stderr)

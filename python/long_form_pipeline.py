@@ -1070,6 +1070,7 @@ def step_render_clip(
     editorial_theme: str | None = None,
     music_volume: float | None = None,
     render_pool=None,
+    reframe: bool = True,
 ) -> Path:
     """Genera proyecto + props + render con Remotion para un (clip, style) específico.
 
@@ -1104,7 +1105,12 @@ def step_render_clip(
     run(build_args, cwd=REMOTION_DIR)
     # 1.5) motion tracking opt-in (estilos que lo declaran, ej. hype): parchea trackPath
     #      sobre el clip antes de armar los props. Best-effort.
-    _apply_tracking(clip_id, style_id)
+    #      reframe=False (Mejores Momentos): el montage YA está ensamblado del source;
+    #      correr track_subject sobre un video multi-panel/multi-segmento produce un
+    #      trackPath erráticio que activa autoReframe y PANEA el video fuera del frame
+    #      (barras negras). Sin tracking → trackPath vacío → objectFit:cover centrado.
+    if reframe:
+        _apply_tracking(clip_id, style_id)
     # 1.55) B-ROLL de archivo (editorial_broll/broll_full/broll_pip): busca clips en
     #       Pexels (landscape para 16:9) y parchea project.bRoll. Best-effort.
     _apply_broll(clip_id, style_id, aspect_ratio)
@@ -1269,6 +1275,9 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
                 editorial_theme=args.editorial_theme,
                 music_volume=args.music_volume,
                 render_pool=None,
+                # El montage ya está ensamblado: NO reencuadrar por cara (rompe el
+                # framing de un video multi-panel → barras negras). cover centrado.
+                reframe=False,
             )
             if out and Path(out).exists():
                 rendered.append(str(out))
