@@ -604,15 +604,19 @@ def step_explain_virality(
         pass
 
 
-def step_graphics(clip_id: str, use_llm: bool = True, illustrations: bool = False) -> None:
+def step_graphics(clip_id: str, use_llm: bool = True, illustrations: bool = False,
+                  density: float = 1.0) -> None:
     """Modo Gráficos: genera charts + titulares (+ ilustraciones CC0 opt-in) para un
     clip (best-effort, no rompe el job). illustrations=True cuando algún estilo pedido
-    tiene illustrations:true (editorial*/lottie_pop) → emite illustrationStickers."""
+    tiene illustrations:true (editorial*/lottie_pop) → emite illustrationStickers.
+    density >1 = más gráficos/ilustraciones (los reels de Mejores Momentos se ven cargados)."""
     cmd = [str(VENV_PYTHON), str(PYTHON_DIR / "generate_graphics.py"), clip_id]
     if not use_llm:
         cmd.append("--no-llm")
     if illustrations:
         cmd.append("--illustrations")
+    if density and density != 1.0:
+        cmd += ["--density", str(density)]
     try:
         run(cmd)
     except subprocess.CalledProcessError as e:
@@ -1270,6 +1274,9 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
             highlights_clip_id,
             use_llm=not args.use_heuristic,
             illustrations=bool(set(styles) & ILLUSTRATION_STYLES),
+            # Reel de Mejores Momentos: densidad ALTA de gráficos/ilustraciones para que
+            # se vea cargado (más tarjetas + más ilustraciones + charts).
+            density=1.8,
         )
     rc = _remotion_concurrency(_render_workers())
     rendered: list[str] = []

@@ -1208,7 +1208,7 @@ def editorial_panel_scenes(duration: float) -> list[dict]:
     ]
 
 
-def editorial_cards(words: list[dict], duration: float, seed: int = 0) -> list[dict]:
+def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: float = 1.0) -> list[dict]:
     """Escenas editoriales (~1 cada 11-15s): la frase más fuerte de cada ventana se
     vuelve tarjeta. Si tiene número → STAT ($300 / al día); si abre con ordinal →
     CAPÍTULO numerado; si no → TITULAR serif con la última palabra como acento.
@@ -1221,8 +1221,10 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0) -> list[d
         # Sin frases utilizables: el lienzo igual se llena con tarjetas visuales.
         return _fill_card_gaps([], duration, seed)
     # Ventanas CORTAS (~1 tarjeta cada 6-8s): el texto cambia al ritmo de la voz,
-    # nunca se queda la misma tarjeta clavada en pantalla.
+    # nunca se queda la misma tarjeta clavada en pantalla. `density` >1 acorta la
+    # ventana (más tarjetas, ritmo más viral), con piso 3.5s para que se lean.
     window = max(5.5, min(8.0, duration / max(3, round(duration / 6.5))))
+    window = max(3.5, window / max(0.5, density))
     picked: list[dict] = []
     t0 = 0.0
     while t0 < duration - 4:
@@ -1484,15 +1486,18 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
         return cards
 
 
-def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = False) -> dict:
+def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = False,
+             density: float = 1.0) -> dict:
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     words = transcript.get("words", [])
     duration = float(transcript.get("duration", 0) or 0)
     if duration <= 0 and words:
         duration = float(words[-1].get("end", 0))
 
-    # DENSIDAD: ~1 elemento visual cada ~10s, mín 3, máx 14.
-    target = max(3, min(14, round(duration / 10))) if duration > 0 else 3
+    # DENSIDAD: base ~1 elemento visual cada ~10s (mín 3, máx 14). `density` >1 lo sube
+    # (los reels de Mejores Momentos piden MÁS ilustraciones/gráficos para verse cargados).
+    density = max(0.5, min(3.0, density))
+    target = max(3, min(int(14 * density), round(duration / (10 / density)))) if duration > 0 else 3
 
     # GRÁFICOS VISUALES (lo que el usuario pidió):
     #   - charts: contador/barras/línea/dona desde NÚMEROS reales (no inventa datos).
@@ -1542,7 +1547,7 @@ def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = 
     # editorialScenes: coreografía del panel (derecha→izquierda→cuadrado→full).
     # seed POR VIDEO: cada video usa un orden distinto del pool de ilustraciones.
     seed = int(hashlib.md5(transcript_path.stem.encode("utf-8")).hexdigest()[:8], 16)
-    ed_cards = editorial_cards(words, duration, seed=seed)
+    ed_cards = editorial_cards(words, duration, seed=seed, density=density)
     if use_llm and ed_cards:
         ed_cards = _enrich_cards_llm(ed_cards, words)
     result: dict = {
@@ -1559,7 +1564,7 @@ def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = 
     # mencionados. Budget chico (~1/3 del target). Sin la flag → no aparece la
     # clave y el comportamiento es idéntico al histórico.
     if illustrations:
-        illu_budget = max(2, target // 3)
+        illu_budget = max(2, int(target * density / 2))
         result["illustrationStickers"] = concept_illustrations(words, duration, illu_budget)
         print(
             f"[graphics] {len(result['illustrationStickers'])} ilustraciones CC0 "
@@ -1632,6 +1637,8 @@ def main() -> int:
     parser.add_argument("--no-llm", action="store_true", help="Solo heurística (sin Ollama)")
     parser.add_argument("--illustrations", action="store_true",
                         help="Agrega illustrationStickers (personas/escenas CC0) — opt-in, default off")
+    parser.add_argument("--density", type=float, default=1.0,
+                        help="Multiplicador de densidad de gráficos/ilustraciones (1.0 base; >1 = más cargado, para reels)")
     parser.add_argument("--selftest", action="store_true", help="Corre los tests del corrector ES y sale")
     args = parser.parse_args()
 
@@ -1654,7 +1661,7 @@ def main() -> int:
         return 1
 
     t0 = time.time()
-    result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations)
+    result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations, density=args.density)
     out = Path(args.out) if args.out else LF_GRAPHICS / f"{clip_id}.json"
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({

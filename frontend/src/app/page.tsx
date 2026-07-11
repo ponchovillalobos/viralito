@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Scissors, ArrowRight, Telescope, Film, Clapperboard, CalendarClock, Trophy } from "lucide-react";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
+import { OpenFolderButton } from "@/components/home/open-folder-button";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,8 @@ export default function Home() {
             {label}
           </Link>
         ))}
+        {/* Abrir la carpeta del explorador donde están los videos ya generados. */}
+        <OpenFolderButton />
       </div>
 
       {/* Pie discreto: volver a ver el tour de bienvenida */}

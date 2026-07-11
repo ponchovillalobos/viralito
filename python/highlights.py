@@ -87,55 +87,68 @@ def build_highlights_prompt(want: int) -> str:
     Distinto del de analyze_clips (que busca clips autocontenidos de 30-60s): acá
     queremos los CHISPAZOS — el remate que hace reír, el giro, la frase citable, el
     dato que impacta, el pico emocional — para pegarlos en UN video de lo mejor."""
-    return f"""Sos el editor de HIGHLIGHTS más exigente del mundo para audiencia hispanohablante
-(LATAM/España) en el nicho de COMUNICACIÓN + VENTAS + IA. De una charla/podcast/clase larga
-armás el "LO MEJOR EN UN SOLO VIDEO": una colección de los MOMENTOS más increíbles, pegados
-en secuencia, que engancha de principio a fin.
+    return f"""Sos el editor de HIGHLIGHTS #1 del mundo — el que hace que un clip de una charla
+aburrida explote a millones de views. Audiencia hispanohablante (LATAM/España), nicho
+COMUNICACIÓN + VENTAS + IA. De una charla/podcast/clase larga armás "LO MEJOR EN UN SOLO
+VIDEO": los momentos que la gente PARA de scrollear, MIRA hasta el final, GUARDA y MANDA a
+un amigo. Tu vara es TikTok/Reels 2026: si un momento no te haría frenar el pulgar, NO va.
 
 ═══════════════════════════════════════════════════════════════════════════
-QUÉ ES UN "MOMENTO" (≠ un clip)
+EL TEST VIRAL (aplicalo a CADA momento — si no pasa 2 de 3, descartá)
 ═══════════════════════════════════════════════════════════════════════════
-NO busques clips autocontenidos de 40s. Buscá CHISPAZOS de 8-30s (ideal 10-20s): el
-instante EXACTO que provoca una reacción. Un highlight reel se hace de PICOS, no de ideas
-completas. Cada momento tiene que pegar SOLO, sin contexto previo.
+  1. PATRÓN ROTO: ¿frena el scroll en el primer segundo? (algo inesperado, fuerte, raro).
+  2. EMOCIÓN REAL: ¿provoca una reacción física? (reír, "uff", indignarse, "no puede ser",
+     erizarse). Un dato tibio NO emociona; una verdad incómoda SÍ.
+  3. COMPARTIBLE: ¿lo mandarías a alguien? ("esto le tenés que mostrar a...", se cita, se guarda).
 
-Tipos de momento que SÍ sirven (elegí, no inventes — tiene que estar dicho en el video):
-  • RISA / GRACIA: un remate que hace reír, una ocurrencia, una exageración cómica.
-  • REMATE: la frase que cierra una idea con fuerza ("...y por eso nadie te compra").
-  • GIRO / CONTRAINTUITIVO: algo que rompe lo esperado ("todo lo que te enseñaron está mal").
-  • QUOTE CITABLE: una frase memorable, redonda, de las que se guardan y se comparten.
-  • DATO / CIFRA que impacta ("pasé de 3 a 40 clientes en un mes").
-  • REVELACIÓN / CONFESIÓN: "te voy a ser honesto...", un secreto, algo vulnerable.
+═══════════════════════════════════════════════════════════════════════════
+QUÉ ES UN "MOMENTO" (≠ un clip largo)
+═══════════════════════════════════════════════════════════════════════════
+Buscá CHISPAZOS de 8-25s (ideal 10-18s): el instante EXACTO que pega. Un reel viral es una
+ráfaga de PICOS, no ideas completas. Cada momento pega SOLO, sin contexto previo. Los que MÁS
+funcionan (elegí SOLO lo dicho en el video, jamás inventes):
+  • RISA / GRACIA: remate que hace reír, ocurrencia, exageración, sarcasmo con timing.
+  • VERDAD INCÓMODA / POLÉMICA: "la mayoría hace esto MAL", algo que incomoda pero es cierto.
+  • GIRO CONTRAINTUITIVO: rompe lo esperado, "todo lo que te enseñaron está mal".
+  • REMATE / PUNCHLINE: la frase que cierra con fuerza y deja mudo.
+  • QUOTE CITABLE: frase redonda, de tatuaje, de las que se guardan y se comparten.
+  • DATO / CIFRA que impacta ("pasé de 3 a 40 clientes en un mes", "el 90% falla en esto").
+  • REVELACIÓN / CONFESIÓN cruda: "te voy a ser honesto", un secreto, algo vulnerable/real.
   • PICO EMOCIONAL: cuando el orador se ENCIENDE (sube la voz, se emociona, se indigna).
+  • HISTORIA MICRO con giro: un mini-relato que en 15s tiene setup + vuelta de tuerca.
 
-Descartá SIEMPRE: saludos, intros, logística, "¿se escucha?", agradecimientos, muletillas,
-divagues, setups sin payoff, y todo lo genérico/obvio que cualquiera ya sabe.
+Descartá SIN PIEDAD: saludos, intros, logística, "¿se escucha?", agradecimientos, muletillas,
+divagues, teoría genérica, listas sin remate, y TODO lo obvio que cualquiera ya sabe. Si suena
+a "contenido de relleno de curso", fuera.
 
 ═══════════════════════════════════════════════════════════════════════════
-DÓNDE EMPIEZA Y TERMINA (precisión quirúrgica — define la calidad)
+DÓNDE EMPIEZA Y TERMINA (precisión quirúrgica — acá se gana o se pierde)
 ═══════════════════════════════════════════════════════════════════════════
-  • "start": la PRIMERA palabra del momento potente. CERO preámbulo ("bueno, eh, entonces...").
-  • "end": justo al terminar el remate/la frase. Ni un segundo de más. Denso, sin aire muerto.
-  • Duración 8-30s. Si el chispazo dura 9s, son 9s — no lo estires. Densidad > duración.
-  • "hook": copiá PALABRA POR PALABRA del transcript la frase con la que ARRANCA el momento
-    (se usa para anclar el timestamp exacto — si no es textual, el corte sale mal).
+  • "start": la PRIMERA palabra del gancho. CERO preámbulo ("bueno, eh, entonces, digamos...").
+    El primer segundo DEBE tener punch — arrancá en la afirmación fuerte, no en el rodeo previo.
+  • "end": justo al caer el remate. Ni un segundo de más. Denso, sin aire muerto, sin cola.
+  • Duración 8-25s. Si el chispazo dura 9s, son 9s. DENSIDAD > duración, siempre.
+  • "hook": copiá PALABRA POR PALABRA del transcript la frase con la que ARRANCA (se usa para
+    anclar el timestamp exacto — si no es textual, el corte sale mal).
 
 ═══════════════════════════════════════════════════════════════════════════
 CLASIFICÁ CADA MOMENTO (para secuenciar por emoción después)
 ═══════════════════════════════════════════════════════════════════════════
   • "punchType": uno de [hook, risa, remate, giro, quote, dato, revelacion].
-  • "emotion": la emoción que dispara, uno de [risa, asombro, inspiracion, tension, insight, polemica, hype, epico, chill].
-  • "intensity": 0.0 a 1.0 — qué tan FUERTE pega el momento (1.0 = imperdible, viral seguro).
+  • "emotion": uno de [risa, asombro, inspiracion, tension, insight, polemica, hype, epico, chill].
+  • "intensity": 0.0 a 1.0 — SÉ EXIGENTE. 0.9-1.0 = viral seguro, imperdible. 0.7-0.8 = muy
+    bueno. 0.5-0.6 = decente. <0.5 = NO lo devuelvas. Calibrá con honestidad, no infles.
 
 ═══════════════════════════════════════════════════════════════════════════
 CANTIDAD Y COBERTURA
 ═══════════════════════════════════════════════════════════════════════════
   • Devolvé hasta {want} momentos, ordenados de MÁS a MENOS potente (mayor intensity primero).
-  • Recorré TODO el transcript: hay oro en el medio y en el cierre, no solo al arranque.
-  • VARIEDAD: mezclá risa + insight + dato + giro. Un reel monótono aburre.
+  • Recorré TODO el transcript: hay oro en el MEDIO y en el CIERRE, no solo al arranque.
+  • VARIEDAD emocional: mezclá risa + polémica + insight + dato. Un reel monótono aburre y
+    hace scrollear. Alterná el tono.
   • NO solapados (no repitas el mismo tramo de tiempo).
-  • Preferí CALIDAD sobre cantidad: 6 momentos brutales > 15 tibios. Si el video es flojo,
-    devolvé pocos — es MEJOR un reel corto de solo oro que uno largo con relleno.
+  • CALIDAD sobre cantidad: 5 momentos brutales > 15 tibios. Si el video es flojo, devolvé
+    pocos — MEJOR un reel corto de puro oro que uno largo con relleno.
 
 ═══════════════════════════════════════════════════════════════════════════
 OUTPUT — SOLO JSON, sin markdown ni explicaciones
@@ -450,6 +463,29 @@ def _probe_duration(path: Path) -> float:
         return 0.0
 
 
+def _trim_segment_silences(seg: Path, tmp: Path, i: int) -> Path:
+    """Corta las pausas largas (aire muerto) DENTRO de un segmento del montage → cortes
+    tensos, ritmo viral. Best-effort: ante cualquier fallo devuelve el segmento original
+    (el montage nunca se rompe). Reusa detect_silences + cut_silences del pipeline."""
+    try:
+        from detect_silences import detect as _detect
+        from cut_silences import cut as _cut
+
+        cuts = _detect(seg, min_silence_ms=450)  # pausas ≥0.45s = aire muerto
+        keep = cuts.get("keep_segments") or []
+        if len(keep) <= 1:
+            return seg  # sin silencios internos: nada que cortar
+        cuts_json = tmp / f"seg_{i:02d}_cuts.json"
+        cuts_json.write_text(json.dumps(cuts), encoding="utf-8")
+        out = tmp / f"seg_{i:02d}_tight.mp4"
+        _cut(seg, cuts_json, out)
+        if out.exists() and out.stat().st_size > 10_000:
+            return out
+    except Exception as e:  # noqa: BLE001
+        print(f"[highlights] corte de silencios seg {i} skip: {e}", file=sys.stderr)
+    return seg
+
+
 def assemble_montage(raw_path: Path, segments: list[dict], clip_id: str,
                      aspect_ratio: str, face_tracking: str) -> Path | None:
     """Extrae cada momento (uniforme, con reframe/aspect) y los concatena con CORTE DURO.
@@ -476,6 +512,11 @@ def assemble_montage(raw_path: Path, segments: list[dict], clip_id: str,
                 print(f"[highlights] segmento {i} falló, se salta: {e}", file=sys.stderr)
                 continue
             if seg.exists() and seg.stat().st_size > 10_000:
+                # CORTE DE SILENCIOS: saca el aire muerto DENTRO del momento (pausas
+                # largas) → cortes tensos, ritmo viral. Best-effort; si falla, se usa el
+                # segmento entero. Como el montage se RE-TRANSCRIBE después, los subtítulos
+                # quedan igual alineados aunque el segmento cambie de duración.
+                seg = _trim_segment_silences(seg, tmp, i)
                 seg_paths.append(seg)
         if len(seg_paths) < 2:
             print("[highlights] menos de 2 segmentos válidos — no hay reel", file=sys.stderr)
