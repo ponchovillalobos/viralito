@@ -106,7 +106,9 @@ def test_gtx1080_driver_viejo(monkeypatch):
         cores_physical=8, cores_logical=16,
     )
     rec = prof["recommend"]
-    assert rec["whisper_model"] == "medium"
+    # PRECISIÓN (pedido del usuario): GPUs con VRAM total ≥5 GB usan large-v3 COMPLETO.
+    # La GTX 1080 tiene 8 GB total → large-v3 (antes este test esperaba "medium").
+    assert rec["whisper_model"] == "large-v3"
     assert rec["video_encoder"] == "libx264"
     assert rec["whisper_device"] == "cuda"
     assert rec["whisper_compute_type"] == "float32"  # CRÍTICO en Pascal
@@ -127,8 +129,8 @@ def test_rtx4090(monkeypatch):
         cores_physical=16, cores_logical=32,
     )
     rec = prof["recommend"]
-    # VELOCIDAD: el modelo grande ahora es el turbo (id ct2 explícito).
-    assert rec["whisper_model"] == "deepdml/faster-whisper-large-v3-turbo-ct2"
+    # PRECISIÓN (pedido del usuario): en GPUs ≥5 GB usa large-v3 COMPLETO, no el turbo.
+    assert rec["whisper_model"] == "large-v3"
     assert rec["video_encoder"] == "h264_nvenc"
     assert rec["ollama_model"] == "qwen3:14b"
     assert rec["whisper_compute_type"] == "float16"
