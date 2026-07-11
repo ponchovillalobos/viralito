@@ -498,7 +498,7 @@ function FinishedRow({ entry, onDismiss }: { entry: QueueEntryView; onDismiss: (
         <div className="flex items-center gap-1">
           {ok ? (
             <Link
-              href="/produccion"
+              href={`/publicar?q=${encodeURIComponent(entry.videoId ?? "")}`}
               className="rounded border border-brand-pink/30 px-1.5 py-0.5 text-[10px] text-brand-pink hover:bg-brand-pink/15"
             >
               Verlo

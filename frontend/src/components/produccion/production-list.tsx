@@ -68,6 +68,14 @@ export function ProductionList() {
   // Variante de estilo activa por grupo (clip con varios estilos): key del grupo → id del proyecto.
   const [activeVariant, setActiveVariant] = useState<Record<string, string>>({});
 
+  // Deep-link: /publicar?q=<texto> pre-filtra la lista (p.ej. el botón "ver mi video de
+  // Mejores Momentos" del wizard abre acá filtrado directo al reel recién creado).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return projects.filter((p) => {

@@ -2380,6 +2380,32 @@ function JobView({
         </div>
       )}
 
+      {/* MEJORES MOMENTOS (highlights): este modo NO tiene proposals/doneClips (arma UN
+          solo video), así que el bloque de arriba no aplica. Damos su propio resultado
+          con un botón claro que abre el reel en Mis videos (deep-link ?q=). */}
+      {job.status === "done" && job.options?.mode === "highlights" && (
+        <div className="mt-5 space-y-3">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-amber-200">
+              <CheckCircle2 className="h-4 w-4" />
+              🏆 Tu video de Mejores Momentos está listo
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Guardado en <strong>Mis videos</strong> (junto a tus otros renders de videos
+              largos). Ábrelo para verlo, descargarlo o publicarlo.
+            </p>
+          </div>
+          <Link
+            href={`/publicar?q=${encodeURIComponent(job.videoId)}`}
+            className="inline-flex h-10 items-center gap-1.5 rounded-md bg-amber-500 px-4 text-sm font-semibold text-black hover:bg-amber-400"
+          >
+            <Play className="h-4 w-4" />
+            Ver mi video de Mejores Momentos
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+
       {job.status === "cancelled" && (
         <div className="mt-5 rounded-md border border-border bg-muted/20 p-3">
           <p className="flex items-center gap-2 text-sm font-medium">
