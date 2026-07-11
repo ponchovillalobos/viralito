@@ -1260,6 +1260,17 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
     print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
     styles = [s.strip() for s in (args.styles or "supreme").split(",") if s.strip()] or ["supreme"]
     styles = [s for s in styles if s in VALID_STYLES] or ["supreme"]
+    # Si algún estilo pedido necesita gráficos (editorial/graphics/motion/lottie…), generar
+    # las TARJETAS editoriales/charts sobre el transcript del MONTAGE — si no, el reel
+    # editorial sale con el panel de texto VACÍO (sin tarjetas ni ilustraciones).
+    # build-clip-props las mergea desde graphics/{clip_id}.json. Best-effort (no rompe).
+    highlights_clip_id = f"{synth_video}_c01_reel"
+    if set(styles) & GRAPHICS_STYLES:
+        step_graphics(
+            highlights_clip_id,
+            use_llm=not args.use_heuristic,
+            illustrations=bool(set(styles) & ILLUSTRATION_STYLES),
+        )
     rc = _remotion_concurrency(_render_workers())
     rendered: list[str] = []
     for style_id in styles:
