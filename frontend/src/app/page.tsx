@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, ArrowRight, Telescope, Film, Clapperboard, CalendarClock } from "lucide-react";
+import { Scissors, ArrowRight, Telescope, Film, Clapperboard, CalendarClock, Trophy } from "lucide-react";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,15 @@ const ACTIONS = [
     desc: "Tus videos listos + calendario: elige red, fecha y hora, y deja todo programado.",
     icon: CalendarClock,
     color: "#10b981", // emerald
+  },
+  {
+    // 5ta tarjeta (Mejores Momentos): entra al wizard de largos en modo highlights.
+    href: "/largos?momentos=1",
+    title: "Mejores Momentos",
+    desc: "Sube una charla o podcast largo y la IA arma UN SOLO video con lo más increíble, secuenciado por emoción (hasta 3 min).",
+    icon: Trophy,
+    color: "#f59e0b", // ámbar
+    wide: true,
   },
 ] as const;
 
@@ -72,11 +81,14 @@ export default function Home() {
       {/* Menú principal — solo 4 acciones: tarjetas GRANDES y visuales (2×2), cada una
           con su color de identidad. Llenan la pantalla para que se elija sin dudar. */}
       <div className="grid gap-5 sm:grid-cols-2">
-        {ACTIONS.map(({ href, title, desc, icon: Icon, color }) => (
+        {ACTIONS.map((action) => {
+          const { href, title, desc, icon: Icon, color } = action;
+          const wide = "wide" in action && action.wide;
+          return (
           <Link
             key={href}
             href={href}
-            className="group relative flex min-h-[220px] flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+            className={`group relative flex min-h-[220px] flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${wide ? "sm:col-span-2" : ""}`}
             style={{ borderColor: `${color}40`, backgroundColor: `${color}0d` }}
           >
             {/* Glow del color de la tarjeta al pasar el mouse. */}
@@ -109,7 +121,8 @@ export default function Home() {
               <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
             </span>
           </Link>
-        ))}
+          );
+        })}
       </div>
 
       {/* Accesos secundarios */}
