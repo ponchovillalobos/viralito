@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { publishReelToInstagram } from "@/lib/instagram-upload";
 import { PROJECTS_DIR, LF_ROOT, RENDERS_DIR, LF_RENDERS } from "@/lib/paths";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // crear container + transcode IG + publish puede tardar
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as PublishBody;
     if (!body.projectId) {
       return NextResponse.json({ error: "projectId requerido" }, { status: 400 });
+    }
+    // El projectId arma la ruta del .mp4 que se PUBLICA en Instagram. Sin validar,
+    // un projectId con `..` publicaba un video arbitrario del disco.
+    if (!isSafeId(body.projectId)) {
+      return NextResponse.json({ error: "projectId inválido" }, { status: 400 });
     }
     const source = body.source ?? "short";
     const projectsBase = source === "long_form" ? LF_PROJECTS_DIR : PROJECTS_DIR;

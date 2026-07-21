@@ -65,6 +65,7 @@ import {
 } from "./lib/fx-enrichments";
 import { styleHasIllustrations } from "@/lib/style-registry";
 import { applyCineClasico } from "./lib/cine-clasico";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
@@ -829,6 +830,16 @@ export async function POST(req: NextRequest) {
   const videoIdList: string[] = (videoIds && videoIds.length > 0)
     ? videoIds
     : videoId ? [videoId] : [];
+
+  // Cada videoId se concatena a rutas del FS y se pasa como argv a Python. Validar
+  // ACÁ, en el borde, antes de encolar nada.
+  const badId = videoIdList.find((v) => !isSafeId(v));
+  if (badId !== undefined) {
+    return NextResponse.json(
+      { error: `videoId inválido: ${String(badId)}` },
+      { status: 400 }
+    );
+  }
 
   if (videoIdList.length === 0 || !Array.isArray(styles) || styles.length === 0) {
     return NextResponse.json(

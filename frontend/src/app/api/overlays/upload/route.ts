@@ -17,6 +17,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { OVERLAYS_DIR } from "@/lib/paths";
 import { createOverlay } from "@/lib/overlays-store";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest) {
 
     if (!videoId || typeof videoId !== "string") {
       return NextResponse.json({ error: "videoId requerido" }, { status: 400 });
+    }
+    // El videoId se usa como NOMBRE DE CARPETA en path.join más abajo, y después se
+    // hace mkdir + se escribe el binario. Sin este guard, un videoId con `..` era una
+    // primitiva de ESCRITURA ARBITRARIA en el disco del usuario (crear carpetas y
+    // dejar una imagen en cualquier lado, ej. la carpeta de Inicio de Windows).
+    if (!isSafeId(videoId)) {
+      return NextResponse.json({ error: "videoId inválido" }, { status: 400 });
     }
     if (!file || typeof file === "string" || !(file instanceof Blob)) {
       return NextResponse.json({ error: "file (imagen) requerido" }, { status: 400 });

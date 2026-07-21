@@ -21,6 +21,7 @@ import {
 } from "@/lib/long-form-job-store";
 import { enqueue } from "@/lib/job-queue";
 import { canRender, registerRender } from "@/lib/license";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 3600; // 1 hora — pipelines con render pueden tardar
@@ -485,6 +486,16 @@ export async function POST(req: NextRequest) {
 
     if (videoIdList.length === 0) {
       return NextResponse.json({ error: "videoId (o videoIds[]) requerido" }, { status: 400 });
+    }
+
+    // Cada videoId se concatena a rutas del FS (LF_RAW, proposals, renders) y se pasa
+    // como argv a long_form_pipeline.py. Validar ACÁ, antes de encolar horas de trabajo.
+    const badId = videoIdList.find((v) => !isSafeId(v));
+    if (badId !== undefined) {
+      return NextResponse.json(
+        { error: `videoId inválido: ${String(badId)}` },
+        { status: 400 }
+      );
     }
 
     // PREFLIGHT DE IA (feedback del usuario: "la app no debería arrancar si no está

@@ -9,6 +9,7 @@ import {
 } from "@/lib/scheduled-uploads";
 import { PROJECTS_DIR, LF_ROOT, RENDERS_DIR, LF_RENDERS } from "@/lib/paths";
 import type { PrivacyLevel } from "@/lib/tiktok-upload";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,11 @@ export async function POST(req: NextRequest) {
         { error: "projectId y scheduledAt (epoch ms) son requeridos" },
         { status: 400 }
       );
+    }
+    // El projectId arma la ruta del .mp4 que se AGENDA para publicar. Sin validar,
+    // un projectId con `..` agendaba un video arbitrario del disco.
+    if (!isSafeId(body.projectId)) {
+      return NextResponse.json({ error: "projectId inválido" }, { status: 400 });
     }
     const source = body.source ?? "short";
     const platform: SchedulePlatform = body.platform ?? "tiktok";

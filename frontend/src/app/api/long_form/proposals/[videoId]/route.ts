@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { LF_PROPOSALS } from "@/lib/paths-long-form";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
+import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,11 @@ interface Ctx {
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const { videoId } = await ctx.params;
+  // Mismo guard que el PATCH de abajo: sin esto el GET leía CUALQUIER .json del
+  // disco (`../../../../algo`) y lo devolvía en la respuesta.
+  if (!isSafeId(videoId)) {
+    return NextResponse.json({ error: "video no válido" }, { status: 400 });
+  }
   const filePath = path.join(LF_PROPOSALS, `${videoId}.json`);
   try {
     const raw = await fs.readFile(filePath, "utf-8");
@@ -45,8 +51,10 @@ interface ClipPatch {
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const { videoId } = await ctx.params;
-  // Nunca dejar que el id navegue fuera de la carpeta de proposals.
-  if (!videoId || /[\\/]|\.\./.test(videoId)) {
+  // Nunca dejar que el id navegue fuera de la carpeta de proposals. Se unificó al
+  // helper compartido: el regex de antes no descartaba "." ni ids que no coinciden
+  // con su propio basename.
+  if (!isSafeId(videoId)) {
     return NextResponse.json({ error: "video no válido" }, { status: 400 });
   }
   const filePath = path.join(LF_PROPOSALS, `${videoId}.json`);

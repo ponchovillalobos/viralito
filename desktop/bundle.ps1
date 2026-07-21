@@ -38,6 +38,34 @@ if (Test-Path "$repo\frontend\public") {
   Copy-Item "$repo\frontend\public" "$fe\standalone\public" -Recurse -Force
 }
 
+# 1.5) SANEO DEL STANDALONE — CRITICO, NO QUITAR.
+# `next build` deja dentro de .next\standalone una copia de cosas del repo que NO
+# deben viajar al usuario final:
+#   - .env / .env.local        → SECRETOS REALES del dev (PEXELS_API_KEY,
+#                                LINKEDIN_CLIENT_SECRET, META_APP_SECRET,
+#                                TIKTOK_CLIENT_SECRET). Con el Client Secret
+#                                cualquiera puede SUPLANTAR la app ante LinkedIn/
+#                                TikTok/Meta. Las credenciales OAuth del usuario
+#                                final salen de su user-settings.json, no de aca.
+#   - src\                     → codigo fuente completo del frontend.
+#   - *.md (CLAUDE.md, AGENTS.md), eslint.config.*  → notas internas del repo.
+# Se borran DESPUES de copiar (no antes: el repo no se toca).
+$sa = "$fe\standalone"
+Get-ChildItem $sa -Filter ".env*" -Force -ErrorAction SilentlyContinue |
+  Remove-Item -Force -ErrorAction SilentlyContinue
+if (Test-Path "$sa\src") { Remove-Item "$sa\src" -Recurse -Force }
+Get-ChildItem $sa -Filter "*.md" -File -Force -ErrorAction SilentlyContinue |
+  Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem $sa -Filter "eslint.config.*" -File -Force -ErrorAction SilentlyContinue |
+  Remove-Item -Force -ErrorAction SilentlyContinue
+
+# VALIDACION DURA: si por lo que sea quedo un .env en el payload, ABORTAR. Es
+# preferible no tener instalador a publicar los secretos del dev.
+$leaked = Get-ChildItem $sa -Filter ".env*" -Recurse -Force -ErrorAction SilentlyContinue
+if ($leaked) {
+  throw "ABORTADO: quedaron archivos .env en el payload ($($leaked.FullName -join ', ')). NO distribuir."
+}
+
 # 2) Node portable (el mismo node.exe del sistema; ~80 MB)
 Write-Host "[2/5] node..."
 New-Item -ItemType Directory -Force "$out\node" | Out-Null
@@ -71,7 +99,22 @@ robocopy "$repo\python" "$out\python" /E /NFL /NDL /NJH /NJS /XD "__pycache__" "
 
 # 5) ffmpeg
 Write-Host "[5/5] ffmpeg..."
-$ff = Get-ChildItem "C:\hermes-data\tools" -Directory -Filter "ffmpeg-*" | Select-Object -First 1
+# El resto del proyecto migro a C:\viral-data (paths.ts / config.py usan viral-data
+# primero y hermes-data solo como fallback legacy). Este paso seguia hardcodeado a
+# hermes-data: en una maquina limpia devolvia $null y reventaba dos lineas mas abajo
+# con "Cannot index into a null array", que no dice nada. Buscamos en ambos y
+# fallamos con un mensaje util.
+$ff = $null
+foreach ($base in @("C:\viral-data\tools", "C:\hermes-data\tools")) {
+  if (Test-Path $base) {
+    $ff = Get-ChildItem $base -Directory -Filter "ffmpeg-*" -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($ff) { break }
+  }
+}
+if (-not $ff) {
+  throw "No se encontro ffmpeg-* en C:\viral-data\tools ni C:\hermes-data\tools - el payload no podria cortar ni renderizar video."
+}
 New-Item -ItemType Directory -Force "$out\tools\ffmpeg\bin" | Out-Null
 Copy-Item "$($ff.FullName)\bin\ffmpeg.exe" "$out\tools\ffmpeg\bin\" -Force
 Copy-Item "$($ff.FullName)\bin\ffprobe.exe" "$out\tools\ffmpeg\bin\" -Force
