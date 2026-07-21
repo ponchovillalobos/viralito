@@ -1,5 +1,9 @@
-import { AbsoluteFill, spring } from "remotion";
+import { AbsoluteFill, spring, useVideoConfig } from "remotion";
 import type { Word } from "../schemas";
+
+/** Lienzo de referencia con el que se calibraron los tamaños fijos (9:16). */
+const REF_W = 1080;
+const REF_H = 1920;
 
 /**
  * Subtítulo "palabra a palabra": muestra SOLO la palabra activa (la última que ya
@@ -95,12 +99,41 @@ export const SubtitleLayer: React.FC<{
     ? `drop-shadow(0 0 40px ${highlight}) drop-shadow(0 0 20px ${highlight}cc) drop-shadow(0 0 8px rgba(0,0,0,1)) drop-shadow(0 5px 30px rgba(0,0,0,1))`
     : undefined;
 
+  // ── RESPONSIVE (auditoría 2026-07-20) ──────────────────────────────────────
+  // Todos los tamaños de acá estaban en px FIJOS calibrados a 1080×1920. En una
+  // salida 16:9 (1920×1080) el `paddingBottom: 320` es el 30% del alto en vez del
+  // 17%, así que el subtítulo caía en MITAD DEL CUADRO, encima de las caras
+  // (verificado con un render). Se escalan contra el lienzo de referencia:
+  //   · lo VERTICAL (fuente y padding) por alto  → mantiene el ritmo vertical
+  //   · lo HORIZONTAL (maxWidth y padding lateral) por ancho
+  // En 9:16 ambos factores valen exactamente 1 → el render vertical NO cambia.
+  const { width: compW, height: compH } = useVideoConfig();
+  const sV = compH / REF_H;
+  const sH = compW / REF_W;
+
+  const baseFont = isCinematic ? 96 : 110;
+  const maxWidth = Math.round(980 * sH);
+  // AUTO-FIT: una palabra larga ("responsabilidad", "extraordinariamente") con
+  // `whiteSpace: nowrap` y sin techo se salía del lienzo. Se estima el ancho y se
+  // encoge sólo si hace falta — con las palabras normales no se activa, así que
+  // los videos que hoy se ven bien quedan igual. Mismo enfoque que
+  // word-sticker-layer.tsx, que ya hacía auto-fit por ancho.
+  const CHAR_FACTOR = 0.5; // Bebas/Anton son condensadas
+  const fitFont = maxWidth / Math.max(1, word.word.length * CHAR_FACTOR);
+  const fontSize = Math.round(Math.min(baseFont * sV, Math.max(28, fitFont)));
+
   return (
     <AbsoluteFill
       style={{
         ...(position === "top"
-          ? { justifyContent: "flex-start" as const, paddingTop: isCinematic ? 200 : 280 }
-          : { justifyContent: "flex-end" as const, paddingBottom: isCinematic ? 220 : 320 }),
+          ? {
+              justifyContent: "flex-start" as const,
+              paddingTop: Math.round((isCinematic ? 200 : 280) * sV),
+            }
+          : {
+              justifyContent: "flex-end" as const,
+              paddingBottom: Math.round((isCinematic ? 220 : 320) * sV),
+            }),
         alignItems: "center",
         pointerEvents: "none",
       }}
@@ -108,15 +141,15 @@ export const SubtitleLayer: React.FC<{
       <div
         style={{
           fontFamily,
-          fontSize: isCinematic ? 96 : 110,
+          fontSize,
           fontWeight: isCinematic ? 700 : 800,
           color: isCinematic ? "#ffffff" : wordColor,
           textTransform: isCinematic ? "none" : "uppercase",
           letterSpacing: isCinematic ? "0.22em" : "0.02em",
           lineHeight: 1.0,
           textAlign: "center",
-          maxWidth: 980,
-          padding: "0 50px",
+          maxWidth,
+          padding: `0 ${Math.round(50 * sH)}px`,
           whiteSpace: "nowrap",
           textShadow: isCinematic
             ? "0 2px 14px rgba(0,0,0,0.85)"
