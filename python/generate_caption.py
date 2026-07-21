@@ -35,6 +35,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from lib import ollama_opts as _ollama_opts
+
 from config import (
     DATA_ROOT,
     LF_PROJECTS,
@@ -307,7 +309,23 @@ def call_ollama(transcript_text: str, video_id: str, model: str = OLLAMA_MODEL) 
         # Modelos "thinking" (qwen3): sin esto el output se va a `thinking` y
         # `response` llega VACÍO → JSON parse error. Ollama viejo ignora el campo.
         "think": False,
-        "options": {"temperature": 0.7, "num_ctx": 8192},
+        # PARIDAD con analyze_clips.py (auditoría 2026-07-20): a este caller le
+        # faltaban `keep_alive` y `num_thread`.
+        #  - keep_alive: mantiene el modelo en RAM/VRAM entre llamadas. El default de
+        #    Ollama son 5 min; en un lote de largos los captions salen separados por
+        #    minutos y el modelo se descargaba y recargaba entre medio (segundos por
+        #    clip, en una GPU de 6 GB donde la carga duele).
+        #  - num_thread: núcleos FÍSICOS; sin esto Ollama usa su heurística y en CPU
+        #    rinde peor.
+        # NO se agrega `num_predict`: un tope de tokens mal calibrado TRUNCARÍA el
+        # JSON del caption y rompería la generación. No vale el riesgo sin medir
+        # antes la longitud real de las respuestas.
+        "keep_alive": _ollama_opts.KEEP_ALIVE,
+        "options": {
+            "temperature": 0.7,
+            "num_ctx": 8192,
+            "num_thread": _ollama_opts.num_thread(),
+        },
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

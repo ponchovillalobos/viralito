@@ -63,7 +63,18 @@ interface QueueResponse {
   totalPending: number;
 }
 
+// Cadencia de polling ADAPTATIVA (auditoría 2026-07-20). Este panel está montado en
+// `app/layout.tsx`, o sea que corre en TODAS las páginas, siempre — incluso colapsado
+// y sin trabajos. A 3 s fijos eran ~0.33 req/s permanentes, y cada una recorre tres
+// stores y lee JSON de disco en el server.
+//
+// Con trabajos: 3 s (igual que antes, la barra de progreso se siente fluida).
+// Sin trabajos: 12 s. El costo es que un trabajo nuevo puede tardar hasta 12 s en
+// aparecer ACÁ; se compensa refrescando al volver el foco a la ventana, y el wizard
+// que lanzó el trabajo tiene su propio polling rápido mostrando el progreso.
+// Mismo patrón que `research/batch-adapt-panel.tsx`.
 const POLL_INTERVAL_MS = 3000;
+const POLL_IDLE_MS = 12000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DISMISS_KEY = "viral_queue_dismissed_v1";
 
@@ -179,12 +190,19 @@ export function QueuePanel() {
     }
 
     tick();
-    const id = setInterval(tick, POLL_INTERVAL_MS);
+    // Hay trabajo en curso → cadencia rápida. Todo quieto → cadencia lenta.
+    const busy = (data?.totalActive ?? 0) + (data?.totalPending ?? 0) > 0;
+    const id = setInterval(tick, busy ? POLL_INTERVAL_MS : POLL_IDLE_MS);
+    // Al volver el foco a la ventana, refrescar YA: cubre el hueco de la cadencia
+    // lenta cuando el usuario lanzó algo desde otra pestaña o volvió a la app.
+    const onFocus = () => void tick();
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
       clearInterval(id);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [lastSeenJobIds]);
+  }, [lastSeenJobIds, data?.totalActive, data?.totalPending]);
 
   if (!data) return null;
 

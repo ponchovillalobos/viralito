@@ -160,10 +160,22 @@ def main() -> None:
         samples = []  # (t, cx, cy, w_norm, h_norm) en coords NORMALIZADAS del frame original
         idx = 0
         while True:
-            ok, frame = cap.read()
+            # RENDIMIENTO (auditoría 2026-07-20): antes esto hacía `cap.read()` en
+            # TODOS los frames y descartaba los que no tocaban por muestreo — o sea,
+            # decodificaba el 100% del video para usar 1 de cada `step`. `grab()`
+            # avanza el frame SIN decodificarlo (no arma el ndarray ni convierte el
+            # color), que es la parte cara. `retrieve()` sólo decodifica el que sí
+            # vamos a analizar. Los frames muestreados y el conteo `idx` son
+            # EXACTAMENTE los mismos → el trackPath resultante no cambia.
+            sampled = idx % step == 0
+            if sampled:
+                ok, frame = cap.read()
+            else:
+                ok = cap.grab()
+                frame = None
             if not ok:
                 break
-            if idx % step == 0:
+            if sampled:
                 h, w = frame.shape[:2]
                 # 1) DETECCIÓN EN FRAME REDUCIDO: reducimos antes de detectar.
                 if downscale_w and w > downscale_w:

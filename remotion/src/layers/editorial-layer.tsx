@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { AbsoluteFill } from "remotion";
 import { z } from "zod";
 import { PLAYFAIR, PLAYFAIR_IT, DMSERIF, DMSERIF_IT, LORA, LORA_IT, ABRIL } from "./local-editorial-fonts";
@@ -519,15 +520,28 @@ export const EditorialSubtitleBaseline: React.FC<{
   height: number;
   panel?: PanelRect;
 }> = ({ words, currentTime, layout, width, height, panel }) => {
+  // RENDIMIENTO (auditoría 2026-07-20): `baselineLines(words)` recorre el transcript
+  // COMPLETO con un regex por palabra y arma arrays nuevos. Se llamaba en CADA FRAME:
+  // un clip de 3 min son 5400 frames × ~600 palabras. Era el único cómputo
+  // O(transcript) por frame del composition.
+  //
+  // Los hooks van ANTES de cualquier `return` (regla de hooks: el orden tiene que ser
+  // estable entre renders). Por eso el guard de "sin palabras" se movió ADENTRO del
+  // memo y los early-returns quedaron debajo. `resolveEditorialLook` también se
+  // memoiza: se resolvía por frame acá y otra vez en ViralVideo.
+  const lines = useMemo(
+    () => (words && words.length ? baselineLines(words) : []),
+    [words]
+  );
+  const look = useMemo(() => resolveEditorialLook(layout), [layout]);
+
   if (!words || words.length === 0) return null;
-  const look = resolveEditorialLook(layout);
   const GOLD = layout.accent ?? look.themeAccent ?? "#f0b429";
   const [, FONT_I] =
     look.fontTitle ?? FONT_THEMES[layout.font ?? "playfair"] ?? FONT_THEMES.playfair;
   const FONT_BODY = look.fontBody ?? FONT_I;
   const theme = look.canvas;
   const now = currentTime; // baseline al ritmo real de la voz (no 12fps).
-  const lines = baselineLines(words);
   if (lines.length === 0) return null;
   // Línea activa: la última cuyo inicio ya pasó (se mantiene hasta la próxima).
   let idx = -1;
