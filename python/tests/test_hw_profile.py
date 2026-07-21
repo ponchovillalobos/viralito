@@ -8,6 +8,7 @@ detect() completo monkeypatcheando cada probe de bajo nivel.
 import os
 import pathlib
 import sys
+import tempfile
 
 import pytest
 
@@ -51,9 +52,14 @@ def _run_detect(monkeypatch, *, gpu, ram_gb, torch_cuda,
     monkeypatch.setattr(hw_profile, "_qsv_usable", lambda: qsv)
     monkeypatch.setattr(hw_profile, "_amf_usable", lambda: amf)
 
-    # No tocar disco ni memo entre tests.
-    monkeypatch.setattr(hw_profile, "_CACHE",
-                        pathlib.Path(os.devnull).parent / "no_existe_hw_profile.json")
+    # No tocar disco ni memo entre tests. OJO: la versión anterior usaba
+    # `pathlib.Path(os.devnull).parent`, que en Windows es "." (os.devnull == "nul",
+    # sin carpeta) → el test ESCRIBÍA `no_existe_hw_profile.json` en el cwd desde el
+    # que se corriera pytest, ensuciando el repo. Usamos un temporal real del SO.
+    monkeypatch.setattr(
+        hw_profile, "_CACHE",
+        pathlib.Path(tempfile.gettempdir()) / "viralito_test_no_existe_hw_profile.json",
+    )
     hw_profile._profile = None
     hw_profile._force_x264_session = None
     return hw_profile.detect(force=True)
@@ -106,8 +112,11 @@ def test_gtx1080_driver_viejo(monkeypatch):
         cores_physical=8, cores_logical=16,
     )
     rec = prof["recommend"]
-    # PRECISIÓN (pedido del usuario): GPUs con VRAM total ≥5 GB usan large-v3 COMPLETO.
-    # La GTX 1080 tiene 8 GB total → large-v3 (antes este test esperaba "medium").
+    # PRECISIÓN sobre velocidad (commit c475af7, pedido explícito del usuario "la
+    # transcripción más precisa"): con VRAM TOTAL >= 5 GB se usa large-v3 COMPLETO,
+    # no el turbo ni medium. La 1080 tiene 8 GB → large-v3. Decidir por VRAM TOTAL y
+    # no por la LIBRE fue el fix del bug que cacheaba "small" con la GPU ocupada.
+    # Ver python/hw_profile.py:303-306. NO revertir el código para que pase el test.
     assert rec["whisper_model"] == "large-v3"
     assert rec["video_encoder"] == "libx264"
     assert rec["whisper_device"] == "cuda"
@@ -129,7 +138,10 @@ def test_rtx4090(monkeypatch):
         cores_physical=16, cores_logical=32,
     )
     rec = prof["recommend"]
-    # PRECISIÓN (pedido del usuario): en GPUs ≥5 GB usa large-v3 COMPLETO, no el turbo.
+    # PRECISIÓN sobre velocidad (commit c475af7): con VRAM TOTAL >= 5 GB va large-v3
+    # COMPLETO. El turbo era más rápido pero el usuario priorizó fidelidad en español;
+    # el costo se paga 1 vez por video. Override por VIRAL_WHISPER_MODEL.
+    # Ver python/hw_profile.py:303-306. NO revertir el código para que pase el test.
     assert rec["whisper_model"] == "large-v3"
     assert rec["video_encoder"] == "h264_nvenc"
     assert rec["ollama_model"] == "qwen3:14b"

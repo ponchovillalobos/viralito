@@ -19,6 +19,9 @@ import { staticFile } from "remotion";
 
 const VAR = "100 900"; // rango de pesos para fuentes variables [wght]
 
+/** Alias interno: el helper se exporta (lo usa editorial-ink.tsx) pero acá se
+ *  sigue llamando `F` para no reescribir las ~40 registraciones de abajo. */
+
 /**
  * Registra una fuente local en modo LAZY — el navegador la descarga SOLO cuando un
  * glyph la usa (el tema activo usa 2-3 de estas, no las 24). Decisión clave de robustez:
@@ -39,7 +42,7 @@ const VAR = "100 900"; // rango de pesos para fuentes variables [wght]
  *
  * Corre en el browser del render (FontFace/document existen). En Node (sin FontFace) = no-op.
  */
-const F = (
+export const registerLocalFont = (
   file: string,
   family: string,
   opts: { style?: "normal" | "italic"; weight?: string } = {}
@@ -57,6 +60,8 @@ const F = (
   }
   return family;
 };
+
+const F = registerLocalFont;
 
 // ─── editorial-themes.tsx (12+ sub-temas) ───
 export const OLDSTD = F("OldStandardTT-Regular.ttf", "Old Standard TT");

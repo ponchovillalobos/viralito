@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { staticFile } from "remotion";
-import { loadFont } from "@remotion/fonts";
 import { evolvePath } from "@remotion/paths";
 import rough from "roughjs";
+import { registerLocalFont } from "./local-editorial-fonts";
 
 /**
  * EDITORIAL — Tinta (Ola 2): fuentes VARIABLES locales que "respiran" por frame,
@@ -13,8 +12,18 @@ import rough from "roughjs";
  * remotion/public/fonts por python/download_fonts.py — cero red en render.
  */
 
+// ⚠️ CARGA LAZY, NO `@remotion/fonts.loadFont` — auditoría 2026-07-20.
+// Estas 8 fuentes se registraban EAGER con `loadFont`, que usa `delayRender` por
+// debajo y hace `cancelRender` si la carga falla. Es exactamente el patrón que
+// documenta `local-editorial-fonts.ts` como causa raíz de "los videos no salían":
+// bajo el render CONCURRENTE de largos, 8 descargas simultáneas saturan las ~6
+// conexiones por host (que OffthreadVideo ya ocupa), la delayRender nunca se limpia
+// y Remotion ABORTA el clip. Sin internet, directamente cancelaba el render.
+// Ahora usan el mismo helper lazy: se descargan sólo cuando un glyph las necesita,
+// y si faltan caen a la fuente del sistema sin abortar NUNCA.
+const VAR = "100 900"; // rango [wght] de estas fuentes variables
 const F = (file: string, family: string, style: "normal" | "italic" = "normal") =>
-  loadFont({ family, url: staticFile(`fonts/${file}`), format: "truetype", style });
+  registerLocalFont(file, family, { style, weight: VAR });
 
 F("fraunces-var.ttf", "FrauncesVar");
 F("fraunces-italic-var.ttf", "FrauncesVarItalic", "italic");

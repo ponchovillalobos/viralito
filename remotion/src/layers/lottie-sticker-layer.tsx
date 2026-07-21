@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AbsoluteFill, cancelRender, continueRender, delayRender } from "remotion";
+import { AbsoluteFill, continueRender, delayRender } from "remotion";
 // IMPORT DIRECTO del componente <Lottie> de Remotion. Es el que sincroniza la animación
 // con el frame determinista del render (useCurrentFrame). El lazy-load (React.lazy +
 // Suspense) rompía la animación: el frame se capturaba antes de que el chunk montara, así
@@ -30,7 +30,15 @@ export const RemoteLottie: React.FC<{ src: string; loop?: boolean }> = ({
         setData(d as LottieAnimationData);
         continueRender(handle);
       })
-      .catch((e) => cancelRender(e));
+      .catch((e) => {
+        // ⚠️ NO `cancelRender` — auditoría 2026-07-20. Un sticker Lottie es
+        // DECORATIVO: si `/api/lottie/stream` no responde o falta el archivo, antes
+        // se caía el CLIP ENTERO (misma clase de fragilidad que el bug de fuentes).
+        // Ahora se omite el sticker y el video sale igual. `continueRender` es
+        // obligatorio: sin él la delayRender queda colgada y Remotion aborta a los 58s.
+        console.warn(`[lottie] sticker omitido (${src}): ${String(e)}`);
+        if (!cancelled) continueRender(handle);
+      });
     return () => {
       cancelled = true;
     };

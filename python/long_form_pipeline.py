@@ -42,6 +42,7 @@ from config import (
 )
 from hw_profile import ffmpeg_full_args
 from lib.ffmpeg_safe_run import safe_ffmpeg
+from lib import proc as _proc
 from postencode import post_encode
 from normalize_audio import normalize as normalize_loudness
 
@@ -283,20 +284,25 @@ def _x264_recommend() -> tuple[str, int]:
 
 def run(cmd: list[str], cwd: Path | None = None) -> None:
     print(f"\n[run] {' '.join(str(x) for x in cmd)}", file=sys.stderr)
-    subprocess.run(cmd, check=True, cwd=cwd)
+    # TIMEOUT (auditoría 2026-07-20): antes esto era `subprocess.run` pelado. Un
+    # ffmpeg o un Remotion colgado dejaba el pipeline esperando para SIEMPRE — el
+    # mecanismo del "la app dejó de responder". El techo es holgado (6 h por
+    # default, VIRAL_STEP_TIMEOUT lo sube): sólo ataja el cuelgue infinito.
+    _proc.run(cmd, cwd=cwd, check=True)
 
 
 def _ffprobe_duration(path: Path) -> float:
     """Duración del video en segundos, sin transcribir nada (instantáneo)."""
     ffprobe = FFMPEG_PATH.parent / ("ffprobe.exe" if sys.platform == "win32" else "ffprobe")
-    out = subprocess.run(
-        [str(ffprobe), "-v", "error", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-        capture_output=True, text=True,
-    )
     try:
+        out = _proc.probe(
+            [str(ffprobe), "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        )
         return float(out.stdout.strip())
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, _proc.StepTimeout):
+        # Sonda fallida o colgada → duración desconocida. El caller ya trata 0.0
+        # como "no sé"; nunca vale la pena tumbar el pipeline por un ffprobe.
         return 0.0
 
 
@@ -342,7 +348,8 @@ def _write_block_proposals(
 
 
 def run_capture(cmd: list[str], cwd: Path | None = None) -> str:
-    proc = subprocess.run(cmd, check=True, cwd=cwd, capture_output=True, text=True)
+    # Mismo motivo que `run`: techo finito en vez de espera infinita.
+    proc = _proc.run_capture(cmd, cwd=cwd, check=True)
     return proc.stdout
 
 
@@ -1238,7 +1245,9 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
         "--face-tracking", args.face_tracking,
     ]
     try:
-        r = subprocess.run(hl_cmd, capture_output=True, text=True, cwd=str(PYTHON_DIR))
+        # check=False: el manejo de returncode ya está más abajo (lee r.stdout/stderr);
+        # lo único que agregamos acá es el techo de tiempo.
+        r = _proc.run_capture(hl_cmd, cwd=str(PYTHON_DIR), check=False)
     except Exception as e:  # noqa: BLE001
         print(f"[highlights] fallo al ejecutar highlights.py: {e}", file=sys.stderr)
         print(json.dumps({"ok": False, "error": str(e), "video_id": video_id}))
