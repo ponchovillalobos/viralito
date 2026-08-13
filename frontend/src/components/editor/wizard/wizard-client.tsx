@@ -125,91 +125,17 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "audiogram", name: "Audiograma", tagline: "Clip de podcast: una onda de barras baila con la voz + el nombre de tu show. Perfecto para entrevistas y episodios sin depender de la imagen.", emoji: "🎙️" },
 ];
 
-// Tarjetas-preset del paso 2: 5 familias con variantes (selección ÚNICA y simple).
-// SOLO cambian CÓMO se llega a selectedStyles — los ids que viajan al backend son
-// los mismos de siempre y la variante default de cada familia va primero.
-// "text_behind" no entra en ninguna familia: vive solo en el modo avanzado.
-type PresetDef = {
-  id: "viral" | "limpio" | "animado" | "revista" | "cine" | "clips";
-  name: string;
-  emoji: string;
-  description: string;
-  recommended?: boolean;
-  variants: { id: StyleId; label: string }[];
-};
-const PRESETS: PresetDef[] = [
-  {
-    id: "viral",
-    name: "Viral",
-    emoji: "🔥",
-    description: "Subtítulos grandes y dinámicos con mucha energía. La mejor opción para empezar.",
-    recommended: true,
-    variants: [
-      { id: "hype", label: "Clásico" },
-      { id: "hype_max", label: "Con todo" },
-      { id: "hype_max_sfx", label: "Con sonidos" },
-      { id: "supreme", label: "Premium 👑" },
-    ],
-  },
-  {
-    id: "limpio",
-    name: "Limpio y pro",
-    emoji: "🤍",
-    description: "Sobrio y profesional: tu mensaje al frente, sin distracciones.",
-    variants: [
-      { id: "silent", label: "Solo subtítulos" },
-      { id: "punch", label: "Con frases destacadas" },
-    ],
-  },
-  {
-    id: "animado",
-    name: "Animado",
-    emoji: "✨",
-    description: "Gráficas animadas y fondos vivos que se mueven con tu video y tu música.",
-    variants: [
-      { id: "graphics_pro", label: "Con gráficas" },
-      { id: "graphics_max", label: "Gráficas al máximo" },
-      { id: "motion_pro", label: "Aurora" },
-      { id: "motion_beat", label: "Al ritmo de la música" },
-      { id: "motion_grid", label: "Retro futurista" },
-      { id: "kinetic_type", label: "Tipografía cinética" },
-      { id: "lottie_pop", label: "Con stickers ✨" },
-    ],
-  },
-  {
-    id: "revista",
-    name: "Revista",
-    emoji: "📰",
-    description: "Estilo documental premium: tu video en un panel con titulares serif gigantes. Elige el tema aquí abajo.",
-    variants: [
-      { id: "editorial", label: "Editorial" },
-      { id: "editorial_broll", label: "Con archivo 🎞️" },
-      { id: "paper_cut", label: "Papel recortado ✂️" },
-    ],
-  },
-  {
-    id: "cine",
-    name: "Cinematográfico",
-    emoji: "🎬",
-    description: "Look de película: film grain, color teal&orange, viñeta y movimientos de cámara suaves. Puedes subir imágenes para superponerlas.",
-    variants: [
-      { id: "cinematic_pro", label: "Cine 🎬" },
-      { id: "cine_clasico", label: "Cine clásico 🎞️🎙️" },
-      { id: "vhs", label: "VHS Retro 📼" },
-      { id: "audiogram", label: "Audiograma 🎙️" },
-    ],
-  },
-  {
-    id: "clips",
-    name: "Clips de apoyo",
-    emoji: "🎞️",
-    description: "Agrega videos de archivo que ilustran lo que vas diciendo.",
-    variants: [
-      { id: "broll_full", label: "Pantalla completa" },
-      { id: "broll_pip", label: "En ventanita" },
-    ],
-  },
-];
+// IDs de estilo que pertenecen a alguna familia de preset del paso 2 (para el
+// gate "Personalizado" de abajo). "text_behind" no entra en ninguna familia:
+// vive solo en el modo avanzado.
+const PRESET_STYLE_IDS = new Set<StyleId>([
+  "hype", "hype_max", "hype_max_sfx", "supreme",
+  "silent", "punch",
+  "graphics_pro", "graphics_max", "motion_pro", "motion_beat", "motion_grid", "kinetic_type", "lottie_pop",
+  "editorial", "editorial_broll", "paper_cut",
+  "cinematic_pro", "cine_clasico", "vhs", "audiogram",
+  "broll_full", "broll_pip",
+]);
 
 // Fuentes de subtítulo disponibles (Google Fonts gratis). "auto" = la del estilo.
 const SUBTITLE_FONTS: { id: string; name: string }[] = [
@@ -587,9 +513,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // resaltan — funciona igual al aplicar una plantilla o restaurar wizard.activeJob.
   // Multi-selección o text_behind (modo avanzado) ⇒ null = estado "Personalizado".
   const activePreset =
-    selectedStyles.length === 1
-      ? PRESETS.find((p) => p.variants.some((v) => v.id === selectedStyles[0])) ?? null
-      : null;
+    selectedStyles.length === 1 && PRESET_STYLE_IDS.has(selectedStyles[0]);
 
   function toggleVideo(id: string) {
     setSelectedVideos((prev) => {
