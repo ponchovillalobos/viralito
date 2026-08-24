@@ -1,0 +1,12 @@
+# Dependencias SOLO de desarrollo y pruebas. No hacen falta para usar Viralito.
+#
+# Instalar dentro del venv local:
+#   .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+#
+# Por qué existe este archivo: la suite de tests (python/tests/, 44 casos) no
+# podía ejecutarse porque pytest no estaba declarado en ninguna parte del repo
+# ni instalado en el venv. Los tests estaban escritos pero nunca corrían.
+
+-r requirements.txt
+
+pytest>=8.0.0
