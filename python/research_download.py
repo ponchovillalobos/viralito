@@ -24,7 +24,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from config import FFMPEG_PATH
+from config import DATA_ROOT, FFMPEG_PATH
+
+# DATA_ROOT es .../videos; las cookies viven a su lado, no dentro de los videos.
+COOKIES_DIR = DATA_ROOT.parent / "cookies"
 
 
 def detect_platform(url: str) -> str:
@@ -117,11 +120,12 @@ def run_yt_dlp(url: str, output_dir: Path, item_id: str, platform: str) -> Path:
     # Cookies: IG bloquea sin login. TikTok a veces también.
     # YouTube usualmente no necesita.
     if platform in ("instagram", "tiktok"):
-        # Preferí archivo cookies.txt si existe (no falla por DPAPI). Path estable:
-        # C:\hermes-data\cookies\{platform}.txt
+        # Preferí archivo cookies.txt si existe (no falla por DPAPI).
         # El usuario lo exporta con extensión "Get cookies.txt LOCALLY" del browser.
-        from pathlib import Path as _P
-        cookies_file = _P("C:/hermes-data/cookies") / f"{platform}.txt"
+        # El path se DERIVA de DATA_ROOT: estaba fijo a C:\hermes-data (el nombre
+        # legacy), asi que en cualquier instalacion nueva —que usa C:\viral-data—
+        # el archivo no se encontraba nunca y la feature estaba muerta.
+        cookies_file = COOKIES_DIR / f"{platform}.txt"
         if cookies_file.exists():
             cmd.extend(["--cookies", str(cookies_file)])
             print(f"[yt-dlp] usando cookies.txt manual: {cookies_file}", file=sys.stderr)
@@ -149,7 +153,7 @@ def run_yt_dlp(url: str, output_dir: Path, item_id: str, platform: str) -> Path:
                 "DPAPI #10927). Soluciones: (a) instalar Firefox y loguearte ahí en "
                 "Instagram, (b) usar un archivo cookies.txt exportado con la extensión "
                 "\"Get cookies.txt LOCALLY\" y guardarlo en "
-                "C:\\hermes-data\\cookies\\instagram.txt"
+                f"{COOKIES_DIR / 'instagram.txt'}"
             )
         if "Could not copy Chrome cookie database" in proc.stderr:
             raise RuntimeError(
@@ -160,7 +164,7 @@ def run_yt_dlp(url: str, output_dir: Path, item_id: str, platform: str) -> Path:
             raise RuntimeError(
                 "Instagram bloquea este post sin login. Pasos: (1) loguearte en Firefox "
                 "(yt-dlp lee sus cookies sin problemas) o (2) exportá cookies.txt y "
-                "guardalo en C:\\hermes-data\\cookies\\instagram.txt"
+                f"guardalo en {COOKIES_DIR / 'instagram.txt'}"
             )
         if "IP address is blocked" in proc.stderr:
             raise RuntimeError(

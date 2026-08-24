@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from lib import proc as _proc
 from config import (
     CUTS_DIR,
     FFMPEG_PATH,
@@ -35,7 +36,10 @@ def extract_audio(video_path: Path, out_wav: Path) -> None:
         "-ac", "1",
         str(out_wav),
     ]
-    subprocess.run(cmd, check=True, capture_output=True)
+    # Con timeout: sin el, un ffmpeg colgado (archivo corrupto, disco que no
+    # responde) deja este paso esperando para siempre. Es el mecanismo exacto que
+    # documenta lib/proc.py y que ya provoco un "la app dejo de responder".
+    _proc.run(cmd, timeout=_proc.FFMPEG_TIMEOUT, check=True, capture_output=True)
 
 
 def detect(video_path: Path, min_silence_ms: int = SILENCE_MIN_MS) -> dict[str, Any]:
