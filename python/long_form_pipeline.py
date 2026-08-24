@@ -41,6 +41,7 @@ from config import (
     ensure_long_form_dirs,
 )
 from hw_profile import ffmpeg_full_args
+from lib.bitacora import Bitacora
 from lib.ffmpeg_safe_run import safe_ffmpeg
 from lib import proc as _proc
 from postencode import post_encode
@@ -1462,6 +1463,25 @@ def main() -> int:
     t_total = time.time()
     clean_path = None  # se setea solo en el modo completo (no en clips rápidos)
 
+    # BITÁCORA: deja constancia de esta ejecución (tiempos por etapa, métricas de
+    # calidad, entorno) en {DATA_ROOT}/logs/ejecuciones/. Antes solo quedaba el
+    # `elapsed_min` total, así que era imposible saber dónde se fue el tiempo,
+    # comparar dos corridas, o ver si un cambio mejoró algo. Se lee con
+    # `python ver_bitacora.py`. Es best-effort: nunca rompe el pipeline.
+    modo = ("highlights" if args.highlights else
+            "from_proposals" if args.from_proposals else
+            "heuristico" if args.use_heuristic else
+            "analyze_only" if args.analyze_only else "completo")
+    bit = Bitacora("largos", args.video_id, {
+        "modo": modo,
+        "max_clips": args.max_clips,
+        "estilos": args.styles,
+        "aspecto": args.aspect_ratio,
+        "render": bool(args.render),
+        "face_tracking": args.face_tracking,
+        **({"modelo": args.model} if args.model else {}),
+    })
+
     # ── MODO MEJORES MOMENTOS (highlights) — UN video ≤3 min de lo mejor, one-shot ──
     if args.highlights:
         return _run_highlights(args, raw_path, t_total)
@@ -1517,13 +1537,40 @@ def main() -> int:
         #
         # Step 1: transcribe del raw (en chunks)
         print("\n========== STEP 1: transcribe ==========", file=sys.stderr)
-        if not args.skip_transcribe:
-            step_transcribe(raw_path, args.video_id, chunked=True)
+        with bit.etapa("transcribe") as _e:
+            if args.skip_transcribe:
+                _e.saltar("--skip-transcribe")
+            else:
+                _t = step_transcribe(raw_path, args.video_id, chunked=True)
+                # Métricas de CALIDAD, no solo de tiempo: si las palabras por
+                # minuto salen muy bajas, Whisper se saltó tramos en silencio.
+                try:
+                    _tj = json.loads(Path(_t).read_text(encoding="utf-8"))
+                    _pal = len(_tj.get("words") or [])
+                    _dur = float(_tj.get("duration") or 0)
+                    _e.metrica("palabras", _pal)
+                    _e.metrica("duracion_audio_min", round(_dur / 60, 1))
+                    if _dur > 0:
+                        _e.metrica("palabras_por_min", round(_pal / (_dur / 60), 1))
+                    _e.metrica("alineacion", _tj.get("alignment"))
+                    _e.metrica("modelo", _tj.get("model"))
+                except Exception:
+                    pass
 
         # Pasos 2-4 no aplican en modo inteligente: los marcamos saltados para que
         # la UI no quede en "pending" esperándolos.
+        #
+        # OJO: esto NO es una optimización, es una capacidad ausente. Las funciones
+        # step_detect / step_cut / step_re_transcribe_clean existen y funcionan,
+        # pero no se llaman desde ningún sitio, así que los clips se cortan del
+        # RAW con silencios y muletillas intactos. Queda registrado en la bitácora
+        # para que el dato no se pierda entre ejecuciones.
         for _skip in ("detect_silences", "cut_silences", "re-transcribe"):
             print(f"[skip] {_skip} (modo inteligente: clips se cortan del raw)", file=sys.stderr)
+        with bit.etapa("recorte_de_silencios") as _e:
+            _e.saltar("no implementado en el flujo: los clips salen del raw")
+            _e.metrica("silencios_recortados", 0)
+            _e.metrica("muletillas_recortadas", 0)
 
         # max_clips: mínimo 15, y más si el video es largo (~1 cada 5 min), tope 30.
         # Es un TECHO — Ollama propone solo los que realmente valen; si hay menos
@@ -1537,10 +1584,47 @@ def main() -> int:
 
         # Step 5: analyze con Ollama
         print("\n========== STEP 5: analyze (Ollama) ==========", file=sys.stderr)
-        proposals_path = step_analyze(
-            args.video_id, model=args.model,
-            use_heuristic=args.use_heuristic, max_clips=smart_max,
-        )
+        with bit.etapa("analizar_clips") as _e:
+            _e.metrica("techo_clips", smart_max)
+            proposals_path = step_analyze(
+                args.video_id, model=args.model,
+                use_heuristic=args.use_heuristic, max_clips=smart_max,
+            )
+            # Las métricas que dicen si CORTÓ BIEN, no solo si fue rápido.
+            try:
+                _pj = json.loads(Path(proposals_path).read_text(encoding="utf-8"))
+                _cl = _pj.get("clips") or []
+                _e.metrica("clips", len(_cl))
+                _e.metrica("proveedor", _pj.get("provider"))
+                # Si el proveedor es heuristico, el modelo falló del todo y son
+                # bloques uniformes: calidad muy inferior aunque no de error.
+                _e.metrica("fallback_heuristico", bool(_pj.get("fallback_heuristic")))
+                if _cl:
+                    _durs = [round(float(c["end"]) - float(c["start"]), 1) for c in _cl
+                             if c.get("end") is not None and c.get("start") is not None]
+                    if _durs:
+                        _e.metrica("duracion_min_s", min(_durs))
+                        _e.metrica("duracion_max_s", max(_durs))
+                        _e.metrica("duracion_media_s", round(sum(_durs) / len(_durs), 1))
+                        # El prompt dice "jamás <30 ni >60"; el código tolera
+                        # [25,60]. Contar los que se salen mide esa brecha.
+                        _e.metrica("fuera_de_30_60", sum(1 for d in _durs if d < 30 or d > 60))
+                    # Cuántos clips se anclaron de verdad al texto: si son pocos,
+                    # el modelo no está citando el gancho literal y sube el riesgo
+                    # de cortar a mitad de frase.
+                    _anc = sum(1 for c in _cl if c.get("anchorScore"))
+                    _e.metrica("anclados_al_texto", f"{_anc}/{len(_cl)}")
+                    # Cobertura: si todos los clips salen del primer tramo, el
+                    # recorte cronológico se comió el final del video.
+                    _st = sorted(float(c["start"]) for c in _cl if c.get("start") is not None)
+                    if _st:
+                        _dv = _ffprobe_duration(raw_path) or 0
+                        if _dv > 0:
+                            _e.metrica("primer_clip_min", round(_st[0] / 60, 1))
+                            _e.metrica("ultimo_clip_min", round(_st[-1] / 60, 1))
+                            _e.metrica("cobertura_pct", round(_st[-1] / _dv * 100))
+            except Exception:
+                pass
 
     # Validación: si el LLM no propuso ningún clip, fallar AHORA con mensaje claro
     # en vez de seguir a extract_clips que va a fallar con un error genérico.
@@ -1617,6 +1701,7 @@ def main() -> int:
     if args.analyze_only:
         elapsed = time.time() - t_total
         print(f"\n========== ANÁLISIS LISTO en {elapsed/60:.1f} min ==========", file=sys.stderr)
+        bit.cerrar(ok=True, extra={"clips_propuestos": clip_count})
         print(json.dumps({
             "ok": True,
             "video_id": args.video_id,
@@ -1810,6 +1895,12 @@ def main() -> int:
 
     elapsed = time.time() - t_total
     print(f"\n========== DONE en {elapsed/60:.1f} min ==========", file=sys.stderr)
+    bit.cerrar(ok=(render_total == 0 or render_done > 0), extra={
+        "clips": len(clips_info),
+        "renders_ok": render_done,
+        "renders_pedidos": render_total,
+        "renders_fallidos": max(0, render_total - render_done),
+    })
     print(json.dumps({
         "ok": True,
         "video_id": args.video_id,

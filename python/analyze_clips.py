@@ -756,8 +756,51 @@ def main() -> int:
         valid_clips.append(v)
         seen_ranges.append((v["start"], v["end"]))
 
+    # RECORTE POR CALIDAD, NO POR RELOJ.
+    #
+    # Antes: `sort(by start)` y `[:max_clips]` — se quedaba con los N PRIMEROS del
+    # video, no con los N MEJORES. Medido sobre una clase de 99 min: los 9 bloques
+    # propusieron 36 candidatos contra un techo de 20, y el recorte cronológico
+    # dejó FUERA los 58 minutos finales sin haberlos evaluado siquiera. El clip
+    # con la puntuación más alta de toda la corrida (57) era justo el último
+    # aceptado, en el minuto 41 — la frontera del corte. Lo que venía detrás ni
+    # se miró.
+    #
+    # Es además contradictorio con el propio prompt, que le insiste al modelo en
+    # que "hay oro en el medio y en el cierre, no solo al arranque": el modelo
+    # hacía su trabajo y el recorte lo tiraba.
+    #
+    # Ahora se puntúa ANTES de recortar y se conservan los mejores. El orden
+    # cronológico se restaura después, porque aguas abajo (extract, render) los
+    # clips se esperan en orden de aparición.
+    if len(valid_clips) > args.max_clips:
+        try:
+            from virality import score_clip  # import local: solo hace falta al recortar
+
+            for c in valid_clips:
+                if "viralityScore" not in c:
+                    # score_clip mira el TEXTO real de la ventana del transcript,
+                    # no el dict del clip: por eso recibe `words` + los límites.
+                    r = score_clip(words, float(c["start"]), float(c["end"]),
+                                   str(c.get("hook") or ""))
+                    c["viralityScore"] = r.get("score", 0) if isinstance(r, dict) else r
+            antes = len(valid_clips)
+            valid_clips.sort(key=lambda c: float(c.get("viralityScore") or 0), reverse=True)
+            valid_clips = valid_clips[: args.max_clips]
+            print(
+                f"[recorte] {antes} candidatos → {len(valid_clips)} por PUNTUACION "
+                f"(antes se recortaba por orden cronologico y se perdia el final del video)",
+                file=sys.stderr,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Si el scorer no está disponible, se cae al comportamiento anterior:
+            # peor reparto, pero nunca dejar al pipeline sin clips.
+            print(f"[recorte] no se pudo puntuar ({exc}); recorte cronologico de respaldo",
+                  file=sys.stderr)
+            valid_clips.sort(key=lambda c: c["start"])
+            valid_clips = valid_clips[: args.max_clips]
+
     valid_clips.sort(key=lambda c: c["start"])
-    valid_clips = valid_clips[: args.max_clips]
 
     # Fallback heurístico: si después de todos los intentos no hay clips válidos,
     # generar clips uniformes de ~45s para que el pipeline igual produzca algo.
