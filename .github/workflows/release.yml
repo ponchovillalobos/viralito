@@ -91,10 +91,61 @@ jobs:
         working-directory: desktop
         run: ./bundle.ps1
 
+      # NSIS y su plugin INetC, colocados en una carpeta ESCRIBIBLE del workspace.
+      # El runner ya trae NSIS en Program Files, pero `build-installer.ps1` necesita
+      # dejar INetC.dll dentro de su carpeta de plugins y ahí no siempre se puede
+      # escribir. Preparándolo aquí, `Find-Makensis` lo encuentra por PATH y
+      # `Ensure-Inetc` ve el plugin ya puesto, así que no descarga nada.
+      - name: Preparar NSIS + plugin INetC
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raiz = "$env:GITHUB_WORKSPACE\_nsis"
+          New-Item -ItemType Directory -Force $raiz | Out-Null
+
+          # Chocolatey viene en el runner y es más estable que SourceForge.
+          choco install nsis --no-progress -y --version=3.10 | Out-Null
+          $origen = Get-ChildItem "C:\Program Files (x86)\NSIS","C:\Program Files\NSIS" `
+            -Filter makensis.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $origen) { throw "no se encontro makensis tras instalar NSIS" }
+
+          # Copia completa a un sitio donde SÍ se puede escribir el plugin.
+          Copy-Item (Split-Path $origen.FullName) $raiz -Recurse -Force
+          $makensis = Get-ChildItem $raiz -Filter makensis.exe -Recurse | Select-Object -First 1
+          $nsisRoot = Split-Path $makensis.FullName
+          if ((Split-Path $nsisRoot -Leaf) -eq 'Bin') { $nsisRoot = Split-Path $nsisRoot }
+
+          # INetC, con reintentos: el wiki de NSIS falla a ratos.
+          $zip = "$env:RUNNER_TEMP\Inetc.zip"
+          $ok = $false
+          foreach ($i in 1..3) {
+            try {
+              curl.exe -L -A 'Mozilla/5.0' --silent --show-error --fail `
+                -o $zip 'https://nsis.sourceforge.io/mediawiki/images/c/c9/Inetc.zip'
+              if ((Get-Item $zip -ErrorAction SilentlyContinue).Length -gt 10KB) { $ok = $true; break }
+            } catch { Write-Host "intento $i fallido, reintentando..." }
+            Start-Sleep -Seconds 5
+          }
+          if (-not $ok) { throw "no se pudo bajar el plugin INetC tras 3 intentos" }
+
+          $tmp = "$env:RUNNER_TEMP\_inetc"
+          Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
+          foreach ($a in 'x86-unicode', 'x86-ansi') {
+            $dst = Join-Path $nsisRoot "Plugins\$a"
+            New-Item -ItemType Directory -Force $dst | Out-Null
+            Copy-Item (Join-Path $tmp "Plugins\$a\INetC.dll") $dst -Force
+          }
+          Write-Host "NSIS listo en $nsisRoot con INetC"
+          "$(Split-Path $makensis.FullName)" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      # No bloquea el release: el Setup.exe es un DESCARGADOR de 1.8 MB que baja el
+      # ZIP; el producto real es el ZIP portable. Si NSIS falla, la versión sale
+      # igual con el ZIP y el instalador se añade cuando se arregle.
       - name: Compilar el instalador NSIS
+        continue-on-error: true
         shell: pwsh
         working-directory: desktop
-        run: ./build-installer.ps1 -OutDir "$env:GITHUB_WORKSPACE\dist" -ToolsDir "C:\viral-data\tools"
+        run: ./build-installer.ps1 -OutDir "$env:GITHUB_WORKSPACE\dist" -ToolsDir "$env:GITHUB_WORKSPACE\_nsis"
 
       # El ZIP portable es la alternativa al instalador: se descomprime y corre,
       # sin escribir en Archivos de programa ni en el registro.

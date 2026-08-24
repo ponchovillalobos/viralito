@@ -134,6 +134,23 @@ if (isFreshBoot) {
   saveNow(PERSIST_FILE, Array.from(STORE.values()));
 }
 
+/**
+ * Vuelca el store a disco AHORA, sin debounce.
+ *
+ * Existe para las transiciones de estado de la cola. `createJob` guarda el job
+ * como "running" de entrada; si la cola lo pasa a "queued" porque ya hay otro
+ * renderizando, ese cambio vivía SOLO en memoria. Al reiniciar, `reconcileJob`
+ * leía "running" del disco y lo marcaba fallido en vez de reanudable — o sea,
+ * la promesa de "cola reanudable" se rompía justo en el caso más común:
+ * mandar varios videos de una vez.
+ *
+ * Va sin debounce a propósito: lo que se quiere sobrevivir es precisamente un
+ * cierre abrupto, y un guardado aplazado no llega a ocurrir.
+ */
+export function persistNow(): void {
+  saveNow(PERSIST_FILE, Array.from(STORE.values()));
+}
+
 export function createJob(
   videoId: string,
   styles: StyleId[],

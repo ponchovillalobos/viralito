@@ -17,8 +17,15 @@
  *   // refleja status "queued" hasta entonces, después "running".
  */
 
-import { getJob as getEditorJob, updateStep } from "@/lib/job-store";
-import { getLongFormJob, updateLongFormStep } from "@/lib/long-form-job-store";
+import { spawn } from "node:child_process";
+import { getJob as getEditorJob, updateStep, persistNow } from "@/lib/job-store";
+import {
+  getLongFormJob,
+  updateLongFormStep,
+  persistNowLongForm,
+  getLongFormPid,
+  unregisterLongFormPid,
+} from "@/lib/long-form-job-store";
 import { updateResearch } from "@/lib/research-store";
 
 export type JobKind = "editor" | "long_form" | "research";
@@ -56,6 +63,12 @@ const MAX_CONCURRENT = Math.max(
 /**
  * Refleja el estado "queued" / "running" en el store correspondiente.
  * No falla si el store no existe (job ya purgado) — silenciosa.
+ *
+ * PERSISTE AL DISCO. `createJob` guarda el job como "running" de entrada; si
+ * acaba en cola porque ya hay otro renderizando, ese cambio vivía solo en
+ * memoria. Al reiniciar, la reconciliación leía "running" del disco y lo
+ * marcaba fallido en vez de reanudable — rompiendo la promesa de cola
+ * reanudable justo en el caso más común: mandar varios videos de una vez.
  */
 function markQueued(kind: JobKind, jobId: string, position: number) {
   if (kind === "editor") {
@@ -63,11 +76,13 @@ function markQueued(kind: JobKind, jobId: string, position: number) {
     if (!job) return;
     job.status = "queued";
     job.queuePosition = position;
+    persistNow();
   } else if (kind === "long_form") {
     const job = getLongFormJob(jobId);
     if (!job) return;
     job.status = "queued";
     job.queuePosition = position;
+    persistNowLongForm();
   } else if (kind === "research") {
     // Research store es async (persiste a JSON). Fire-and-forget — el próximo update
     // hace read-modify-write y prevalece el último. OK para markQueued.
@@ -81,11 +96,13 @@ function markRunning(kind: JobKind, jobId: string) {
     if (!job) return;
     job.status = "running";
     job.queuePosition = undefined;
+    persistNow();
   } else if (kind === "long_form") {
     const job = getLongFormJob(jobId);
     if (!job) return;
     job.status = "running";
     job.queuePosition = undefined;
+    persistNowLongForm();
   } else if (kind === "research") {
     // El runner de research va a transitar el status a "downloading" en su primer step;
     // aquí solo dejamos "downloading" como marca de arranque, no "running".
@@ -198,12 +215,47 @@ export function clearQueue(): void {
 }
 
 /**
- * Recovery: limpia active fantasmas y dispara tick.
- * Útil cuando un runner crashó silenciosamente y dejó active inconsistente.
+ * Recovery: libera los slots ocupados y dispara tick.
+ *
+ * Antes solo hacía `QUEUE.active.clear()`. Eso liberaba el hueco en la cola
+ * pero NO tocaba el proceso real ni el estado guardado del job, así que:
+ *   · si el proceso viejo seguía vivo, `tick()` arrancaba otro EN PARALELO,
+ *     contradiciendo el diseño serial que existe para no competir por disco; y
+ *   · el job desatascado seguía figurando "running" para siempre en el panel.
+ *
+ * Ahora, antes de soltar el slot, a cada job activo se le mata el proceso (los
+ * largos registran su pid; se mata el árbol entero con taskkill /T porque
+ * python lanza ffmpeg y remotion por debajo) y se le deja el estado en
+ * "failed", que es la verdad: se abortó.
  */
 export function forceUnstuck(): { activeBefore: number; pendingBefore: number } {
   const activeBefore = QUEUE.active.size;
   const pendingBefore = QUEUE.pending.length;
+
+  for (const jobId of QUEUE.active) {
+    const kind = ACTIVE_KINDS.get(jobId);
+    // 1) Matar el proceso real si lo conocemos. Sin esto, el render viejo sigue
+    //    escribiendo mientras arranca uno nuevo sobre los mismos archivos.
+    if (kind === "long_form") {
+      const pid = getLongFormPid(jobId);
+      if (pid) {
+        try {
+          const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+          });
+          killer.on("error", () => {});
+          unregisterLongFormPid(jobId);
+          console.log(`[job-queue] forceUnstuck: matado el arbol del pid ${pid} (${jobId})`);
+        } catch {
+          // best-effort: si no se pudo matar, igual se marca el job y se sigue.
+        }
+      }
+    }
+    // 2) Dejar el estado guardado acorde con la realidad: se abortó.
+    markCancelled(kind ?? "editor", jobId);
+  }
+
   QUEUE.active.clear();
   ACTIVE_KINDS.clear();
   tick().catch((err) => console.error("[job-queue] forceUnstuck tick error:", err));

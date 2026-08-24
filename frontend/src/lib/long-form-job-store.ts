@@ -147,6 +147,18 @@ function persist(): void {
 }
 
 /**
+ * Vuelca el store a disco AHORA, sin debounce. Paridad con `job-store`.
+ *
+ * Lo usa la cola al pasar un job a "queued"/"running": esa transición vivía
+ * solo en memoria, así que un reinicio la perdía y el job se reconciliaba con
+ * el estado equivocado. Sin debounce a propósito — lo que se quiere sobrevivir
+ * es un cierre abrupto, y un guardado aplazado no llega a ocurrir.
+ */
+export function persistNowLongForm(): void {
+  saveNow(PERSIST_FILE, Array.from(STORE.values()));
+}
+
+/**
  * Reconcilia un job interrumpido por reinicio. El pipeline Python no se reanuda, así que
  * cualquier step no terminal pasa a "fail" y el job a "failed" con mensaje claro.
  */
