@@ -20,7 +20,10 @@ export type { StyleId };
 export interface BuildContext {
   videoId: string;
   duration: number;
-  keywords: { word: string; start: number; end: number }[]; // top palabras del transcript con timestamps
+  // Top palabras del transcript con timestamps. `emoji` viene sólo cuando las
+  // eligió el LLM (pick_keywords.py), que propone uno acorde a cada palabra; con
+  // la heurística de respaldo no viene y se cae al emoji aleatorio de siempre.
+  keywords: { word: string; start: number; end: number; emoji?: string }[];
   accentColor: string;
   caption?: string;
   day?: number;
@@ -76,14 +79,22 @@ export function generateCameraMoves(
   duration: number,
   density: "low" | "medium" | "high" = "medium"
 ): { at: number; duration: number; type: string; intensity: number }[] {
-  // SUPREME: intensity AMPLIFICADO. El multiplicador real es x2.5 en useCameraMoveTransform,
-  // así que estos valores se traducen a zoom REAL de 25%-50% sobre el video.
-  // low: 0.10 * 2.5 = 25% zoom; medium: 0.16 * 2.5 = 40%; high: 0.22 * 2.5 = 55%.
+  // CALIBRADO CON METRAJE. Antes: intensity 0.10/0.16/0.22 y duraciones
+  // 2.0/2.5/3.0 s. El comentario decía "x2.5" pero el multiplicador real en
+  // `useCameraMoveTransform` era **x6.0** → 60/96/132 % de zoom. Que la nota y
+  // el código no coincidieran ya avisaba de que nadie lo había medido.
+  // Los dos ejes vienen ahora de medición:
+  //   · intensity 0.14 = `push_in` medido, 1.00 → 1.14
+  //   · intensity 0.06 = micro-reencuadre medido, 1.03–1.09 (n=19)
+  //   · duraciones 1.0–1.6 s = la banda del gesto medido. Por encima de 2 s hay
+  //     penalización de tarea publicada, que es donde caían las tres de antes.
+  // `density` gobierna la FRECUENCIA (gap) y la duración; la FUERZA es medida,
+  // no una preferencia, así que solo distingue gesto (0.14) de micro (0.06).
   // Para video de 90s: low=6, medium=12, high=18 camera moves.
   const cfg = {
-    low: { gap: 14, intensity: 0.1, dur: 2.0 },
-    medium: { gap: 7, intensity: 0.16, dur: 2.5 },
-    high: { gap: 4, intensity: 0.22, dur: 3.0 },
+    low: { gap: 14, intensity: 0.06, dur: 1.6 },
+    medium: { gap: 7, intensity: 0.14, dur: 1.3 },
+    high: { gap: 4, intensity: 0.14, dur: 1.0 },
   }[density];
 
   const types = ["zoom_in", "pan_right", "zoom_out", "pan_left"] as const;
@@ -201,13 +212,28 @@ export function generateProTransitions(ctx: BuildContext): Array<{
     "iris",
     "flash",
   ] as const;
+  // DURACIÓN POR FAMILIA (medido). Antes: 8 frames para las nueve. Ocho está
+  // DENTRO de la banda medida para barridos (6–24 f), whip (3–10 f) y punch
+  // (0.20–0.40 s ≈ 6–12 f a 30 fps), así que esas no se tocan. Las dos que se
+  // salían de su banda natural:
+  //   · flash  — un destello dura 1–3 frames. A 8 f duraba 2.7× su banda.
+  //   · glitch — 2 frames medidos en el registro publicitario, el único donde
+  //     el glitch aparece de verdad.
+  // Lo que NO está medido (flip3d, light_streak) se queda en 8, y se declara.
+  const FRAMES_MEDIDOS: Partial<Record<(typeof kinds)[number], number>> = {
+    flash: 3,
+    glitch: 2,
+  };
   const kws = ctx.keywords.filter((k) => k.start > 1 && k.start < ctx.duration - 1).slice(0, 6);
-  return kws.map((kw, i) => ({
-    at: +Math.max(0, kw.start - 0.1).toFixed(2),
-    kind: kinds[i % kinds.length],
-    durationFrames: 8,
-    color: "#ffffff",
-  }));
+  return kws.map((kw, i) => {
+    const kind = kinds[i % kinds.length];
+    return {
+      at: +Math.max(0, kw.start - 0.1).toFixed(2),
+      kind,
+      durationFrames: FRAMES_MEDIDOS[kind] ?? 8,
+      color: "#ffffff",
+    };
+  });
 }
 
 /** Momentos kaleidoscópicos (mirror/clone/split) en 1-2 keywords del medio del video. */
@@ -414,14 +440,16 @@ function pickKeywords(ctx: BuildContext, count: number) {
 }
 
 function buildStickers(ctx: BuildContext, count: number) {
-  // Emojis seleccionados deterministically para este video → cada video distinto, mismo
-  // video siempre igual al re-renderizar.
+  // Emojis de respaldo: deterministas por video (mismo video → mismos emojis al
+  // re-renderizar), pero SIN relación con la palabra — salían cosas como
+  // "KEYFRAMES 🌮". Si el LLM propuso uno acorde, ese manda; el aleatorio queda
+  // sólo para cuando no hay (heurística de respaldo, sin internet, etc.).
   const emojis = pickEmojis(`${ctx.videoId}:stickers`, count);
   return pickKeywords(ctx, count).map((kw, i) => ({
     at: kw.start,
     duration: 1.5,
     word: kw.word.toUpperCase().replace(/[.,;:!?¿¡]/g, "").slice(0, 24),
-    emoji: emojis[i] ?? "✨",
+    emoji: kw.emoji || emojis[i] || "✨",
     position: "top-center" as const,
     rotation: 0,
     bg: ctx.accentColor,

@@ -73,10 +73,15 @@ const SFX_POOL = ["swoosh.wav", "water_drop.ogg", "pop.ogg", "ding.ogg", "bloop.
 
 /** Camera moves auto-distribuidos (solo modo cinematográfico). */
 export function generateCameraMoves(duration, density = "medium") {
+  // CALIBRADO CON METRAJE (paridad con .ts). El multiplicador oculto x6.0 de
+  // `useCameraMoveTransform` convertía 0.10/0.16/0.22 en 60/96/132 % de zoom;
+  // ya no existe, así que intensity ES la fracción: 0.14 = +14 %, que es el
+  // `push_in` medido, y 0.06 el micro-reencuadre. Duraciones 1.0–1.6 s = banda
+  // del gesto medido.
   const cfg = {
-    low: { gap: 14, intensity: 0.1, dur: 2.0 },
-    medium: { gap: 7, intensity: 0.16, dur: 2.5 },
-    high: { gap: 4, intensity: 0.22, dur: 3.0 },
+    low: { gap: 14, intensity: 0.06, dur: 1.6 },
+    medium: { gap: 7, intensity: 0.14, dur: 1.3 },
+    high: { gap: 4, intensity: 0.14, dur: 1.0 },
   }[density];
   const types = ["zoom_in", "pan_right", "zoom_out", "pan_left"];
   const moves = [];
@@ -146,13 +151,21 @@ export function generateProTransitions(ctx) {
     "whip", "zoom_punch", "flip3d", "light_streak", "glitch",
     "swipe_blur", "reveal_lr", "iris", "flash",
   ];
+  // DURACIÓN POR FAMILIA (medido, paridad con .ts). 8 frames está dentro de la
+  // banda de barridos, whip y punch; las dos que se salían son el destello
+  // (1–3 f) y el glitch (2 f medidos en registro publicitario). Lo no medido
+  // (flip3d, light_streak) se queda en 8.
+  const FRAMES_MEDIDOS = { flash: 3, glitch: 2 };
   const kws = ctx.keywords.filter((k) => k.start > 1 && k.start < ctx.duration - 1).slice(0, 6);
-  return kws.map((kw, i) => ({
-    at: +Math.max(0, kw.start - 0.1).toFixed(2),
-    kind: kinds[i % kinds.length],
-    durationFrames: 8,
-    color: "#ffffff",
-  }));
+  return kws.map((kw, i) => {
+    const kind = kinds[i % kinds.length];
+    return {
+      at: +Math.max(0, kw.start - 0.1).toFixed(2),
+      kind,
+      durationFrames: FRAMES_MEDIDOS[kind] ?? 8,
+      color: "#ffffff",
+    };
+  });
 }
 
 /** Momentos kaleidoscópicos (mirror/clone/split). */

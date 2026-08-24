@@ -2,6 +2,7 @@
 // Extraído del archivo monolítico para mantener una sola fuente de verdad.
 
 import type { StyleId } from "@/lib/style-templates";
+import type { BrollSource } from "@/lib/pexels";
 
 export interface CinematicConfig {
   /** IDs de imageOverlays subidos a /api/overlays/upload */
@@ -47,6 +48,18 @@ export interface AutoBuildRequest {
   day?: number;
   /** Aspecto del output. "9:16" → 1080×1920 (vertical, default). "1:1" → 1080×1080 (cuadrado). "16:9" → 1920×1080 (horizontal). */
   aspectRatio?: "9:16" | "1:1" | "16:9";
+  /**
+   * De dónde sale el material de relleno en los estilos que lo usan
+   * (`broll_full`, `broll_pip`, `editorial_broll`). Es una decisión de FUENTE,
+   * no de estilo: la composición no cambia, solo qué se ve en el hueco. Sirve
+   * para renderizar el mismo video con distinta fuente y compararlas.
+   *   auto (default) — video de Pexels, completado con CC0 si falta
+   *   pexels_video   — solo video de Pexels
+   *   pexels_photo   — fotos de Pexels
+   *   giphy          — GIFs de Giphy, servidos como MP4 para que se animen
+   *   cc0            — solo dominio público, sin clave
+   */
+  brollSource?: BrollSource;
   /** Modo cinematográfico opt-in. Si undefined, render sale idéntico a antes. */
   cinematic?: CinematicConfig;
   /**

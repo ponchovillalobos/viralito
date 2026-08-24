@@ -75,6 +75,63 @@ export const maxDuration = 1800;
 // TranscriptWord, pickTopKeywords, sanitizeForFilename, generateContentTitle viven en @/lib/content-title.
 // runProcess + parseLastJsonLine viven en @/lib/run-process.
 
+/**
+ * Elige las palabras que salen GIGANTES en pantalla, con criterio editorial.
+ *
+ * Antes lo hacía `pickTopKeywords`: filtra muletillas y toma una cada N por su
+ * POSICIÓN en la lista. Reparte bien en el tiempo pero no distingue una palabra
+ * con peso de una cualquiera. Ahora lo decide el mismo LLM que ya elige los
+ * clips (claude > codex > ollama), que sí entiende cuál es el concepto de la
+ * frase; `pick_keywords.py` sólo acepta palabras que existan de verdad en la
+ * transcripción, para que ningún sticker muestre algo que nadie dijo.
+ *
+ * DEGRADA SIEMPRE: sin CLI, sin internet, con timeout o con respuesta ilegible
+ * se vuelve a la heurística. Un video sin stickers sería peor que uno con
+ * stickers mediocres, así que el camino de respaldo nunca se quita.
+ */
+async function pickKeywordsSmart(
+  transcriptPath: string,
+  words: TranscriptWord[],
+  count: number
+): Promise<TranscriptWord[]> {
+  const heuristica = () => pickTopKeywords(words, count);
+  try {
+    // Import dinámico, igual que el resto de llamadas a Python de esta ruta.
+    const { runPythonJson } = await import("@/lib/run-python");
+    const { ok, parsed } = await runPythonJson<{
+      ok?: boolean;
+      keywords?: { palabra: string; emoji?: string }[];
+      provider?: string;
+    }>("pick_keywords.py", [transcriptPath, "--count", String(count)], { timeoutMs: 90_000 });
+    if (!ok || !parsed?.ok || !Array.isArray(parsed.keywords) || parsed.keywords.length < 2) {
+      return heuristica();
+    }
+    // El LLM devuelve TEXTO; el timestamp sigue siendo determinista: se busca la
+    // primera aparición real de cada palabra en el transcript. Así el sticker
+    // cae exactamente cuando se dice, sin que el modelo invente tiempos.
+    const norm = (s: string) => s.toLowerCase().replace(/[^\wáéíóúñü]/g, "");
+    const usados = new Set<number>();
+    const elegidas: TranscriptWord[] = [];
+    for (const k of parsed.keywords) {
+      const objetivo = norm(k?.palabra ?? "");
+      if (!objetivo) continue;
+      const i = words.findIndex((w, idx) => !usados.has(idx) && norm(w.word) === objetivo);
+      if (i !== -1) {
+        usados.add(i);
+        // El emoji viaja pegado a la palabra; `buildStickers` lo prefiere sobre
+        // el aleatorio por hash, que no tenía relación con lo que dice.
+        elegidas.push(k.emoji ? { ...words[i], emoji: k.emoji } : words[i]);
+      }
+    }
+    if (elegidas.length < 2) return heuristica();
+    elegidas.sort((a, b) => a.start - b.start);
+    console.log(`[keywords] ${parsed.provider ?? "?"} eligió: ${elegidas.map((w) => w.word).join(", ")}`);
+    return elegidas;
+  } catch {
+    return heuristica();
+  }
+}
+
 // ─── #6 — Encoder por hardware para el paso de LUT (fusión, evita doble encode) ──
 // hw_profile.py recomienda el encoder en DATA_ROOT/cache/hw_profile.json. Para el
 // grade LUT, en vez de encodear SIEMPRE en libx264 'medium' y DESPUÉS re-encodear
@@ -190,7 +247,15 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
   }
 
   // 3. Contexto + aspect ratio + cinematic (opt-in)
-  const keywords = pickTopKeywords(transcript.words, 7);
+  //
+  // QUÉ PALABRAS SALEN GIGANTES EN PANTALLA. `pickTopKeywords` filtra muletillas
+  // y luego toma una cada N POR SU POSICIÓN en la lista — reparte bien en el
+  // tiempo, pero no distingue "INVENTARIO" de "PROBLEMA". Es un juicio editorial,
+  // así que ahora lo hace el mismo LLM que ya elige los clips (claude > codex >
+  // ollama). `pick_keywords.py` valida que cada palabra exista de verdad en la
+  // transcripción, y si el proveedor falla o está offline devuelve ok:false y
+  // acá se cae a la heurística de siempre: el video nunca se queda sin stickers.
+  const keywords = await pickKeywordsSmart(transcriptPath, transcript.words, 7);
   const { width, height } = dimensionsFromAspect(body.aspectRatio);
 
   // Cargar overlays del store si vienen IDs (modo cinematográfico).
@@ -294,10 +359,14 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
             count: brollCount,
             clipDur: 3,
             orientation: "portrait",
+            // Fuente elegida por quien pide el render. Sin `brollSource` el
+            // comportamiento es EXACTAMENTE el de antes ("auto"), así que esto
+            // no cambia nada para quien no lo use.
+            source: body.brollSource,
           });
           console.log(
-            `[auto-build] auto b-roll (${styleId}): ${autoBroll.length}/${brollCount} clips de Pexels ` +
-              `(video ${Math.round(transcript.duration)}s)`
+            `[auto-build] auto b-roll (${styleId}, fuente ${body.brollSource ?? "auto"}): ` +
+              `${autoBroll.length}/${brollCount} clips (video ${Math.round(transcript.duration)}s)`
           );
         } catch (err) {
           console.warn("[auto-build] auto b-roll falló:", err);

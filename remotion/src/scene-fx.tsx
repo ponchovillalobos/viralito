@@ -541,6 +541,16 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
       "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, " +
       "0 -3px 0 #000, 0 3px 0 #000, -3px 0 0 #000, 3px 0 0 #000";
 
+    // CONTORNO MEDIDO para el preset `pop`, que es el que usan los estilos hype.
+    // Esa rama se sostenía SOLO con `drop-shadow` — resplandores difuminados, sin
+    // borde duro: aprueba sobre metraje oscuro y suspende sobre fondo claro.
+    // Mismo criterio que subtitle-layer.tsx: 0.085 de la altura de mayúscula
+    // hacia AFUERA; `-webkit-text-stroke` dibuja centrado, así que se pide el
+    // doble, y `paintOrder: "stroke fill"` repinta el relleno encima para que el
+    // contorno no se coma la letra.
+    const fontSizePop = popReels ? 88 : 96;
+    const contornoPop = `${Math.max(2, Math.round(fontSizePop * 0.151))}px #000000`;
+
     return (
       <AbsoluteFill
         style={{
@@ -619,6 +629,8 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
                   transform: isActive ? "scale(1.1)" : "scale(1)",
                   display: "inline-block",
                   transformOrigin: "center bottom",
+                  WebkitTextStroke: contornoPop,
+                  paintOrder: "stroke fill" as const,
                   filter: isActive
                     ? `drop-shadow(0 0 26px ${highlight}) drop-shadow(0 4px 16px rgba(0,0,0,0.95))`
                     : spoken
@@ -719,6 +731,16 @@ export const KineticSubtitleLayer: React.FC<KineticSubtitleLayerProps> = ({
           maxWidth: 980,
           padding: "0 50px",
           whiteSpace: "nowrap",
+          // CONTORNO MEDIDO. Esta rama —la de palabra suelta, que usan los
+          // presets `pop`, `bounce`, `type_on`…— se sostenía SOLO con el
+          // `drop-shadow` de `filter`: resplandor difuminado, sin borde duro.
+          // Aprueba sobre metraje oscuro y suspende sobre fondo claro, que es
+          // justo lo que rompe la regla "subtítulos siempre visibles".
+          // 0.085 de la altura de mayúscula hacia AFUERA; el trazo se dibuja
+          // centrado, así que se pide el doble, y `paintOrder` repinta el
+          // relleno encima para que el contorno no se coma la letra.
+          WebkitTextStroke: `${Math.round(112 * 0.151)}px #000000`,
+          paintOrder: "stroke fill" as const,
           opacity,
           transform,
           transformOrigin: "center center",

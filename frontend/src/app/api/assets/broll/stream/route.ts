@@ -28,9 +28,20 @@ export async function GET(req: NextRequest) {
   const filePath = path.join(BROLL_DIR, file);
   try {
     const stat = await fs.stat(filePath);
+    // El b-roll no siempre es video: el respaldo CC0 sirve fotos de Openverse y
+    // Pexels tiene modo foto. Si a una imagen se le manda "video/mp4" el
+    // navegador no la pinta y el compositor de Remotion falla al decodificarla.
     const ext = path.extname(file).toLowerCase();
-    const contentType =
-      ext === ".webm" ? "video/webm" : ext === ".mov" ? "video/quicktime" : "video/mp4";
+    const TIPOS: Record<string, string> = {
+      ".webm": "video/webm",
+      ".mov": "video/quicktime",
+      ".mp4": "video/mp4",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+    };
+    const contentType = TIPOS[ext] ?? "video/mp4";
 
     // Soporte REAL de Range (206): OffthreadVideo pide el video por rangos al seekear.
     const range = req.headers.get("range");
