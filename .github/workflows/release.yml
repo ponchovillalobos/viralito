@@ -101,15 +101,34 @@ jobs:
       - name: Empaquetar el ZIP portable
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $rel = "desktop\src-tauri\target\release"
           $stage = "$env:RUNNER_TEMP\portable"
-          New-Item -ItemType Directory -Force $stage | Out-Null
+          $dist = "$env:GITHUB_WORKSPACE\dist"
+          New-Item -ItemType Directory -Force $stage, $dist | Out-Null
+
           Copy-Item "$rel\*.exe" $stage -Force
           Copy-Item "$rel\payload" "$stage\payload" -Recurse -Force
-          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\dist" | Out-Null
+          $peso = (Get-ChildItem $stage -Recurse -File | Measure-Object Length -Sum).Sum
+          Write-Host ("a empaquetar: {0:N1} GB" -f ($peso / 1GB))
+
           $ver = if ($env:GITHUB_REF_NAME -match '^v') { $env:GITHUB_REF_NAME } else { "dev-$env:GITHUB_RUN_NUMBER" }
-          Compress-Archive -Path "$stage\*" -DestinationPath "$env:GITHUB_WORKSPACE\dist\EstrategiaViralStudio-$ver.zip"
-          Get-ChildItem "$env:GITHUB_WORKSPACE\dist" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+          $salida = "$dist\EstrategiaViralStudio-$ver.zip"
+
+          # 7-Zip, no Compress-Archive: el payload ronda los 5-7 GB y el cmdlet de
+          # PowerShell se apoya en System.IO.Compression, que arrastra límites de
+          # tamaño y se atraganta con árboles grandes. 7z viene en el runner.
+          $7z = (Get-Command 7z -ErrorAction SilentlyContinue)?.Source
+          if ($7z) {
+            & $7z a -tzip -mx=5 -bso0 -bsp0 $salida "$stage\*"
+            if ($LASTEXITCODE -ne 0) { throw "7z termino con codigo $LASTEXITCODE" }
+          } else {
+            Write-Host "7z no disponible, usando Compress-Archive"
+            Compress-Archive -Path "$stage\*" -DestinationPath $salida
+          }
+
+          if (-not (Test-Path $salida)) { throw "no se genero $salida" }
+          Write-Host ("ZIP: {0:N1} GB" -f ((Get-Item $salida).Length / 1GB))
 
       # A partir de aquí, TODO lo del instalador es opcional: si algo falla, la
       # versión sale igual con el ZIP de arriba. Las dos etapas llevan
@@ -157,26 +176,41 @@ jobs:
           Split-Path $makensis | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           Write-Host 'NSIS listo con INetC'
 
+      # Se intenta aunque la preparación de NSIS haya ido regular: el propio
+      # `build-installer.ps1` sabe buscar makensis por su cuenta y bajarse el
+      # portable. Condicionarlo a que el paso anterior saliera perfecto solo
+      # servía para saltárselo en silencio.
       - name: Compilar el instalador NSIS
-        if: steps.nsis.outcome == 'success'
         continue-on-error: true
         shell: pwsh
         working-directory: desktop
         run: ./build-installer.ps1 -OutDir "$env:GITHUB_WORKSPACE\dist" -ToolsDir "$env:GITHUB_WORKSPACE\_nsis"
 
+      # `if: always()`: las sumas y la subida NO pueden depender de que el
+      # instalador saliera bien. Es el mismo error que ya costó dos intentos —
+      # una etapa opcional tumbando la entrega — pero un paso más abajo.
       - name: Sumas SHA256
+        if: always()
         shell: pwsh
         run: |
-          Get-ChildItem "$env:GITHUB_WORKSPACE\dist" -File |
+          $dist = "$env:GITHUB_WORKSPACE\dist"
+          if (-not (Test-Path $dist)) { Write-Host "no hay dist/"; exit 0 }
+          $archivos = @(Get-ChildItem $dist -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' })
+          Write-Host "en dist/: $($archivos.Count) archivo(s)"
+          foreach ($f in $archivos) { Write-Host ("  {0,-46} {1,8:N1} MB" -f $f.Name, ($f.Length / 1MB)) }
+          if ($archivos.Count -eq 0) { Write-Host "nada que firmar"; exit 0 }
+          $archivos |
             ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)  $($_.Name)" } |
-            Out-File "$env:GITHUB_WORKSPACE\dist\SHA256SUMS.txt" -Encoding utf8
-          Get-Content "$env:GITHUB_WORKSPACE\dist\SHA256SUMS.txt"
+            Out-File "$dist\SHA256SUMS.txt" -Encoding utf8
+          Get-Content "$dist\SHA256SUMS.txt"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: instalador-windows
           path: dist/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: Publicar release
         if: startsWith(github.ref, 'refs/tags/v') || inputs.publicar
