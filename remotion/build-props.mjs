@@ -157,7 +157,16 @@ const props = {
   rawVideoUrl: `${HOST}/api/videos/${encodeURIComponent(videoIdForUrl)}/stream?source=raw`,
   videoDurationSec: +totalDuration.toFixed(3),
   words: subtitles,
-  bRoll: bRollLocal.map((c) => ({ start: c.start, end: c.end, url: c.url })),
+  // width/height viajan cuando la fuente las declara (Giphy sí): el render las
+  // usa para no recortar material que no encaja en el lienzo. Si no vienen, el
+  // comportamiento es el de siempre.
+  bRoll: bRollLocal.map((c) => ({
+    start: c.start,
+    end: c.end,
+    url: c.url,
+    ...(c.width ? { width: c.width } : {}),
+    ...(c.height ? { height: c.height } : {}),
+  })),
   // musicTrack puede venir como NOMBRE de archivo ("tema.mp3") o ya como URL
   // ("/api/music/stream?file=..." — lo que devuelve pickRandomMusicTrack). Antes
   // se re-envolvía siempre → URL doble-encodeada → el <Audio> tiraba el render.

@@ -17,6 +17,13 @@ export const bRollSchema = z.object({
   start: z.number(),
   end: z.number(),
   url: z.string(),
+  // Dimensiones del ORIGEN, cuando la fuente las declara (Giphy sí; Pexels no
+  // siempre). Con ellas el render sabe si el material encaja en el lienzo o si
+  // taparlo a pantalla completa le recortaría media imagen: un GIF cuadrado en
+  // un vertical pierde los lados con `objectFit: cover`. Sin ellas, el
+  // comportamiento es el de siempre.
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 export type BRollClip = z.infer<typeof bRollSchema>;
 

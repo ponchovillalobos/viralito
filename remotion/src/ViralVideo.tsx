@@ -1028,21 +1028,68 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           (ver arriba) — acá se salta para no duplicarlo tapando el lienzo. */}
       {fullscreenBRoll &&
         !editorialLayout &&
-        bRoll.map((clip, i) => (
-          <Sequence
-            key={`${clip.start}-${i}`}
-            from={Math.floor(clip.start * fps)}
-            durationInFrames={Math.ceil((clip.end - clip.start) * fps)}
-          >
-            <AbsoluteFill>
-              <OffthreadVideo
-                src={clip.url}
-                muted
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            </AbsoluteFill>
-          </Sequence>
-        ))}
+        bRoll.map((clip, i) => {
+          // FORMA DEL MATERIAL. `objectFit: cover` llena el lienzo recortando lo
+          // que sobra, que está bien cuando el origen es vertical como el
+          // destino. Pero un GIF cuadrado (o apaisado) en un 9:16 pierde los
+          // lados: se recorta justo donde suele estar la acción. Cuando la
+          // fuente declara sus dimensiones y NO encajan, en vez de taparlo todo
+          // se coloca abajo, a su proporción real, y arriba sigue viéndose el
+          // video original. Conviven en vez de pelearse por el cuadro.
+          const propOrigen = clip.width && clip.height ? clip.width / clip.height : null;
+          const propLienzo = compWidth / compHeight;
+          // Umbral: si el origen es más de un 25% más ancho (en proporción) que
+          // el lienzo, taparlo entero costaría demasiada imagen.
+          const convive = propOrigen !== null && propOrigen > propLienzo * 1.25;
+
+          return (
+            <Sequence
+              key={`${clip.start}-${i}`}
+              from={Math.floor(clip.start * fps)}
+              durationInFrames={Math.ceil((clip.end - clip.start) * fps)}
+            >
+              {convive ? (
+                // Mitad inferior: el material a su proporción, centrado. El
+                // video original queda visible arriba porque esta capa no lo
+                // tapa — solo ocupa la banda de abajo.
+                <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      // Alto que le corresponde a su proporción real, con tope
+                      // al 55% del lienzo para no comerse la cara de arriba.
+                      height: Math.min(
+                        Math.round(compWidth / (propOrigen as number)),
+                        Math.round(compHeight * 0.55)
+                      ),
+                      overflow: "hidden",
+                      background: "#000",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <OffthreadVideo
+                      src={clip.url}
+                      muted
+                      // `contain`: dentro de su banda ya no hace falta recortar,
+                      // el material se ve entero.
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
+                  </div>
+                </AbsoluteFill>
+              ) : (
+                <AbsoluteFill>
+                  <OffthreadVideo
+                    src={clip.url}
+                    muted
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </AbsoluteFill>
+              )}
+            </Sequence>
+          );
+        })}
 
       {!fullscreenBRoll &&
         !editorialLayout &&

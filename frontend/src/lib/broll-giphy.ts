@@ -43,7 +43,9 @@ function conTimeout(url: string, ms = 10_000): Promise<Response> {
  * `rating: pg-13` filtra el catálogo: es material que va a salir sobreimpreso
  * en un video que se publica, así que se descarta lo explícito de entrada.
  */
-export async function buscarGifMp4(query: string): Promise<{ url: string; thumbnail?: string } | null> {
+export async function buscarGifMp4(
+  query: string
+): Promise<{ url: string; thumbnail?: string; width?: number; height?: number } | null> {
   const key = process.env.GIPHY_API_KEY;
   if (!key || !query.trim()) return null;
 
@@ -66,12 +68,24 @@ export async function buscarGifMp4(query: string): Promise<{ url: string; thumbn
     for (const item of data.data ?? []) {
       // original.mp4 es el de mejor calidad; downsized_medium existe cuando el
       // original pesa demasiado. Se toma el primero que traiga mp4 de verdad.
-      const mp4 =
-        item.images?.original?.mp4 ||
-        item.images?.downsized_medium?.mp4 ||
-        item.images?.fixed_height?.mp4;
-      if (mp4) {
-        return { url: mp4, thumbnail: item.images?.original_still?.url };
+      const candidatas: (GiphyImagen | undefined)[] = [
+        item.images?.original,
+        item.images?.downsized_medium,
+        item.images?.fixed_height,
+      ];
+      const variante = candidatas.find((v): v is GiphyImagen => Boolean(v?.mp4));
+      if (variante?.mp4) {
+        // Las dimensiones viajan con el clip: un GIF cuadrado o apaisado no
+        // puede taparse a pantalla completa en un vertical sin perder los
+        // lados, y el render necesita saberlo para decidir cómo colocarlo.
+        const w = Number(variante.width);
+        const h = Number(variante.height);
+        return {
+          url: variante.mp4,
+          thumbnail: item.images?.original_still?.url,
+          ...(Number.isFinite(w) && w > 0 ? { width: w } : {}),
+          ...(Number.isFinite(h) && h > 0 ? { height: h } : {}),
+        };
       }
     }
     return null;

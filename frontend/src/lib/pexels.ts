@@ -22,6 +22,10 @@ export interface BrollClip {
   end: number;
   url: string;
   thumbnail?: string;
+  /** Dimensiones del origen cuando la fuente las declara. El render las usa
+   *  para no recortar material que no encaja en el lienzo. */
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -306,7 +310,15 @@ export async function autoMatchBroll(
       if (source === "giphy") {
         const { buscarGifMp4 } = await import("./broll-giphy");
         const gif = await buscarGifMp4(q);
-        if (gif) clips.push({ ...rango, url: gif.url, thumbnail: gif.thumbnail });
+        if (gif) {
+          clips.push({
+            ...rango,
+            url: gif.url,
+            thumbnail: gif.thumbnail,
+            ...(gif.width ? { width: gif.width } : {}),
+            ...(gif.height ? { height: gif.height } : {}),
+          });
+        }
         continue;
       }
 

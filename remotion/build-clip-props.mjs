@@ -92,7 +92,15 @@ const props = {
   rawVideoUrl: `${HOST}/api/long_form/stream?file=${encodeURIComponent(clipId)}&source=clip`,
   videoDurationSec: +transcript.duration.toFixed(3),
   words: subtitles,
-  bRoll: bRollLocal.map((c) => ({ start: c.start, end: c.end, url: c.url })),
+  // Paridad con build-props: width/height viajan cuando la fuente las declara,
+  // para que el render no recorte material que no encaja en el lienzo.
+  bRoll: bRollLocal.map((c) => ({
+    start: c.start,
+    end: c.end,
+    url: c.url,
+    ...(c.width ? { width: c.width } : {}),
+    ...(c.height ? { height: c.height } : {}),
+  })),
   // musicTrack: NOMBRE de archivo o URL "/api/music/stream?..." (pickRandomMusicTrack).
   // Antes se re-envolvía siempre → URL doble-encodeada → render roto con música.
   musicUrl: (() => {
