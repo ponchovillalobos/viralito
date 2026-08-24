@@ -15,6 +15,10 @@ export interface TranscriptWord {
   start: number;
   end: number;
   score?: number;
+  /** Emoji que el LLM propuso para esta palabra (ver `pick_keywords.py`). Sólo
+   *  viene en las keywords elegidas por modelo; la transcripción cruda no lo
+   *  trae y la heurística de respaldo tampoco. */
+  emoji?: string;
 }
 
 const TITLE_STOPWORDS = new Set([

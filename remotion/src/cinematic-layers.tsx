@@ -510,9 +510,22 @@ export function useCameraMoveTransform(
   const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const intensity = active.intensity;
 
-  // MAX OUT: amplificar intensity 6x — zoom EXTREMO para ver el techo visual.
-  // Base 0.10/0.16/0.22 → 60%/96%/132% de zoom. Calibrable hacia abajo después.
-  const amplified = intensity * 6.0;
+  // GESTO DE CÁMARA — calibrado con metraje.
+  //
+  // Antes: `intensity * 6.0`, con el comentario "MAX OUT … calibrable hacia
+  // abajo después". Ese después nunca llegó: 0.10/0.16/0.22 salían como
+  // 60 %/96 %/132 % de zoom. Medido:
+  //   · gesto `push_in` sobre imagen fija: 1.00 → 1.14 en 1.0–1.6 s
+  //   · deriva sostenida de cámara en cabeza parlante: +0.127 %/s sobre 95 planos
+  // +96 % es 6.9× el techo del gesto real.
+  //
+  // Ahora `intensity` ES la fracción de zoom, sin multiplicador oculto: 0.14 =
+  // +14 %. La curva cúbica de arriba ya da el slow-in/slow-out.
+  //
+  // EL LOOK ANTERIOR NO SE PIERDE: quien lo quiera pide `intensity: 0.96` en el
+  // proyecto y obtiene exactamente el +96 % de antes. Lo que cambia es el valor
+  // por DEFECTO de `generateCameraMoves`, que ahora sale de medición.
+  const amplified = intensity;
   switch (active.type) {
     case "zoom_in":
       return { scale: 1 + amplified * eased, translateX: 0, translateY: 0 };

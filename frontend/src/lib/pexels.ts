@@ -24,6 +24,19 @@ export interface BrollClip {
   thumbnail?: string;
 }
 
+/**
+ * De dónde sale el material de relleno. Es una decisión de FUENTE, no de estilo:
+ * los 25 estilos siguen componiendo igual, solo cambia qué se ve en el hueco.
+ *
+ *   auto          — lo de siempre: video de Pexels, y CC0 si falta (default)
+ *   pexels_video  — solo video de Pexels, sin rellenar con CC0
+ *   pexels_photo  — fotos de Pexels (imagen fija; el render la mueve con su
+ *                   propio zoom, así que no queda muerta)
+ *   giphy         — GIFs animados de Giphy, servidos como MP4
+ *   cc0           — solo dominio público, sin clave: Internet Archive + Openverse
+ */
+export type BrollSource = "auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0";
+
 interface Keyword {
   word: string;
   start: number;
@@ -216,22 +229,62 @@ function dedupeOverlaps(clips: BrollClip[]): BrollClip[] {
 }
 
 /**
+ * Busca UNA foto de Pexels. Devuelve una URL con extensión de imagen para que
+ * `pip-broll-layer` la detecte como tal y la monte con `<Img>` (y su Ken Burns)
+ * en vez de intentar reproducirla como video.
+ *
+ * Se pide `large2x` (~1880px de ancho): suficiente para llenar un vertical de
+ * 1080 con margen de zoom, sin descargar el original que a veces son 20 MB.
+ */
+async function buscarFotoPexels(
+  query: string,
+  key: string,
+  orientation: "portrait" | "landscape"
+): Promise<{ url: string; thumbnail?: string } | null> {
+  try {
+    const res = await fetch(
+      `${PEXELS_API}/v1/search?query=${encodeURIComponent(query)}&per_page=3&orientation=${orientation}`,
+      { headers: { Authorization: key, "User-Agent": PEXELS_UA } }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      photos?: Array<{ src?: { large2x?: string; large?: string; original?: string; medium?: string } }>;
+    };
+    const src = data.photos?.[0]?.src;
+    const url = src?.large2x || src?.large || src?.original;
+    return url ? { url, thumbnail: src?.medium } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Busca clips de Pexels para las keywords del transcript y los devuelve temporizados.
  * `count` clips, cada uno de `clipDur` segundos arrancando en el timestamp de su keyword.
  */
 export async function autoMatchBroll(
   keywords: Keyword[],
   duration: number,
-  opts: { count?: number; clipDur?: number; orientation?: "portrait" | "landscape" } = {}
+  opts: {
+    count?: number;
+    clipDur?: number;
+    orientation?: "portrait" | "landscape";
+    /** Fuente del material. Ver `BrollSource`. Default: "auto" (lo de siempre). */
+    source?: BrollSource;
+  } = {}
 ): Promise<BrollClip[]> {
   const count = opts.count ?? 5;
   const clipDur = opts.clipDur ?? 3;
   const orientation = opts.orientation ?? "portrait";
+  const source = opts.source ?? "auto";
 
   const key = process.env.PEXELS_API_KEY;
-  if (!key) {
-    // Sin key: NO devolvemos vacío. Usamos la fuente CC0 sin key (IA + Openverse).
-    console.warn("[pexels] sin PEXELS_API_KEY → fallback b-roll CC0 (Internet Archive + Openverse)");
+  const necesitaKey = source === "auto" || source === "pexels_video" || source === "pexels_photo";
+
+  if (source === "cc0" || (necesitaKey && !key)) {
+    if (necesitaKey && !key) {
+      console.warn("[broll] sin PEXELS_API_KEY → fuente CC0 (Internet Archive + Openverse)");
+    }
     const { autoMatchBrollCC0 } = await import("./broll-cc0");
     return autoMatchBrollCC0(keywords, duration, { count, clipDur });
   }
@@ -241,15 +294,33 @@ export async function autoMatchBroll(
   const clips: BrollClip[] = [];
   for (const kw of picks) {
     // Query VISUAL en inglés (IA local con contexto de la frase → diccionario →
-    // palabra tal cual). Ver bloque RELEVANCIA arriba.
+    // palabra tal cual). Ver bloque RELEVANCIA arriba. La MISMA consulta sirve
+    // para las tres fuentes: lo que cambia es a quién se le pregunta.
     const q = await buildVisualQuery(kw, keywords);
     if (!q) continue;
+    const rango = {
+      start: +kw.start.toFixed(2),
+      end: +Math.min(kw.start + clipDur, duration).toFixed(2),
+    };
     try {
+      if (source === "giphy") {
+        const { buscarGifMp4 } = await import("./broll-giphy");
+        const gif = await buscarGifMp4(q);
+        if (gif) clips.push({ ...rango, url: gif.url, thumbnail: gif.thumbnail });
+        continue;
+      }
+
+      if (source === "pexels_photo") {
+        const foto = await buscarFotoPexels(q, key!, orientation);
+        if (foto) clips.push({ ...rango, url: foto.url, thumbnail: foto.thumbnail });
+        continue;
+      }
+
       const res = await fetch(
         `${PEXELS_API}/videos/search?query=${encodeURIComponent(q)}&per_page=3&orientation=${orientation}`,
         // Pexels está detrás de Cloudflare: un cliente sin User-Agent de navegador
         // recibe 403 (error 1010, "browser integrity check"). Mandamos un UA real.
-        { headers: { Authorization: key, "User-Agent": PEXELS_UA } }
+        { headers: { Authorization: key!, "User-Agent": PEXELS_UA } }
       );
       if (!res.ok) continue;
       const data = (await res.json()) as { videos?: Array<{ video_files?: PexelsVideoFile[]; image?: string }> };
@@ -257,16 +328,20 @@ export async function autoMatchBroll(
       if (!video) continue;
       const file = pickVideoFile(video.video_files);
       if (!file?.link) continue;
-      clips.push({
-        start: +kw.start.toFixed(2),
-        end: +Math.min(kw.start + clipDur, duration).toFixed(2),
-        url: file.link,
-        thumbnail: video.image,
-      });
+      clips.push({ ...rango, url: file.link, thumbnail: video.image });
     } catch {
       // saltear esta keyword
     }
   }
+
+  // El relleno con CC0 solo aplica al modo "auto". Si pediste una fuente
+  // concreta es para VERLA: mezclarla con otra haría imposible comparar.
+  if (source !== "auto") {
+    console.log(`[broll] fuente ${source}: ${clips.length}/${count} clips`);
+    clips.sort((a, b) => a.start - b.start);
+    return dedupeOverlaps(clips);
+  }
+
   // Si Pexels nos dio MENOS de la mitad de lo pedido (rate limit, keywords sin
   // match, etc.), rellenamos con CC0 sin key para no quedarnos cortos.
   if (clips.length < Math.ceil(count / 2)) {

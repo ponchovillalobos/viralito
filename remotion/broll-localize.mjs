@@ -45,6 +45,23 @@ function isUsable(file) {
   }
 }
 
+/**
+ * Extensión con la que guardar lo descargado. PARIDAD con la copia .ts de
+ * frontend/src/lib/broll-localize.ts — este archivo es el que usan build-props
+ * y build-clip-props, así que arreglar solo el .ts no cambia nada en el render.
+ *
+ * No es cosmético: `pip-broll-layer` decide por la EXTENSIÓN si monta `<Img>` o
+ * `OffthreadVideo`. Guardar una foto como `.mp4` hace que el compositor muera
+ * con "Invalid data found when processing input". Afecta a las fotos de
+ * Openverse (respaldo CC0) y al modo foto de Pexels.
+ */
+function extensionDe(url) {
+  const m = String(url).match(/\.(jpe?g|png|webp)(?:\?|#|$)/i);
+  if (!m) return "mp4";
+  const e = m[1].toLowerCase();
+  return e === "jpeg" ? "jpg" : e;
+}
+
 /** Descarga `url` a `dest` (stream, sin cargar todo en memoria). */
 // User-Agent de navegador: el CDN de Pexels (tras Cloudflare) puede rechazar
 // descargas sin UA con 403. Mandamos uno real.
@@ -100,7 +117,9 @@ export async function localizeBrollClips(clips, { dataRoot, host }) {
     }
     try {
       const sha = createHash("sha1").update(url).digest("hex").slice(0, 16);
-      const target = path.join(brollDir, `${sha}.mp4`);
+      const ext = extensionDe(url);
+      const esImagen = ext !== "mp4";
+      const target = path.join(brollDir, `${sha}.${ext}`);
       if (!isUsable(target)) {
         // Temporales ÚNICOS por proceso (pid + random) para evitar TOCTOU: largos
         // renderiza en paralelo con el MISMO brollDir, y el wizard/editor pueden
@@ -109,10 +128,11 @@ export async function localizeBrollClips(clips, { dataRoot, host }) {
         // ve el .mp4 completo o no lo ve (y usa la URL remota), nunca a medio escribir.
         const tag = `${process.pid}.${Math.random().toString(36).slice(2, 10)}`;
         const raw = path.join(brollDir, `${sha}.${tag}.src`);
-        const part = path.join(brollDir, `${sha}.${tag}.part.mp4`);
+        const part = path.join(brollDir, `${sha}.${tag}.part.${ext}`);
         try {
           await download(url, raw);
-          const ok = await normalize(ffmpeg, raw, part);
+          // Una imagen no tiene GOP que normalizar: se usa tal cual se bajó.
+          const ok = esImagen ? false : await normalize(ffmpeg, raw, part);
           // ffmpeg no disponible o falló → usar el archivo crudo descargado igual.
           const finalSrc = ok ? part : raw;
           if (!isUsable(target)) {
@@ -126,7 +146,7 @@ export async function localizeBrollClips(clips, { dataRoot, host }) {
         }
       }
       if (isUsable(target)) {
-        out.push({ ...c, url: `${host}/api/assets/broll/stream?file=${sha}.mp4` });
+        out.push({ ...c, url: `${host}/api/assets/broll/stream?file=${sha}.${ext}` });
       } else {
         out.push(c); // no se pudo localizar → URL remota original
       }

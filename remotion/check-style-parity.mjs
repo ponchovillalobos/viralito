@@ -41,10 +41,18 @@ const EXPECTED_DIFF_KEYS = {
   ]),
 };
 
-/** Extrae bloques `if (styleId === "X") { ... }` balanceando llaves. */
+/** Extrae bloques `if (styleId === "X" || styleId === "Y" || ...) { ... }`.
+ *
+ *  La condición admite CUALQUIER cantidad de alternativas. Antes el patrón sólo
+ *  aceptaba una: el bloque de motion_pro/motion_beat/motion_grid tiene dos `||`
+ *  y no coincidía con nada, así que esos 3 estilos quedaban FUERA del chequeo…
+ *  y el script imprimía "Paridad OK" igualmente. Contaba 22 de 25 y daba
+ *  confianza injustificada — justo el fallo que existe para prevenir.
+ */
 function extractStyleBlocks(src) {
   const blocks = {};
-  const re = /if\s*\(\s*styleId\s*===\s*"([\w]+)"(?:\s*\|\|\s*styleId\s*===\s*"([\w]+)")?\s*\)\s*\{/g;
+  // Captura la condición entera; los ids se extraen después uno a uno.
+  const re = /if\s*\(\s*(styleId\s*===\s*"[\w]+"(?:\s*\|\|\s*styleId\s*===\s*"[\w]+")*)\s*\)\s*\{/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     let depth = 1;
@@ -55,8 +63,8 @@ function extractStyleBlocks(src) {
       i++;
     }
     const body = src.slice(re.lastIndex, i - 1);
-    for (const name of [m[1], m[2]]) {
-      if (name) blocks[name] = body;
+    for (const id of m[1].matchAll(/styleId\s*===\s*"([\w]+)"/g)) {
+      blocks[id[1]] = body;
     }
   }
   return blocks;

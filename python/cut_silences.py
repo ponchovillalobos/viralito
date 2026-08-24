@@ -14,6 +14,7 @@ import sys
 import time
 from pathlib import Path
 
+from lib import proc as _proc
 from config import CUTS_DIR, FFMPEG_PATH, RAW_DIR
 from hw_profile import ffmpeg_full_args
 from extract_clips import source_is_rotated
@@ -144,7 +145,9 @@ def _cut_with_concat_demuxer(video_path: Path, segments: list, out_path: Path, o
             "-c", "copy",
             str(out_path),
         ]
-        subprocess.run(cmd, check=True, capture_output=True)
+        # Con timeout: este es el concat final de los cursos largos (>100
+        # segmentos). Sin techo, un cuelgue aca deja el pipeline entero parado.
+        _proc.run(cmd, timeout=_proc.FFMPEG_TIMEOUT, check=True, capture_output=True)
     finally:
         # Limpiar archivos temporales
         for cp in chunk_paths:

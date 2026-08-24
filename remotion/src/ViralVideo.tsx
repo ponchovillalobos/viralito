@@ -10,8 +10,7 @@ import {
 } from "remotion";
 import { z } from "zod";
 import { staticFile } from "remotion";
-import { loadFont } from "@remotion/fonts";
-import { PLAYFAIR } from "./layers/local-editorial-fonts";
+import { PLAYFAIR, registerLocalFont } from "./layers/local-editorial-fonts";
 import { CameraMotionBlur } from "@remotion/motion-blur";
 import {
   ImageOverlayLayer,
@@ -80,25 +79,32 @@ import { resolveEditorialLook, isDarkCanvas, duotonePairFor } from "./layers/edi
 // fonts.gstatic.com vía @remotion/google-fonts en CADA render: la app es un
 // editor OFFLINE, así que sin internet los títulos fallaban o caían a la fuente
 // del sistema. Ahora los .ttf viven en remotion/public/fonts (OFL/Apache, libres
-// para uso comercial) y se cargan con @remotion/fonts + staticFile.
+// para uso comercial) y se registran con `registerLocalFont` + staticFile.
 //
 // Los `family` deben coincidir EXACTO con el string que devolvía google-fonts
 // (es el mismo nombre CSS) para no cambiar la apariencia: FONT_MAP/BEBAS/ANTON
 // y los fontFamily de los estilos siguen siendo idénticos.
+// Delega en `registerLocalFont` (local-editorial-fonts), que es el ÚNICO patrón
+// permitido en este proyecto: `new FontFace` + `document.fonts.add()` SIN
+// `.load()`, sin `delayRender` y sin `cancelRender`.
+//
+// Antes esto llamaba a `loadFont` de `@remotion/fonts`, que por dentro usa
+// `delayRender` y descarga la fuente de forma anticipada. Es exactamente la API
+// que causó "los videos no salían": bajo el render CONCURRENTE de largos (varios
+// clips × varias pestañas) el browser satura sus ~6 conexiones por host —que el
+// streaming de OffthreadVideo ya ocupa—, la descarga de una fuente se queda
+// esperando, la `delayRender` nunca se limpia y Remotion ABORTA el clip a los
+// 58 s. El repo documentó la regla y arregló las ~25 fuentes editoriales, pero
+// estas 16 —las de titular y subtítulo, que carga TODO render— se quedaron con
+// la API prohibida.
+//
+// La firma no cambia: los 16 registros de abajo quedan idénticos.
 const TTF = (
   file: string,
   family: string,
   weight?: string
 ): void => {
-  loadFont({
-    family,
-    url: staticFile(`fonts/${file}`),
-    format: "truetype",
-    ...(weight ? { weight } : {}),
-  }).catch(() => {
-    // Offline-first: si algo falla, el navegador cae a la fuente del sistema en
-    // vez de tirar el render. No debería pasar — los .ttf están bundleados.
-  });
+  registerLocalFont(file, family, weight ? { weight } : {});
 };
 
 const BEBAS = "Bebas Neue";

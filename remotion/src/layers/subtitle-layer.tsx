@@ -5,6 +5,30 @@ import type { Word } from "../schemas";
 const REF_W = 1080;
 const REF_H = 1920;
 
+// ── CONTORNO DEL RÓTULO (medido) ──────────────────────────────────────────────
+// El path viral (bebas/anton) se sostenía SOLO con `textShadow`. Una sombra
+// difuminada no da borde: aprueba sobre metraje oscuro y suspende sobre fondo
+// claro. Medido sobre tres renders de este mismo composition (1080×1920, la
+// palabra "LEVANTAR", frame 18), contrastando el relleno del glifo contra el
+// anillo de 6 px que lo rodea, con el criterio WCAG:
+//
+//        fondo        antes (solo sombra)     después (contorno + sombra)
+//        negro                 21.00 : 1                    21.00 : 1
+//        amarillo               5.48 : 1                    21.00 : 1
+//        blanco                 4.00 : 1                    21.00 : 1   ← PEOR
+//
+// 4.00:1 sobre blanco no llega ni al mínimo AA de WCAG (4.5) y rompe la regla
+// dura del proyecto: "subtítulos SIEMPRE visibles".
+//
+// GROSOR_CAP es 0.085 de la altura de mayúscula, hacia AFUERA.
+// `-webkit-text-stroke` dibuja centrado, así que se pide el doble;
+// `paintOrder: "stroke fill"` repinta el relleno encima para que el contorno no
+// se coma la letra. CAP_POR_EM se midió en el render: 98 px de mayúscula con
+// `fontSize` 110.
+const GROSOR_CAP = 0.085;
+const CAP_POR_EM = 0.89;
+const CONTORNO_POR_EM = 2 * GROSOR_CAP * CAP_POR_EM; // ≈ 0.151
+
 /**
  * Subtítulo "palabra a palabra": muestra SOLO la palabra activa (la última que ya
  * empezó) hasta que arranque la siguiente. Soporta tres estilos visuales:
@@ -151,6 +175,15 @@ export const SubtitleLayer: React.FC<{
           maxWidth,
           padding: `0 ${Math.round(50 * sH)}px`,
           whiteSpace: "nowrap",
+          // El contorno va SOLO en el path viral. `cinematic` conserva su
+          // tratamiento (letra suelta + glow triple) porque es otro idioma
+          // tipográfico y su contraste no se midió aquí.
+          ...(isCinematic
+            ? {}
+            : {
+                WebkitTextStroke: `${Math.max(2, Math.round(fontSize * CONTORNO_POR_EM))}px #000000`,
+                paintOrder: "stroke fill" as const,
+              }),
           textShadow: isCinematic
             ? "0 2px 14px rgba(0,0,0,0.85)"
             : "0 4px 22px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.9)",

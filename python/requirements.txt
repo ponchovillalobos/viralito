@@ -26,3 +26,9 @@ onnxruntime>=1.17.0
 # Beat-sync: detección de beats de la música para "cortar al ritmo"
 librosa>=0.10.0
 soundfile>=0.12.0
+
+# Perfilado de hardware: hw_profile.py usa psutil para contar núcleos FÍSICOS y
+# leer RAM libre; lf_render_pool.py lo usa como guardia de memoria. Faltaba en
+# este archivo, así que caía siempre al fallback (os.cpu_count()//2), que estima
+# mal en CPUs con hyperthreading y degrada la elección de modelo y de workers.
+psutil>=5.9.0

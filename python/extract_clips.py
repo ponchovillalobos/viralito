@@ -602,7 +602,14 @@ def main() -> int:
                 "face_bbox": meta.get("face_bbox"),
             })
         except subprocess.CalledProcessError as e:
-            results.append({"clip_id": clip_id, "index": i, "ok": False, "error": e.stderr.decode("utf-8", errors="ignore")[:300]})
+            # safe_ffmpeg() fuerza text=True, asi que e.stderr YA es str. El
+            # .decode() de antes lanzaba AttributeError aca dentro y tumbaba el
+            # batch ENTERO de clips en vez de marcar fallido solo este. Se acepta
+            # bytes por si alguna llamada futura no pasa por safe_ffmpeg.
+            err = e.stderr
+            if isinstance(err, bytes):
+                err = err.decode("utf-8", errors="ignore")
+            results.append({"clip_id": clip_id, "index": i, "ok": False, "error": str(err or e)[:300]})
         except Exception as e:
             results.append({"clip_id": clip_id, "index": i, "ok": False, "error": str(e)})
 

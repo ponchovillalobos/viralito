@@ -33,6 +33,23 @@ function isUsable(file: string): boolean {
   }
 }
 
+/**
+ * Extensión con la que guardar el material descargado.
+ *
+ * Esto NO es cosmético: `pip-broll-layer` decide por la EXTENSIÓN si monta
+ * `<Img>` o `OffthreadVideo`. Antes se guardaba todo como `.mp4`, así que una
+ * foto (Openverse en el respaldo CC0, o Pexels en modo foto) llegaba al render
+ * con nombre de video y el compositor moría con "Invalid data found when
+ * processing input". Las fotos conservan su extensión; el resto sigue siendo
+ * `.mp4`, incluidos los GIF de Giphy, que se piden ya como MP4.
+ */
+function extensionDe(url: string): "mp4" | "jpg" | "png" | "webp" {
+  const m = url.match(/\.(jpe?g|png|webp)(?:\?|#|$)/i);
+    if (!m) return "mp4";
+  const e = m[1].toLowerCase();
+  return e === "jpeg" ? "jpg" : (e as "jpg" | "png" | "webp");
+}
+
 async function download(url: string, dest: string): Promise<void> {
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} al bajar ${url}`);
@@ -80,7 +97,9 @@ export async function localizeBrollClips<T extends LocalizableClip>(
     }
     try {
       const sha = createHash("sha1").update(url).digest("hex").slice(0, 16);
-      const target = path.join(BROLL_DIR, `${sha}.mp4`);
+      const ext = extensionDe(url);
+      const esImagen = ext !== "mp4";
+      const target = path.join(BROLL_DIR, `${sha}.${ext}`);
       if (!isUsable(target)) {
         // Temporales ÚNICOS por proceso (pid + random) para evitar TOCTOU: el cache se
         // comparte con el builder .mjs y con renders paralelos. El `target` final sólo
@@ -88,10 +107,12 @@ export async function localizeBrollClips<T extends LocalizableClip>(
         // lo ve entero o no lo ve (usa la URL remota), nunca a medio escribir.
         const tag = `${process.pid}.${Math.random().toString(36).slice(2, 10)}`;
         const raw = path.join(BROLL_DIR, `${sha}.${tag}.src`);
-        const part = path.join(BROLL_DIR, `${sha}.${tag}.part.mp4`);
+        const part = path.join(BROLL_DIR, `${sha}.${tag}.part.${ext}`);
         try {
           await download(url, raw);
-          const ok = await normalize(raw, part);
+          // `normalize` re-codifica video para que el seek sea instantáneo. Una
+          // imagen no tiene nada que re-codificar: se usa tal cual se bajó.
+          const ok = esImagen ? false : await normalize(raw, part);
           const finalSrc = ok ? part : raw;
           if (!isUsable(target)) {
             await rename(finalSrc, target).catch(() => {
@@ -104,7 +125,7 @@ export async function localizeBrollClips<T extends LocalizableClip>(
         }
       }
       if (isUsable(target)) {
-        out.push({ ...c, url: `${host}/api/assets/broll/stream?file=${sha}.mp4` });
+        out.push({ ...c, url: `${host}/api/assets/broll/stream?file=${sha}.${ext}` });
       } else {
         out.push(c);
       }

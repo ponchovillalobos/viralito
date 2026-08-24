@@ -1,4 +1,4 @@
-# instalar-helper.ps1 - lo ejecuta el instalador NSIS via nsExec.
+﻿# instalar-helper.ps1 - lo ejecuta el instalador NSIS via nsExec.
 # Acciones:
 #   verificar <zip> <sums> <destino>  -> compara SHA256 del zip contra SHA256SUMS.txt
 #   extraer   <zip> <->    <destino>  -> extrae el zip con .NET (rapido) y progreso
