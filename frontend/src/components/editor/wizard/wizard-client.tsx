@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
+import { BROLL_SOURCES, BROLL_STYLE_IDS } from "@/lib/broll-sources";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -172,18 +173,9 @@ const SUBTITLE_FONTS: { id: string; name: string }[] = [
 // "normal") deja el render EXACTAMENTE como siempre — elegir nada = perfecto.
 const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid", "kinetic_type", "lottie_pop"];
 const HYPE_STYLES: StyleId[] = ["hype", "hype_max", "hype_max_sfx", "supreme"];
-const BROLL_STYLES: StyleId[] = ["broll_full", "broll_pip", "editorial_broll"];
+// Se toman del modulo compartido para que los dos asistentes no puedan divergir.
+const BROLL_STYLES: StyleId[] = [...BROLL_STYLE_IDS];
 
-// De dónde salen las imágenes de apoyo. El backend ya aceptaba `brollSource`
-// desde hacía rato, pero nadie lo había puesto acá, así que en la práctica la
-// opción sólo existía para quien llamara la API a mano.
-const BROLL_SOURCES = [
-  { id: "auto", name: "Automático", hint: "El sistema elige por vos según el estilo", emoji: "✨" },
-  { id: "pexels_video", name: "Videos", hint: "Clips reales de Pexels, con movimiento", emoji: "🎬" },
-  { id: "pexels_photo", name: "Fotos", hint: "Imágenes fijas de Pexels, más sobrio", emoji: "🖼️" },
-  { id: "giphy", name: "GIFs", hint: "Giphy en MP4: divertido, muy corto", emoji: "🕺" },
-  { id: "cc0", name: "Mi biblioteca", hint: "Sólo lo que ya está descargado", emoji: "📁" },
-] as const;
 
 // Estilos que LLEVAN música de fondo (los que setean musicTrack en
 // style-templates.ts: broll_*, motion_*, editorial y cinematic_pro). Para ellos
@@ -1611,16 +1603,6 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
             </div>
           )}
 
-          {/* Submenús de cada estilo elegido: tema editorial / fondo motion /
-              intensidad de FX / música aparecen según los estilos seleccionados abajo. */}
-          {selectedStyles.some((s) => BROLL_STYLES.includes(s)) && brollSourcePanel}
-          {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
-          {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
-          {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
-          {/* 🎬 Cinematográfico: picker de overlays + toggles cine, inline. */}
-          {hasCinematic && cinematicPanel}
-          {/* 🎵 Música: si hay algún estilo con música elegido. */}
-          {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) && musicPanel}
 
           {/* La vista previa REAL también vive acá: elegir estilo viendo cómo queda. */}
 
@@ -1702,6 +1684,23 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               </div>
             </div>
           </details>
+
+          {/* Submenús del estilo elegido: van DEBAJO de la grilla, no encima.
+              Estaban arriba, y la grilla vive dentro de un desplegable al final
+              del paso — así que elegías un estilo abajo del todo y su opción
+              aparecía muy por encima, fuera de la pantalla. La opción existía y
+              no se veía, que para quien la usa es igual que no existir.
+
+              Acá abajo aparecen justo despues de la eleccion, en el orden en que
+              se leen: primero de dónde salen las imágenes, después el aspecto. */}
+          {selectedStyles.some((s) => BROLL_STYLES.includes(s)) && brollSourcePanel}
+          {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
+          {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
+          {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
+          {/* 🎬 Cinematográfico: picker de overlays + toggles cine, inline. */}
+          {hasCinematic && cinematicPanel}
+          {/* 🎵 Música: si hay algún estilo con música elegido. */}
+          {selectedStyles.some((s) => MUSIC_STYLES.includes(s)) && musicPanel}
         </Card>
       )}
 

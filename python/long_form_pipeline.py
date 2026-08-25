@@ -772,7 +772,8 @@ def step_extract(
 _BROLL_STYLES = {"editorial_broll", "broll_full", "broll_pip"}
 
 
-def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str) -> None:
+def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
+                 fuente: str | None = None) -> None:
     """Para estilos de archivo: pide clips de b-roll al endpoint Next
     (/api/long_form/broll) y parchea project.bRoll. El endpoint busca en Pexels con
     orientación LANDSCAPE para 16:9 (portrait para 9:16); sin PEXELS_API_KEY cae a CC0.
@@ -789,7 +790,13 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str) -> None:
         if not project_path.exists():
             return
         api = os.environ.get("VIRAL_API_HOST") or "http://localhost:3000"
-        payload = json.dumps({"clipId": clip_id, "aspectRatio": aspect_ratio}).encode("utf-8")
+        cuerpo = {"clipId": clip_id, "aspectRatio": aspect_ratio}
+        # Sin fuente elegida el endpoint decide como siempre. Se omite en vez de
+        # mandar "auto" para que el comportamiento por defecto sea identico al
+        # de antes, byte por byte.
+        if fuente and fuente != "auto":
+            cuerpo["source"] = fuente
+        payload = json.dumps(cuerpo).encode("utf-8")
         req = urllib.request.Request(
             f"{api.rstrip('/')}/api/long_form/broll",
             data=payload,
@@ -1192,6 +1199,7 @@ def step_render_clip(
     music_volume: float | None = None,
     render_pool=None,
     reframe: bool = True,
+    broll_source: str | None = None,
 ) -> Path:
     """Genera proyecto + props + render con Remotion para un (clip, style) específico.
 
@@ -1234,7 +1242,7 @@ def step_render_clip(
         _apply_tracking(clip_id, style_id)
     # 1.55) B-ROLL de archivo (editorial_broll/broll_full/broll_pip): busca clips en
     #       Pexels (landscape para 16:9) y parchea project.bRoll. Best-effort.
-    _apply_broll(clip_id, style_id, aspect_ratio)
+    _apply_broll(clip_id, style_id, aspect_ratio, fuente=broll_source)
     # 1.6) F1 — director emocional: ducking de música + zooms en picos. Best-effort.
     _apply_emotion(clip_id, style_id)
     # 2) build props — archivo ÚNICO por clip+estilo: con render paralelo, dos workers
@@ -1444,6 +1452,16 @@ def main() -> int:
     parser.add_argument("--render", action="store_true", help="También renderizar cada clip con Remotion")
     parser.add_argument("--max-clips", type=int, default=None, help="Limitar cantidad de clips a renderizar")
     parser.add_argument("--skip-transcribe", action="store_true")
+    parser.add_argument(
+        "--broll-source",
+        default=None,
+        choices=["auto", "pexels_video", "pexels_photo", "giphy", "cc0"],
+        help=(
+            "De donde salen las imagenes de apoyo en los estilos de archivo "
+            "(editorial_broll / broll_full / broll_pip). Sin esto se decide como "
+            "siempre, que es lo mismo que 'auto'."
+        ),
+    )
     parser.add_argument(
         "--use-heuristic",
         action="store_true",
@@ -2056,6 +2074,7 @@ def main() -> int:
                 editorial_theme=args.editorial_theme,
                 music_volume=args.music_volume,
                 render_pool=render_pool,
+                broll_source=args.broll_source,
             )
             return (c["index"], style_id, out, False)
 

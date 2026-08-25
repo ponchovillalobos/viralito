@@ -117,6 +117,8 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 // en direcciones distintas: eso es lo que hace que el problema sea estructural y
 // no un descuido. El tipo ahora viene del registro para las dos.
 import type { StyleId } from "@/lib/style-registry";
+import type { BrollSource } from "@/lib/pexels";
+import { BROLL_SOURCES, BROLL_STYLE_IDS } from "@/lib/broll-sources";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -206,6 +208,11 @@ interface ProposalsResponse {
 }
 
 // ─── Constantes (replica de wizard-client.tsx) ────────────────────────────
+
+// Estilos que usan imagenes de apoyo. Del modulo compartido, no copiados: los
+// dos asistentes ya tuvieron su propia copia del catalogo de estilos una vez, y
+// las copias derivaron hasta dejar dos estilos sin puerta de entrada.
+const BROLL_STYLES: StyleId[] = [...BROLL_STYLE_IDS];
 
 const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = [
   { id: "supreme", name: "Premium", tagline: "Todo activado, la máxima calidad. El mejor para largos.", emoji: "👑" },
@@ -407,6 +414,7 @@ export function LongFormWizard() {
   }
   // Tema del estilo Editorial (fuente serif + fondo). Solo aplica si eliges 📰.
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
+  const [brollSource, setBrollSource] = useState<BrollSource>("auto");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
   const [showAllThemes, setShowAllThemes] = useState(false);
   // "Ver ejemplo": estilo cuya expansión de escenas (miniaturas reales) está abierta.
@@ -721,6 +729,10 @@ export function LongFormWizard() {
         const t = EDITORIAL_THEMES.find((x) => x.id === editorialTheme);
         if (t) body.editorialTheme = { font: t.font, background: t.background, theme: t.theme || undefined };
       }
+      // Solo viaja si se eligio algo: "auto" deja el resultado identico al de antes.
+      if (brollSource !== "auto" && selectedStyles.some((x) => BROLL_STYLES.includes(x))) {
+        body.brollSource = brollSource;
+      }
 
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -790,6 +802,10 @@ export function LongFormWizard() {
       if (selectedStyles.some((s) => s === "editorial" || s === "editorial_broll" || s === "editorial_full")) {
         const t = EDITORIAL_THEMES.find((x) => x.id === editorialTheme);
         if (t) body.editorialTheme = { font: t.font, background: t.background, theme: t.theme || undefined };
+      }
+      // Solo viaja si se eligio algo: "auto" deja el resultado identico al de antes.
+      if (brollSource !== "auto" && selectedStyles.some((x) => BROLL_STYLES.includes(x))) {
+        body.brollSource = brollSource;
       }
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -1408,6 +1424,43 @@ export function LongFormWizard() {
               );
             })}
           </div>
+          {/* De donde salen las imagenes de apoyo. Va DEBAJO de la grilla y antes
+              del tema editorial: primero se decide con que material se cuenta, y
+              recien despues como se ve. El flujo de shorts ya lo ofrecia; este
+              fijaba Pexels de punta a punta. */}
+          {selectedStyles.some((x) => BROLL_STYLES.includes(x)) && (
+            <div className="mt-5 rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
+              <p className="mb-1 text-sm font-medium">De donde salen las imagenes de apoyo</p>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Cambia el material que acompana tus clips, no el estilo: los subtitulos,
+                colores y movimiento salen igual.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {BROLL_SOURCES.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setBrollSource(f.id)}
+                    className={`rounded-lg border p-3 text-left transition-all ${
+                      brollSource === f.id
+                        ? "border-sky-400 ring-1 ring-sky-400"
+                        : "border-border hover:border-foreground/30"
+                    }`}
+                  >
+                    <div className="text-lg leading-none">{f.emoji}</div>
+                    <div className="mt-1 text-sm font-medium">{f.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{f.hint}</div>
+                  </button>
+                ))}
+              </div>
+              {brollSource === "giphy" && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Los GIFs cuadrados no se estiran para llenar el cuadro: se acomodan al
+                  formato de tus clips para que no se pierda el contenido.
+                </p>
+              )}
+            </div>
+          )}
           {/* Tema editorial: aparece solo si elegiste 📰 Editorial (paridad con shorts). */}
           {hasEditorial && (
             <div className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">

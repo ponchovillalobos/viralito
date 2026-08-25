@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { LF_ROOT } from "@/lib/paths";
-import { autoMatchBroll } from "@/lib/pexels";
+import { autoMatchBroll, type BrollSource } from "@/lib/pexels";
 
 /**
  * B-roll para un clip de LARGOS. El pipeline (long_form_pipeline._apply_broll) llama
@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     clipId?: string;
     aspectRatio?: string;
+    // De donde salen las imagenes de apoyo. El de shorts ya lo aceptaba; este
+    // fijaba Pexels, asi que en largos no habia forma de pedir GIFs ni fotos.
+    source?: BrollSource;
     count?: number;
   };
   const clipId = (body.clipId ?? "").trim();
@@ -64,10 +67,13 @@ export async function POST(req: NextRequest) {
       count,
       clipDur: 3,
       orientation,
+      // Sin `source` el comportamiento es el de siempre ("auto"), asi que esto no
+      // cambia nada para quien no lo elija.
+      source: body.source,
     });
     return NextResponse.json({
       bRoll,
-      source: process.env.PEXELS_API_KEY ? "pexels" : "cc0",
+      source: body.source ?? (process.env.PEXELS_API_KEY ? "pexels" : "cc0"),
       orientation,
       requested: count,
     });

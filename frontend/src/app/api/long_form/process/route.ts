@@ -63,6 +63,13 @@ interface ProcessBody {
    */
   faceTracking?: "off" | "single" | "per-frame";
   /**
+   * De donde salen las imagenes de apoyo en los estilos de archivo
+   * (editorial_broll / broll_full / broll_pip). El flujo de shorts ya dejaba
+   * elegirlo; el de largos fijaba Pexels, asi que pedir GIFs o fotos no era
+   * posible aunque el buscador supiera hacerlo.
+   */
+  brollSource?: "auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0";
+  /**
    * Flujo REVISAR antes de generar:
    *   "full" (default)  → comportamiento clásico intacto (analiza+extrae+genera).
    *   "analyze"         → solo hasta el proposals JSON (--analyze-only).
@@ -137,6 +144,11 @@ export async function processJob(
     args.push("--styles", body.styles.join(","));
   }
   if (body.accentColor) args.push("--accent-color", body.accentColor);
+  // "auto" no viaja: sin el argumento el pipeline decide como siempre, asi que
+  // quien no elija nada obtiene exactamente el resultado de antes.
+  if (body.brollSource && body.brollSource !== "auto") {
+    args.push("--broll-source", body.brollSource);
+  }
   if (body.subtitleFont && body.subtitleFont !== "auto") {
     args.push("--subtitle-font", body.subtitleFont);
   }
