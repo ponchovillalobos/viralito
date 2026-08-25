@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import type { StyleId } from "@/lib/style-registry";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -61,7 +62,13 @@ const FONT_PREVIEW: Record<string, string> = {
   playfair: "'Playfair Display', Georgia, serif",
 };
 
-type StyleId = "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme" | "cinematic_pro" | "broll_full" | "broll_pip" | "text_behind" | "graphics_pro" | "graphics_max" | "motion_pro" | "motion_beat" | "motion_grid" | "editorial" | "editorial_broll" | "kinetic_type" | "lottie_pop" | "paper_cut" | "cine_clasico" | "vhs" | "audiogram";
+// El tipo NO se declara acá: se toma del registro de estilos, que es la única
+// fuente de verdad del catálogo. Antes había una copia literal de los ids escrita
+// a mano en este archivo, y la copia se quedó atrás: le faltaban `pop_reels` y
+// `editorial_full`, dos estilos completos que el motor de render sí sabía hacer.
+// El resultado no fue un error visible sino algo peor: nadie podía elegirlos, y
+// el compilador ayudaba a mantener el olvido rechazando cualquier intento de
+// agregarlos. Importar el tipo hace que esa clase de deriva sea imposible.
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface VideoEntry {
@@ -123,6 +130,12 @@ const STYLES: { id: StyleId; name: string; tagline: string; emoji: string; recom
   { id: "cine_clasico", name: "Cine clásico", tagline: "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro, con efectos de máquina de escribir y proyector.", emoji: "🎞️" },
   { id: "vhs", name: "VHS Retro", tagline: "Cámara de los 90: grano, scanlines, ► PLAY con contador y glitch de tracking. Se siente grabado en cinta — lo 'imperfecto' que hoy se ve real.", emoji: "📼" },
   { id: "audiogram", name: "Audiograma", tagline: "Clip de podcast: una onda de barras baila con la voz + el nombre de tu show. Perfecto para entrevistas y episodios sin depender de la imagen.", emoji: "🎙️" },
+  // Estos dos estaban implementados de punta a punta pero NO figuraban acá, así
+  // que nadie podía elegirlos: existían en el registro de estilos y en el motor
+  // de render, y eran inalcanzables desde la app. Un estilo sin puerta de
+  // entrada es, en la práctica, un estilo que no existe.
+  { id: "pop_reels", name: "Pop Reels", tagline: "Subtítulos en píldora de color sobre el video, palabra a palabra, al estilo de los reels que mejor retienen. Directo y muy legible.", emoji: "💊" },
+  { id: "editorial_full", name: "Editorial a pantalla completa", tagline: "El estilo Editorial sin panel: tu video ocupa todo el cuadro y los titulares serif van encima. Más inmersivo, ideal para horizontal.", emoji: "🗞️" },
 ];
 
 // IDs de estilo que pertenecen a alguna familia de preset del paso 2 (para el

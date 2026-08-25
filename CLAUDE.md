@@ -55,7 +55,14 @@ Ver `docs/AUTOSTART.md` para configuración del autostart.
 
 Solo caracteres `[a-zA-Z0-9_-]`. NO espacios, NO acentos.
 
-### 23 estilos visuales disponibles (silent, punch, hype, hype_max, hype_max_sfx, supreme, cinematic_pro, broll_full, broll_pip, text_behind, pop_reels, graphics_pro, graphics_max, motion_pro, motion_beat, motion_grid, editorial, editorial_full, editorial_broll, kinetic_type, lottie_pop, paper_cut, cine_clasico)
+### 25 estilos visuales disponibles
+
+No los listes acá. La fuente de verdad es `frontend/src/lib/style-registry.data.json`,
+y el union `StyleId` sale de `STYLE_IDS` en `style-registry.ts`. Esta sección tenía
+una lista escrita a mano que se quedó en 23 (le faltaban `vhs` y `audiogram`), igual
+que las copias del tipo que había en los dos asistentes. Toda lista paralela del
+catálogo termina desactualizada; el test `estilos-alcanzables.test.ts` cuida que
+cada estilo del registro tenga puerta de entrada en algún asistente.
 
 `silent`, `punch`, `hype`, `hype_max`, `hype_max_sfx` (+ `supreme` para clips de long_form). Ver `docs/STYLES.md`. Fuente de verdad del catálogo: `frontend/src/lib/style-registry.data.json`.
 
@@ -154,7 +161,7 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 Documentado en `README.md`. Resumen:
 
 - ✅ Dashboard funcional con 8 rutas
-- ✅ 23 estilos visuales implementados (los del selector + `supreme` automático para clips + `cinematic_pro` opt-in). `editorial_full` = editorial a pantalla completa en horizontal; los estilos editoriales usan panel (video + texto/ilustraciones al costado) en V y H
+- ✅ 25 estilos visuales implementados y **los 25 elegibles** desde los asistentes. `supreme` aparece en las dos listas Y además el pipeline de largos se lo asigna solo a cada clip (la doc decía antes que era sólo automático: era falso). `editorial_full` = editorial a pantalla completa en horizontal; los estilos editoriales usan panel (video + texto/ilustraciones al costado) en V y H
   - Nuevos: `cine_clasico` (cine antiguo: voz a radio vieja + B&W + máquina de escribir/proyector en los picos del director emocional), `editorial_broll` (Editorial + B-roll Pexels en cortinillas), `kinetic_type`, `lottie_pop`, `paper_cut`
   - El estilo `editorial` tiene 17 temas editoriales (nuevos: `art_deco`, `blueprint`, `noir`)
 - ✅ Pipeline shorts: transcribe + cuts + render

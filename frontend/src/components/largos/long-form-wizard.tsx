@@ -111,14 +111,12 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
 
-type StyleId =
-  | "silent" | "punch" | "hype" | "hype_max" | "hype_max_sfx" | "supreme"
-  | "cinematic_pro"
-  | "graphics_pro" | "graphics_max"
-  | "motion_pro" | "motion_beat" | "motion_grid"
-  | "editorial" | "editorial_broll" | "editorial_full"
-  | "kinetic_type" | "lottie_pop" | "paper_cut"
-  | "cine_clasico" | "vhs" | "audiogram";
+// Segunda copia a mano del catálogo que también se quedó atrás (ver la nota en
+// `wizard-client.tsx`). Ésta traía `editorial_full` pero le faltaban otros; la de
+// shorts traía otros pero no `editorial_full`. Dos listas escritas a mano derivan
+// en direcciones distintas: eso es lo que hace que el problema sea estructural y
+// no un descuido. El tipo ahora viene del registro para las dos.
+import type { StyleId } from "@/lib/style-registry";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {

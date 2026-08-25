@@ -571,18 +571,53 @@ def anchor_clip_to_text(clip: dict[str, Any], words: list[dict[str, Any]], durat
     return clip
 
 
-def chunk_words(words: list[dict[str, Any]], chunk_sec: int = 720) -> list[list[dict[str, Any]]]:
-    """Divide words array en chunks de N segundos."""
+def chunk_words(words: list[dict[str, Any]], chunk_sec: int = 720,
+                solape_sec: int = 45) -> list[list[dict[str, Any]]]:
+    """Divide el transcript en bloques de N segundos, con SOLAPE entre vecinos.
+
+    Por qué el solape: cada bloque se manda al modelo por separado, y el modelo
+    de un bloque no ve nada del anterior ni del siguiente. Sin solape, un momento
+    viral que cruce el borde —el planteamiento en un bloque y el remate en el
+    otro— se parte en dos, y cada mitad se analiza como una idea incompleta. En
+    el mejor caso salen dos propuestas flojas; en el peor, ninguna.
+
+    45 segundos es deliberado: cubre de sobra el clip más largo que el pipeline
+    acepta (60s, y la media medida ronda los 45), así que un momento que cruce
+    un borde aparece ENTERO en al menos uno de los dos bloques. Más solape solo
+    añadiría trabajo repetido sin cubrir ningún caso nuevo.
+
+    El coste es acotado: sobre una clase de 99 minutos son 9 bloques, así que el
+    solape añade ~8 tramos de 45s, unos 6 minutos de transcripción re-analizada
+    sobre 99. Los duplicados que genere se descartan después con el filtro de
+    solapamiento que ya existe, que tumba cualquier par con más del 50% de
+    intersección.
+    """
     if not words:
         return []
-    chunks: list[list[dict[str, Any]]] = [[]]
-    chunk_start = words[0]["start"]
+    if chunk_sec <= 0:
+        return [words]
+    solape_sec = max(0, min(solape_sec, chunk_sec // 2))
+
+    # Se corta primero en bloques limpios y después se le añade a cada uno la
+    # cola del anterior. Hacerlo en dos pasos evita el error clásico de que el
+    # cursor de inicio se contamine con las palabras ya repetidas.
+    bloques: list[list[dict[str, Any]]] = [[]]
+    inicio = words[0]["start"]
     for w in words:
-        if w["start"] - chunk_start >= chunk_sec:
-            chunks.append([])
-            chunk_start = w["start"]
-        chunks[-1].append(w)
-    return [c for c in chunks if c]
+        if w["start"] - inicio >= chunk_sec:
+            bloques.append([])
+            inicio = w["start"]
+        bloques[-1].append(w)
+    bloques = [b for b in bloques if b]
+    if solape_sec == 0 or len(bloques) < 2:
+        return bloques
+
+    con_solape: list[list[dict[str, Any]]] = [bloques[0]]
+    for i in range(1, len(bloques)):
+        corte = bloques[i][0]["start"]
+        cola = [w for w in bloques[i - 1] if w["start"] >= corte - solape_sec]
+        con_solape.append(cola + bloques[i])
+    return con_solape
 
 
 def analyze_chunk(words: list[dict[str, Any]], model: str, target_clips: int = 2,

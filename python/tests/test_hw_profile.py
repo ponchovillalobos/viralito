@@ -56,10 +56,13 @@ def _run_detect(monkeypatch, *, gpu, ram_gb, torch_cuda,
     # `pathlib.Path(os.devnull).parent`, que en Windows es "." (os.devnull == "nul",
     # sin carpeta) → el test ESCRIBÍA `no_existe_hw_profile.json` en el cwd desde el
     # que se corriera pytest, ensuciando el repo. Usamos un temporal real del SO.
-    monkeypatch.setattr(
-        hw_profile, "_CACHE",
-        pathlib.Path(tempfile.gettempdir()) / "viralito_test_no_existe_hw_profile.json",
-    )
+    # `_CACHE` era una constante calculada al importar el módulo, lo que obligaba a
+    # hw_profile a resolver DATA_ROOT (y por lo tanto a importar config) apenas se
+    # cargaba. Eso creaba un ciclo config↔hw_profile que, según quién importara
+    # primero, dejaba la autodetección de hardware desactivada en silencio. Ahora
+    # la ruta se resuelve al usarla, así que acá se parchea la función.
+    ruta_falsa = pathlib.Path(tempfile.gettempdir()) / "viralito_test_no_existe_hw_profile.json"
+    monkeypatch.setattr(hw_profile, "_cache_path", lambda: ruta_falsa)
     hw_profile._profile = None
     hw_profile._force_x264_session = None
     return hw_profile.detect(force=True)

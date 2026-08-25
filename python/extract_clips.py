@@ -41,6 +41,32 @@ PYTHON_DIR = Path(__file__).resolve().parent
 VENV_PYTHON = Path(sys.executable)
 
 
+def _probe_duracion(video_path: Path) -> float | None:
+    """Duración REAL del archivo en segundos. None si no se puede medir.
+
+    Existe porque el clip que queda en disco casi nunca dura exactamente lo que
+    se pidió: ffmpeg alinea el corte al keyframe más cercano, y si además se
+    recortaron silencios el archivo queda MUY por debajo de la ventana original.
+    Reportar `end - start` en vez de medir producía una mentira silenciosa: el
+    render construye la composición con esa duración, así que un clip de 45s
+    declarado como 56s renderiza ~11s de negro al final y arrastra los
+    subtítulos fuera de sincronía. Nadie ve un error; sale un video malo.
+    """
+    try:
+        from config import FFPROBE_PATH
+    except ImportError:
+        return None
+    try:
+        r = subprocess.run(
+            [str(FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(video_path)],
+            capture_output=True, text=True, check=True, timeout=60,
+        )
+        return round(float((r.stdout or "").strip()), 3)
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return None
+
+
 def _probe_dims_rotation(video_path: Path) -> tuple[int, int, int] | None:
     """(width, height, rotation) del primer video stream. None si falla.
 
@@ -455,6 +481,70 @@ def slice_transcript(transcript_path: Path, start: float, end: float) -> dict:
     }
 
 
+def _recortar_silencios_del_clip(clip_mp4: Path) -> dict | None:
+    """Quita silencios y muletillas DENTRO de un clip ya extraído.
+
+    POR QUÉ POR CLIP Y NO SOBRE EL VIDEO ENTERO
+    El pipeline traía tres funciones para esto (`step_detect`, `step_cut`,
+    `step_re_transcribe_clean`) que nunca se llamaban desde ningún sitio, así
+    que los clips salían del crudo con muletillas y pausas. Y el motivo de que
+    estuvieran desconectadas se entiende al leerlas: recortaban el video
+    COMPLETO y, como al quitar trozos todos los tiempos se desplazan, obligaban
+    a **transcribir el video entero por segunda vez**. Para una clase de 99
+    minutos eso son ~9.5 min de transcripción extra más recodificar 1.6 GB, casi
+    duplicando el pipeline para un material del que solo se usan ~20 minutos.
+
+    Hacerlo por clip cuesta una fracción: se procesan solo los 30-60s que de
+    verdad se publican. Y encaja con algo que el código ya hacía — cuando un
+    clip necesita transcripción propia, `main()` la difiere a un lote único con
+    una sola carga del modelo. Así que el desfase de tiempos se resuelve solo:
+    el clip recortado se manda a ese lote y su transcripción sale ya alineada.
+
+    Devuelve un resumen del recorte, o None si no había nada que quitar (o si
+    algo falló: es best-effort, un clip sin recortar es mejor que ningún clip).
+    """
+    cortes = clip_mp4.with_suffix(".cortes.json")
+    recortado = clip_mp4.with_name(clip_mp4.stem + ".__recortado.mp4")
+    try:
+        d = subprocess.run(
+            [str(VENV_PYTHON), str(PYTHON_DIR / "detect_silences.py"),
+             str(clip_mp4), "--out", str(cortes)],
+            capture_output=True, text=True, timeout=300,
+        )
+        if d.returncode != 0 or not cortes.exists():
+            return None
+
+        info = json.loads(cortes.read_text(encoding="utf-8"))
+        silencios = info.get("silences") or []
+        if not silencios:
+            return {"silencios": 0, "quitado_s": 0.0}
+
+        c = subprocess.run(
+            [str(VENV_PYTHON), str(PYTHON_DIR / "cut_silences.py"),
+             str(clip_mp4), "--cuts", str(cortes), "--out", str(recortado)],
+            capture_output=True, text=True, timeout=900,
+        )
+        # Umbral de sanidad: un archivo diminuto es un corte fallido, no un clip
+        # muy limpio. Preferimos el original a publicar algo roto.
+        if c.returncode != 0 or not recortado.exists() or recortado.stat().st_size < 100_000:
+            return None
+
+        antes = float(info.get("duration") or 0)
+        quitado = round(sum(float(s["end"]) - float(s["start"]) for s in silencios), 2)
+        recortado.replace(clip_mp4)  # reemplaza el clip por su versión limpia
+        return {
+            "silencios": len(silencios),
+            "quitado_s": quitado,
+            "antes_s": round(antes, 2),
+            "despues_s": round(max(0.0, antes - quitado), 2),
+        }
+    except Exception:
+        return None
+    finally:
+        cortes.unlink(missing_ok=True)
+        recortado.unlink(missing_ok=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id", help="ID del video largo (sin extensión)")
@@ -483,6 +573,15 @@ def main() -> int:
             "proposals JSON, ej. '0,2,5'). Sin este flag se extraen TODOS (retrocompatible). "
             "Los clip_id conservan su número de posición completo (cNN), se pida el "
             "subset que se pida."
+        ),
+    )
+    parser.add_argument(
+        "--recortar-silencios",
+        action="store_true",
+        help=(
+            "Quita silencios y muletillas DENTRO de cada clip ya extraído. "
+            "Ver la nota de diseño en `_recortar_silencios_del_clip`: se hace por "
+            "clip y no sobre el video entero a propósito."
         ),
     )
     args = parser.parse_args()
@@ -583,7 +682,23 @@ def main() -> int:
                 face_tracking=args.face_tracking,
                 clip_id=clip_id,
             )
-            if use_full:
+            recorte = None
+            if args.recortar_silencios:
+                recorte = _recortar_silencios_del_clip(out_mp4)
+                if recorte and recorte.get("quitado_s", 0) > 0:
+                    print(
+                        f"[recorte] {clip_id}: -{recorte['quitado_s']}s "
+                        f"({recorte['silencios']} silencios) "
+                        f"{recorte['antes_s']}s → {recorte['despues_s']}s",
+                        file=sys.stderr,
+                    )
+
+            # Si se recortó, los tiempos del clip YA NO coinciden con el
+            # transcript completo, así que cortarlo en rodajas daría subtítulos
+            # desplazados. En ese caso se transcribe el clip recortado, que es
+            # justo lo que el lote de abajo hace con una sola carga de modelo.
+            recorto_de_verdad = bool(recorte and recorte.get("quitado_s", 0) > 0)
+            if use_full and not recorto_de_verdad:
                 sub = slice_transcript(full_transcript_path, clip["start"], clip["end"])
                 out_transcript.write_text(json.dumps(sub, ensure_ascii=False, indent=2), encoding="utf-8")
                 n_words = len(sub["words"])
@@ -591,12 +706,16 @@ def main() -> int:
                 # Se transcribe DESPUÉS, en un solo batch (una carga de modelo).
                 pending_transcriptions.append((out_transcript, len(results)))
                 n_words = 0
+            # Se MIDE el archivo, no se asume la ventana pedida (ver _probe_duracion).
+            # Si ffprobe falla caemos a la ventana: un número aproximado es mejor
+            # que ninguno, y el resto del pipeline ya toleraba esa aproximación.
+            duracion_real = _probe_duracion(out_mp4)
             results.append({
                 "clip_id": clip_id,
                 "index": i,
                 "slug": slug,
                 "ok": True,
-                "duration": clip["end"] - clip["start"],
+                "duration": duracion_real if duracion_real else clip["end"] - clip["start"],
                 "words": n_words,
                 "face_detected": meta.get("face_detected"),
                 "face_bbox": meta.get("face_bbox"),

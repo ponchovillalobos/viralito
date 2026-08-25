@@ -636,6 +636,7 @@ def step_extract(
     aspect_ratio: str = "9:16",
     face_tracking: str = "off",
     clips: str | None = None,
+    recortar_silencios: bool = True,
 ) -> list[dict]:
     cmd = [
         str(VENV_PYTHON),
@@ -646,6 +647,14 @@ def step_extract(
         "--face-tracking",
         face_tracking,
     ]
+    # Quitar silencios y muletillas DENTRO de cada clip. Va por defecto porque es
+    # lo que el proyecto promete y no hacía: las tres etapas que existían para
+    # esto (detect/cut/re-transcribe) nunca se llamaban, así que los clips salían
+    # del crudo. Se hace por clip y no sobre el video entero — ver la nota en
+    # `_recortar_silencios_del_clip`. Medido en material real: entre 4% y 18% de
+    # cada clip era silencio.
+    if recortar_silencios:
+        cmd.append("--recortar-silencios")
     # Subset aprobado (flujo REVISAR): posiciones 0-based separadas por coma.
     if clips:
         cmd.extend(["--clips", clips])
@@ -1408,6 +1417,15 @@ def main() -> int:
         help="Plataformas destino separadas por coma (tiktok,instagram,linkedin). Solo informativo",
     )
     parser.add_argument(
+        "--sin-recorte-silencios",
+        action="store_true",
+        help=(
+            "No quitar silencios ni muletillas dentro de cada clip. El recorte va "
+            "ACTIVADO por defecto: es lo que el proyecto prometía y no hacía. "
+            "Usa esta bandera si querés el material tal cual se grabó."
+        ),
+    )
+    parser.add_argument(
         "--aspect-ratio",
         choices=["9:16", "16:9"],
         default="9:16",
@@ -1614,6 +1632,35 @@ def main() -> int:
                     # de cortar a mitad de frase.
                     _anc = sum(1 for c in _cl if c.get("anchorScore"))
                     _e.metrica("anclados_al_texto", f"{_anc}/{len(_cl)}")
+
+                    # ¿CIERRAN LA FRASE? Es la pregunta de calidad que más
+                    # importa y hasta ahora nadie comprobaba: el anclaje intenta
+                    # ajustar el final a un límite de frase, pero si no encuentra
+                    # candidato usa el tiempo del modelo SIN AVISAR. Aquí se mide
+                    # el resultado en vez de confiar: se mira la última palabra
+                    # de cada clip y se acepta si termina en puntuación fuerte o
+                    # si hay una pausa clara después. Un número bajo significa
+                    # clips que se cortan a media idea.
+                    try:
+                        _tw = json.loads(
+                            Path(LF_TRANSCRIPTS / f"{args.video_id}.json").read_text(encoding="utf-8")
+                        ).get("words") or []
+                        _cierran = 0
+                        for c in _cl:
+                            _fin = float(c["end"])
+                            _dentro = [w for w in _tw if float(w.get("start", 0)) <= _fin]
+                            if not _dentro:
+                                continue
+                            _ult = _dentro[-1]
+                            _txt = str(_ult.get("word", "")).strip()
+                            _sig = next((w for w in _tw
+                                         if float(w.get("start", 0)) > float(_ult.get("end", 0))), None)
+                            _pausa = (float(_sig["start"]) - float(_ult.get("end", 0))) if _sig else 99
+                            if _txt.endswith((".", "!", "?", "…", ":", ";")) or _pausa >= 0.45:
+                                _cierran += 1
+                        _e.metrica("cierran_frase", f"{_cierran}/{len(_cl)}")
+                    except Exception:
+                        pass
                     # Cobertura: si todos los clips salen del primer tramo, el
                     # recorte cronológico se comió el final del video.
                     _st = sorted(float(c["start"]) for c in _cl if c.get("start") is not None)
@@ -1716,12 +1763,16 @@ def main() -> int:
     # Step 6: extract clips (con aspect ratio + face tracking opcional;
     # --clips limita al subset aprobado en el flujo REVISAR)
     print("\n========== STEP 6: extract clips ==========", file=sys.stderr)
-    clips_info = step_extract(
-        args.video_id,
-        aspect_ratio=args.aspect_ratio,
-        face_tracking=args.face_tracking,
-        clips=args.clips,
-    )
+    with bit.etapa("extraer_clips") as _e:
+        clips_info = step_extract(
+            args.video_id,
+            aspect_ratio=args.aspect_ratio,
+            face_tracking=args.face_tracking,
+            clips=args.clips,
+            recortar_silencios=not args.sin_recorte_silencios,
+        )
+        _e.metrica("clips_extraidos", len(clips_info))
+        _e.metrica("recorte_silencios", not args.sin_recorte_silencios)
     print(f"\n[ok] {len(clips_info)} clips extraídos", file=sys.stderr)
     for c in clips_info:
         print(f"  - {c['clip_id']} ({c.get('duration', '?')}s)", file=sys.stderr)

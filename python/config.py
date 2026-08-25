@@ -26,10 +26,43 @@ except Exception:
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _data_root_de_env_local() -> Path | None:
+    """VIRAL_DATA_ROOT declarado en `frontend/.env.local`, si está.
+
+    La app le pasa esta variable a Python al hacer spawn, así que por la app todo
+    apuntaba bien. Pero corriendo un script a mano desde una consola común la
+    variable no existe, y entonces el default de abajo tomaba el control: ese
+    default es `C:\\viral-data`, que es la carpeta del OTRO proyecto. O sea que la
+    misma instalación leía y escribía en dos lugares distintos según quién la
+    lanzara, y la mitad "de consola" caía justo en los datos que se separaron a
+    propósito para que los dos proyectos no se mezclaran.
+
+    Leer el archivo que el frontend ya usa mantiene UNA sola declaración de la
+    ruta. Un `.env.local` ausente o ilegible no es un error: se sigue al default.
+    """
+    try:
+        env_local = PROJECT_ROOT / "frontend" / ".env.local"
+        for linea in env_local.read_text(encoding="utf-8").splitlines():
+            linea = linea.strip()
+            if linea.startswith("#") or "=" not in linea:
+                continue
+            clave, _, valor = linea.partition("=")
+            if clave.strip() == "VIRAL_DATA_ROOT":
+                valor = valor.strip().strip('"').strip("'")
+                if valor:
+                    return Path(valor)
+    except OSError:
+        pass
+    return None
+
+
 def _pick_data_root() -> Path:
     override = os.environ.get("VIRAL_DATA_ROOT")
     if override:
         return Path(override)
+    declarado = _data_root_de_env_local()
+    if declarado:
+        return declarado
     # Defaults: viral-data primero, hermes-data como fallback para compat con setup viejo
     candidates = [Path(r"C:\viral-data\videos"), Path(r"C:\hermes-data\videos")]
     for c in candidates:

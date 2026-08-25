@@ -30,9 +30,41 @@ import tempfile
 import time
 from pathlib import Path
 
-from config import DATA_ROOT, FFMPEG_PATH
+# NO se importa `config` al tope del módulo, a propósito.
+#
+# config y hw_profile se necesitan mutuamente: config autodetecta el modelo de
+# Whisper/Ollama con `detect()`, y hw_profile necesita DATA_ROOT y FFMPEG_PATH.
+# config ya resolvía su lado importando hw_profile de forma perezosa al FINAL de
+# su módulo, y eso alcanzaba mientras `config` fuera el primero en cargarse.
+#
+# Pero el orden no lo decide config: lo decide quien importe primero. Cuando algo
+# carga `hw_profile` antes (le pasa a extract_clips), este módulo se detenía acá
+# en el import de config, config corría entero, y al llegar a su detección pedía
+# `detect` — que todavía no existía, porque hw_profile seguía parado en esta
+# línea. El ImportError caía en un `except` que imprime un aviso y sigue con
+# defaults de CPU. Nadie veía un error: simplemente el sistema corría con
+# qwen3:1.7b en vez del modelo que el hardware aguanta, y el aviso se perdía
+# entre el resto de la salida.
+#
+# Con los accesos perezosos de abajo, config puede entrar por cualquiera de las
+# dos puertas y el resultado es el mismo.
 
-_CACHE = DATA_ROOT / "cache" / "hw_profile.json"
+
+def _cfg():
+    """config, importado en el momento de usarlo (ver la nota de arriba)."""
+    import config  # noqa: PLC0415
+
+    return config
+
+
+def _ffmpeg() -> str:
+    return str(_cfg().FFMPEG_PATH)
+
+
+def _cache_path() -> Path:
+    return _cfg().DATA_ROOT / "cache" / "hw_profile.json"
+
+
 _CACHE_TTL = 7 * 24 * 3600  # tope de frescura aunque el fingerprint no cambie
 _profile: dict | None = None  # memo por proceso
 
@@ -97,7 +129,7 @@ def _ram_gb() -> float:
 
 
 def _ffmpeg_version() -> str:
-    r = _run([str(FFMPEG_PATH), "-version"], timeout=10)
+    r = _run([_ffmpeg(), "-version"], timeout=10)
     if not r or r.returncode != 0 or not r.stdout:
         return ""
     first = r.stdout.splitlines()[0] if r.stdout.splitlines() else ""
@@ -167,7 +199,7 @@ def _ffmpeg_encoders_text() -> str:
     global _encoders_text_memo
     if _encoders_text_memo is not None:
         return _encoders_text_memo
-    r = _run([str(FFMPEG_PATH), "-hide_banner", "-encoders"], timeout=15)
+    r = _run([_ffmpeg(), "-hide_banner", "-encoders"], timeout=15)
     if not r or r.returncode != 0 or not r.stdout:
         return ""
     _encoders_text_memo = r.stdout
@@ -184,7 +216,7 @@ def _encode_probe(encoder: str, timeout: int = 30) -> subprocess.CompletedProces
         with tempfile.TemporaryDirectory() as td:
             out = Path(td) / "probe.mp4"
             r = subprocess.run(
-                [str(FFMPEG_PATH), "-y", "-v", "error",
+                [_ffmpeg(), "-y", "-v", "error",
                  "-f", "lavfi", "-i", "color=c=black:s=320x240:r=8:d=1",
                  "-c:v", encoder, "-frames:v", "8", str(out)],
                 capture_output=True, text=True, timeout=timeout,
@@ -228,7 +260,7 @@ def _nvdec_works() -> bool:
             src = Path(td) / "src.mp4"
             # Generar un mp4 chiquito (libx264 / mpeg, sin GPU) para decodearlo con cuda.
             mk = subprocess.run(
-                [str(FFMPEG_PATH), "-y", "-v", "error",
+                [_ffmpeg(), "-y", "-v", "error",
                  "-f", "lavfi", "-i", "testsrc=s=320x240:r=8:d=1",
                  "-c:v", "libx264", "-frames:v", "8", str(src)],
                 capture_output=True, text=True, timeout=30,
@@ -236,7 +268,7 @@ def _nvdec_works() -> bool:
             if mk.returncode != 0 or not src.exists():
                 return False
             r = subprocess.run(
-                [str(FFMPEG_PATH), "-y", "-v", "error",
+                [_ffmpeg(), "-y", "-v", "error",
                  "-hwaccel", "cuda", "-i", str(src),
                  "-f", "null", "-"],
                 capture_output=True, text=True, timeout=30,
@@ -456,6 +488,20 @@ def _recommend(prof: dict) -> dict:
 # ---------------------------------------------------------------------------
 # detect() — dict rico cacheado por fingerprint
 # ---------------------------------------------------------------------------
+# Versión de las REGLAS de recomendación. Subila cada vez que cambien los
+# umbrales de recommend() (qué modelo de Ollama, qué Whisper, cuántos workers).
+#
+# El fingerprint invalidaba el cache solo cuando cambiaba el HARDWARE, y eso deja
+# afuera la mitad del problema: la recomendación no depende únicamente del equipo
+# sino también del código que la calcula. Cuando las reglas mejoraban, las
+# máquinas que ya tenían cache seguían usando la respuesta vieja hasta que
+# vencía el TTL de 7 días — sin ningún aviso, porque un cache válido no se
+# reporta. Este equipo estaba en esa situación: el cache decía `qwen3:4b`
+# mientras las reglas actuales recomiendan `qwen3:8b`, o sea que el análisis
+# corría con la mitad del modelo que la máquina aguanta.
+_REGLAS_VERSION = 2
+
+
 def _fingerprint(prof: dict) -> str:
     nv = prof.get("gpu_nvidia") or {}
     return "|".join([
@@ -463,6 +509,7 @@ def _fingerprint(prof: dict) -> str:
         str(nv.get("driver_version") or ""),
         str(prof.get("ffmpeg_version") or ""),
         str(prof.get("torch_version") or ""),
+        f"reglas{_REGLAS_VERSION}",
     ])
 
 
@@ -531,7 +578,7 @@ def detect(force: bool = False) -> dict:
         return _profile
     if not force:
         try:
-            cached = json.loads(_CACHE.read_text(encoding="utf-8"))
+            cached = json.loads(_cache_path().read_text(encoding="utf-8"))
             fresh = time.time() - float(cached.get("detected_at", 0)) < _CACHE_TTL
             has_new_schema = "recommend" in cached and "fingerprint" in cached
             if fresh and has_new_schema:
@@ -550,13 +597,13 @@ def detect(force: bool = False) -> dict:
             pass
     prof = _detect_full()
     try:
-        _CACHE.parent.mkdir(parents=True, exist_ok=True)
+        _cache_path().parent.mkdir(parents=True, exist_ok=True)
         # Escritura ATÓMICA: tmp por-PID + os.replace, para que N subprocesos
         # paralelos no corrompan el JSON al escribir el cache simultáneamente
         # (mismo patrón que postencode.py).
-        tmp = _CACHE.with_name(f"{_CACHE.name}.{os.getpid()}.tmp")
+        tmp = _cache_path().with_name(f"{_cache_path().name}.{os.getpid()}.tmp")
         tmp.write_text(json.dumps(prof, indent=2), encoding="utf-8")
-        os.replace(tmp, _CACHE)
+        os.replace(tmp, _cache_path())
     except Exception as e:  # noqa: BLE001
         # Visible en stderr: si no cachea, cada proceso re-detecta (~1-2s extra) y
         # conviene saber por qué (audit B3).
