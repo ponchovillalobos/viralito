@@ -34,6 +34,7 @@ import {
   offthreadCacheFlag,
 } from "@/lib/render-utils";
 import { renderWithServer, renderServerEnabled } from "@/lib/render-server-client";
+import { liberarOllama } from "@/lib/liberar-vram";
 import {
   pickTopKeywords,
   sanitizeForFilename,
@@ -569,6 +570,24 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
           // → se mata, el step falla y la cola sigue con el próximo. Nunca queda trabada.
           15 * 60 * 1000
         );
+
+      // Antes de renderizar, que Ollama suelte la memoria.
+      //
+      // El auto-build usa el modelo local para las tarjetas, los stickers y el
+      // caption. Cuando llega acá ya terminó con él, pero Ollama lo mantiene
+      // cargado unos minutos por si vienen más pedidos — y durante todo el render
+      // esa memoria queda tomada por un proceso ocioso.
+      //
+      // Medido mientras renderizaba un short editorial en esta máquina:
+      //   GPU 0-11 % de uso · VRAM 5150 de 6144 MB (~4.9 GB eran Ollama)
+      //   RAM 25 de 27.9 GB (llama-server sumaba 2.75 GB) · CPU 79-100 %
+      //
+      // El render no es trabajo de GPU: satura el procesador y abre catorce
+      // procesos de Chrome. Competir por memoria contra un modelo dormido no
+      // aporta nada. El pipeline de largos ya hacía esto; los shorts van por otro
+      // camino y se habían quedado sin el arreglo.
+      const soltoVram = await liberarOllama();
+      if (soltoVram) console.log("[auto-build] Ollama soltó el modelo antes de renderizar");
 
       // ─── OLA 2 — RENDER-SERVER (optimización opt-in con FALLBACK) ───────────
       // Intentamos primero el server de larga vida (bundle webpack 1 sola vez →
