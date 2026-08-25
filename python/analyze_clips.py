@@ -16,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 import time
 import urllib.request
 from pathlib import Path
@@ -693,6 +694,79 @@ def heuristic_fallback(
     return clips
 
 
+def _analizar_chunks(
+    chunks: list[list[dict[str, Any]]], model: str, per_chunk: int, provider: str
+) -> list[dict[str, Any]]:
+    """Analiza todos los trozos y devuelve los clips propuestos, en orden.
+
+    Por qué existe: la bitácora dice que esta etapa se lleva el **68 % del tiempo**
+    del pipeline (media de 531 s, contra 493 s de extraer y 87 s de transcribir).
+    Los trozos se procesaban en un bucle, uno detrás de otro — nueve llamadas de
+    aproximadamente un minuto cada una en un video de hora y media.
+
+    Si el proveedor es una CLI (claude / codex), cada llamada es una ida y vuelta
+    por RED: el equipo está esperando, no trabajando, y esperar nueve veces
+    seguidas cuando se puede esperar una sola vez es tiempo regalado.
+
+    Con Ollama NO se paraleliza, a propósito: es un único servidor sobre una sola
+    placa de 6 GB, así que lanzar varias llamadas a la vez no las hace más
+    rápidas — las encola, y en el peor caso pelea por memoria con la etapa que
+    venga después. O sea: se paraleliza lo que ESPERA, no lo que calcula.
+
+    El orden de los trozos se conserva aunque terminen desordenados, porque el
+    anclaje y el dedup posteriores recorren el video en el tiempo. Un trozo que
+    falla se salta con su aviso, igual que antes: perder un tramo es mucho mejor
+    que perder el análisis entero.
+    """
+    n = len(chunks)
+    if n <= 1 or provider == "ollama":
+        if provider == "ollama" and n > 1:
+            print(
+                f"[chunking] Ollama es local: los {n} trozos van de a uno "
+                f"(paralelizar una sola GPU no acelera nada)",
+                file=sys.stderr,
+            )
+        salida: list[dict[str, Any]] = []
+        for i, chunk in enumerate(chunks):
+            print(f"\n[chunk {i + 1}/{n}]", file=sys.stderr)
+            try:
+                salida.extend(
+                    analyze_chunk(chunk, model=model, target_clips=per_chunk, provider=provider)
+                )
+            except Exception as e:  # noqa: BLE001
+                print(f"[chunk {i + 1}] error: {e}", file=sys.stderr)
+        return salida
+
+    # Tope de 4 en vuelo: son suscripciones personales, no una API con cuota
+    # generosa. Alcanza para que la espera deje de sumarse, sin parecer un abuso
+    # ni arriesgar un rechazo por exceso de pedidos.
+    hilos = min(4, n)
+    print(
+        f"[chunking] {n} trozos en paralelo (de a {hilos}) — {provider} espera por "
+        f"red, no calcula",
+        file=sys.stderr,
+    )
+
+    resultados: list[list[dict[str, Any]]] = [[] for _ in range(n)]
+
+    def _uno(i: int) -> None:
+        try:
+            resultados[i] = analyze_chunk(
+                chunks[i], model=model, target_clips=per_chunk, provider=provider
+            )
+            print(
+                f"[chunk {i + 1}/{n}] listo · {len(resultados[i])} propuestas",
+                file=sys.stderr, flush=True,
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"[chunk {i + 1}] error: {e}", file=sys.stderr, flush=True)
+
+    with ThreadPoolExecutor(max_workers=hilos) as pool:
+        list(pool.map(_uno, range(n)))
+
+    return [c for grupo in resultados for c in grupo]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id", nargs="?", help="ID del video (sin extensión)")
@@ -760,12 +834,7 @@ def main() -> int:
         # Sobre-generamos a propósito (+2 por chunk): después del anclaje + dedup de
         # solapados se cae una parte, así que pedir de más asegura llegar al techo.
         per_chunk = max(3, (args.max_clips + len(chunks) - 1) // len(chunks) + 2)
-        for i, chunk in enumerate(chunks):
-            print(f"\n[chunk {i + 1}/{len(chunks)}]", file=sys.stderr)
-            try:
-                raw_clips.extend(analyze_chunk(chunk, model=args.model, target_clips=per_chunk, provider=provider))
-            except Exception as e:
-                print(f"[chunk {i + 1}] error: {e}", file=sys.stderr)
+        raw_clips.extend(_analizar_chunks(chunks, args.model, per_chunk, provider))
 
     valid_clips: list[dict[str, Any]] = []
     seen_ranges: list[tuple[float, float]] = []

@@ -25,6 +25,7 @@ puede reproducir dentro de la sesión de pytest.
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -118,4 +119,35 @@ def test_data_root_no_cae_en_el_proyecto_hermano():
         f"sin la variable de entorno, DATA_ROOT resolvió a {obtenido!r} en vez del "
         f"{declarado!r} declarado en .env.local. Si apunta a C:\\viral-data, los "
         "scripts de consola están escribiendo en los datos del proyecto hermano."
+    )
+
+
+def test_los_hijos_heredan_la_misma_carpeta_de_datos():
+    """Python y los scripts de Node que lanza deben ver la MISMA carpeta.
+
+    Python resuelve bien la ruta —por variable de entorno, o leyendo el
+    `.env.local` del frontend— pero lanza scripts de Node (build-props,
+    build-clip-props, build-clip-supreme y seis más) que traen su PROPIA copia de
+    la misma lógica y caen a `C:\viral-data` cuando no ven la variable.
+
+    Reproducido en una consola limpia antes del arreglo: Python resolvía
+    `D:\viral-data\videos` y su hijo de Node `C:\viral-data`. La misma corrida
+    leyendo de un disco y escribiendo rutas que apuntan al otro — que además es
+    la carpeta del proyecto hermano que se separó a propósito.
+
+    No falla ni avisa: produce un proyecto que apunta a archivos que no están
+    donde dice, y eso sólo se descubre cuando un render no encuentra su video.
+    """
+    guion = Path(__file__).resolve().parent / "_comprobar_data_root.py"
+    r = subprocess.run(
+        [sys.executable, str(guion)], cwd=str(PYTHON_DIR), capture_output=True,
+        text=True, timeout=300, env={**os.environ, "VIRAL_DATA_ROOT": ""},
+    )
+    assert r.returncode == 0, r.stderr
+    datos = json.loads((r.stdout or "").strip().splitlines()[-1])
+    if not datos["node"]:
+        pytest.skip("node no disponible en esta maquina")
+    assert datos["node"] == datos["python"], (
+        f"Python usa {datos['python']!r} y sus hijos de Node {datos['node']!r}. "
+        "La misma corrida leería de un disco y escribiría rutas apuntando al otro."
     )

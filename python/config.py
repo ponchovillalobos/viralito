@@ -73,6 +73,28 @@ def _pick_data_root() -> Path:
 
 DATA_ROOT = _pick_data_root()
 
+# Se EXPORTA para que la hereden los procesos hijos.
+#
+# Python resuelve bien la carpeta de datos (por env, o leyendo el `.env.local`
+# del frontend), pero lanza scripts de Node —build-props, build-clip-props,
+# build-clip-supreme y seis más— que traen su PROPIA copia de la misma lógica y
+# caen a `C:\viral-data` cuando no ven la variable. Reproducido en una
+# consola limpia: Python resolvia `D:\viral-data` y su hijo de Node `C:\viral-data`.
+# La misma corrida leyendo de un disco y escribiendo rutas que apuntan al otro,
+# que además es la carpeta del proyecto hermano que se separó a propósito.
+#
+# Exportarlo acá lo arregla para TODOS los hijos de una vez, sin tocar los nueve
+# scripts. Si la variable ya trae una ruta se respeta tal cual: esto sólo rellena
+# el hueco, nunca pisa una decisión explícita.
+#
+# No se usa `setdefault`: esa sólo actúa cuando la clave NO EXISTE, y una cadena
+# vacía existe. Con `VIRAL_DATA_ROOT=""` el hijo heredaba el vacío y caía al
+# default de `C:iral-data` mientras Python usaba la ruta correcta — la misma
+# división que este bloque viene a cerrar, sobreviviendo dentro del arreglo. Lo
+# encontró el test, que es justamente para lo que sirve.
+if not os.environ.get("VIRAL_DATA_ROOT"):
+    os.environ["VIRAL_DATA_ROOT"] = str(DATA_ROOT)
+
 RAW_DIR = DATA_ROOT / "raw"
 TRANSCRIPTS_DIR = DATA_ROOT / "transcripts"
 CUTS_DIR = DATA_ROOT / "cuts"
