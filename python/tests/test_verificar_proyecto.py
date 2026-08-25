@@ -13,6 +13,7 @@ ignorando, y entonces no sirve para nada.
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import sys
 
@@ -178,3 +179,60 @@ def test_urls_externas_no_se_revisan(monkeypatch):
     p = _proyecto(bRoll=[{"start": 1.0, "end": 3.0, "url": "https://videos.pexels.com/x.mp4"}])
     h = vp.verificar(p, pathlib.Path("video.mp4"))
     assert "ERROR" not in _niveles(h)
+
+
+# ---------------------------------------------------------------------------
+# Subtítulos: el falso positivo que costó más caro
+# ---------------------------------------------------------------------------
+def _sin_transcripts(monkeypatch, tmp_path):
+    """Apunta las dos carpetas de transcripts a un temporal vacío."""
+    vacio = tmp_path / "sin_transcripts"
+    (vacio / "transcripts").mkdir(parents=True)
+    monkeypatch.setattr(vp.config, "LONG_FORM_ROOT", vacio)
+    monkeypatch.setattr(vp.config, "TRANSCRIPTS_DIR", vacio / "transcripts")
+    return vacio
+
+
+def test_sin_subtitulos_pero_con_transcript_del_clip_no_avisa(monkeypatch, tmp_path):
+    """En largos el proyecto es un paso intermedio: los subtítulos llegan después.
+
+    La primera versión avisaba «no trae subtítulos» sobre proyectos que
+    terminaban con 116, porque `build-clip-props` los agrega leyendo el
+    transcript del clip. Es la peor clase de aviso: correcto sobre el archivo que
+    mira, y falso sobre lo que al final pasa.
+    """
+    raiz = _sin_transcripts(monkeypatch, tmp_path)
+    (raiz / "transcripts" / "D20_c01_algo.json").write_text(
+        json.dumps({"words": [{"word": "hola", "start": 0.0, "end": 0.4}]}), encoding="utf-8"
+    )
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+
+    p = _proyecto(id="D20_c01_algo_supreme", videoId="D20_c01_algo")
+    del p["captions"]
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "subtítulos" not in _textos(h), _textos(h)
+
+
+def test_sin_subtitulos_y_sin_transcript_si_avisa(monkeypatch, tmp_path):
+    """Y el aviso tiene que seguir saliendo cuando de verdad no hay texto."""
+    _sin_transcripts(monkeypatch, tmp_path)
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+
+    p = _proyecto(id="D20_c01_algo_supreme", videoId="D20_c01_algo")
+    del p["captions"]
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "el video saldría sin texto" in _textos(h, "AVISO")
+
+
+def test_un_transcript_vacio_no_cuenta_como_subtitulos(monkeypatch, tmp_path):
+    """El archivo existe pero no tiene palabras: no salva al video."""
+    raiz = _sin_transcripts(monkeypatch, tmp_path)
+    (raiz / "transcripts" / "D20_c01_algo.json").write_text(
+        json.dumps({"words": []}), encoding="utf-8"
+    )
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+
+    p = _proyecto(id="D20_c01_algo_supreme", videoId="D20_c01_algo")
+    del p["captions"]
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "el video saldría sin texto" in _textos(h, "AVISO")

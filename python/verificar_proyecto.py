@@ -228,6 +228,32 @@ def _revisar_assets(proyecto: dict) -> list[Hallazgo]:
     return hallazgos
 
 
+def _hay_transcript_del_clip(proyecto: dict) -> bool:
+    """¿Existe un transcript con palabras para este proyecto?
+
+    Se busca por `id` y por `videoId` porque en largos el proyecto se llama
+    `{clip_id}_{estilo}` mientras que el transcript se llama `{clip_id}`, y en
+    shorts los dos coinciden.
+    """
+    nombres = {str(proyecto.get(k)) for k in ("id", "videoId") if proyecto.get(k)}
+    for base in list(nombres):
+        # `D20_..._c01_slug_supreme` → `D20_..._c01_slug`
+        for estilo_sufijo in ("_supreme", "_editorial", "_hype", "_hype_max"):
+            if base.endswith(estilo_sufijo):
+                nombres.add(base[: -len(estilo_sufijo)])
+    for carpeta in (config.LONG_FORM_ROOT / "transcripts", config.TRANSCRIPTS_DIR):
+        for nombre in nombres:
+            ruta = carpeta / f"{nombre}.json"
+            if not ruta.exists():
+                continue
+            try:
+                if json.loads(ruta.read_text(encoding="utf-8")).get("words"):
+                    return True
+            except (OSError, ValueError):
+                continue
+    return False
+
+
 def _revisar_estructura(proyecto: dict, duracion: float | None) -> list[Hallazgo]:
     hallazgos: list[Hallazgo] = []
     ancho, alto = proyecto.get("width"), proyecto.get("height")
@@ -239,10 +265,18 @@ def _revisar_estructura(proyecto: dict, duracion: float | None) -> list[Hallazgo
     if not proyecto.get("styleId"):
         hallazgos.append(Hallazgo("ERROR", "el proyecto no declara styleId"))
 
-    hay_subtitulos = bool(proyecto.get("captions") or proyecto.get("manualSubtitles"))
-    if not hay_subtitulos:
-        hallazgos.append(Hallazgo(
-            "AVISO", "el proyecto no trae subtítulos — sale un video mudo de texto"))
+    # Los subtítulos pueden NO estar en el proyecto y aun así llegar al video: en
+    # el flujo de largos el proyecto es un paso intermedio, y `build-clip-props`
+    # los agrega después leyendo el transcript del clip. La primera versión de
+    # esta revisión no lo sabía y avisaba «no trae subtítulos» sobre proyectos que
+    # terminaban con 116. Es la peor clase de aviso: correcto sobre el archivo que
+    # mira, y falso sobre lo que al final pasa.
+    if not (proyecto.get("captions") or proyecto.get("manualSubtitles")):
+        if not _hay_transcript_del_clip(proyecto):
+            hallazgos.append(Hallazgo(
+                "AVISO",
+                "no hay subtítulos ni en el proyecto ni en un transcript del clip — "
+                "el video saldría sin texto"))
 
     if duracion is None:
         hallazgos.append(Hallazgo(
