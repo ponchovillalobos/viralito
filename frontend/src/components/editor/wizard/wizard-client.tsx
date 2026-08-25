@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
+import type { BrollSource } from "@/lib/pexels";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -171,6 +172,18 @@ const SUBTITLE_FONTS: { id: string; name: string }[] = [
 // "normal") deja el render EXACTAMENTE como siempre — elegir nada = perfecto.
 const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid", "kinetic_type", "lottie_pop"];
 const HYPE_STYLES: StyleId[] = ["hype", "hype_max", "hype_max_sfx", "supreme"];
+const BROLL_STYLES: StyleId[] = ["broll_full", "broll_pip", "editorial_broll"];
+
+// De dónde salen las imágenes de apoyo. El backend ya aceptaba `brollSource`
+// desde hacía rato, pero nadie lo había puesto acá, así que en la práctica la
+// opción sólo existía para quien llamara la API a mano.
+const BROLL_SOURCES = [
+  { id: "auto", name: "Automático", hint: "El sistema elige por vos según el estilo", emoji: "✨" },
+  { id: "pexels_video", name: "Videos", hint: "Clips reales de Pexels, con movimiento", emoji: "🎬" },
+  { id: "pexels_photo", name: "Fotos", hint: "Imágenes fijas de Pexels, más sobrio", emoji: "🖼️" },
+  { id: "giphy", name: "GIFs", hint: "Giphy en MP4: divertido, muy corto", emoji: "🕺" },
+  { id: "cc0", name: "Mi biblioteca", hint: "Sólo lo que ya está descargado", emoji: "📁" },
+] as const;
 
 // Estilos que LLEVAN música de fondo (los que setean musicTrack en
 // style-templates.ts: broll_*, motion_*, editorial y cinematic_pro). Para ellos
@@ -362,6 +375,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // Color del TEXTO de los subtítulos ("auto" = el del estilo, normalmente blanco).
   const [subtitleColor, setSubtitleColor] = useState<string>("auto");
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
+  const [brollSource, setBrollSource] = useState<BrollSource>("auto");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
   const [showAllThemes, setShowAllThemes] = useState(false);
   // 👁️ Estilo cuyo ejemplo GRANDE se está viendo en el modal (null = cerrado).
@@ -767,6 +781,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       // 🎵 Música: viaja SOLO a auto-build (no va en overridesPayload porque ese
       // payload también alimenta style-preview, y los stills no llevan audio).
       ...(music !== "auto" ? { music } : {}),
+      // Igual que música: sólo viaja si se eligió algo. Sin esto el backend
+      // decide como siempre, así que el default deja el render idéntico.
+      ...(brollSource !== "auto" ? { brollSource } : {}),
       platforms: selectedPlatforms,
       aspectRatio,
       caption: caption || undefined,
@@ -979,6 +996,40 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // (la lógica condicional por selectedStyles se conserva tal cual).
 
   // Tema editorial (los 17 temas: 8 visibles + "Ver todos", con hints).
+  const brollSourcePanel = (
+    <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
+      <p className="mb-1 text-sm font-medium">🎞️ De dónde salen las imágenes de apoyo</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Cambia el material que acompaña tu video, no el estilo: los subtítulos, colores y
+        movimiento salen igual.
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {BROLL_SOURCES.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setBrollSource(f.id)}
+            className={`rounded-lg border p-3 text-left transition-all ${
+              brollSource === f.id
+                ? "border-sky-400 ring-1 ring-sky-400"
+                : "border-border hover:border-foreground/30"
+            }`}
+          >
+            <div className="text-lg leading-none">{f.emoji}</div>
+            <div className="mt-1 text-sm font-medium">{f.name}</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{f.hint}</div>
+          </button>
+        ))}
+      </div>
+      {brollSource === "giphy" && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Los GIFs cuadrados no se estiran para llenar el cuadro: se acomodan al formato de
+          tu video para que no se pierda el contenido.
+        </p>
+      )}
+    </div>
+  );
+
   const editorialThemePanel = (
     <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
       <p className="mb-2 text-sm font-medium">📰 Tema del estilo Editorial</p>
@@ -1562,6 +1613,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
 
           {/* Submenús de cada estilo elegido: tema editorial / fondo motion /
               intensidad de FX / música aparecen según los estilos seleccionados abajo. */}
+          {selectedStyles.some((s) => BROLL_STYLES.includes(s)) && brollSourcePanel}
           {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
           {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
           {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}
