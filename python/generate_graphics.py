@@ -902,6 +902,64 @@ _QUOTE_MARKERS = {
 _NUM_UNIT_RE = re.compile(r"^\$?\d[\d.,]*$")
 
 
+
+# ─── Ampliación del vocabulario (25 ago 2026) ────────────────────────────────
+#
+# El emparejamiento semántico existía pero fallaba por FLEXIONES. Probado con una
+# frase real del material del usuario —«cuidado con la mirada porque si bajas los
+# ojos transmitís otra cosa»— no encontraba nada: el diccionario tenía "mira" y
+# "ojo", pero no "mirada" ni "ojos". Cuando no hay coincidencia la tarjeta cae a
+# la rotación al azar, que es de donde salían los emparejamientos absurdos.
+#
+# Se agregan las formas que la gente usa AL HABLAR (plurales, sustantivos
+# derivados, conjugaciones frecuentes) y familias nuevas del nicho del proyecto:
+# comunicación, lenguaje corporal, confianza, error y decisión.
+_AMPLIACION_ICON_WORDS: dict[str, set[str]] = {
+    "eye": {"mirada", "miradas", "ojos", "mirar", "mirando", "viendo", "ves", "vean",
+            "observar", "observando", "notar", "notas", "percibe", "percibir",
+            "visual", "vista", "cuidado"},
+    "users": {"cliente", "clientes", "audiencia", "publico", "público", "seguidores",
+              "usuario", "usuarios", "companero", "compañero", "companeros",
+              "compañeros", "todos", "nadie", "alguien", "demas", "demás"},
+    "megaphone": {"decir", "dice", "dices", "decis", "decís", "hablar", "hablas",
+                  "hablando", "contar", "contas", "contás", "mensaje", "mensajes",
+                  "comunicar", "comunicacion", "comunicación", "voz", "tono",
+                  "palabra", "palabras", "explicar", "explicas"},
+    "handshake": {"confianza", "confiar", "confia", "confía", "credibilidad",
+                  "honesto", "honestidad", "acuerdo", "relacion", "relación",
+                  "vinculo", "vínculo", "conectar", "conexion", "conexión"},
+    "heart": {"emocion", "emoción", "emociones", "sentir", "siente", "sientes",
+              "sentimiento", "querer", "quiere", "amor", "pasion", "pasión",
+              "carino", "cariño", "empatia", "empatía"},
+    "brain": {"pensar", "piensa", "piensas", "pensamiento", "mente", "cabeza",
+              "idea", "ideas", "entender", "entiende", "aprender", "aprendes",
+              "recordar", "memoria", "cerebro", "imaginar", "imagina"},
+    "shield": {"error", "errores", "equivocar", "equivoca", "fallar", "falla",
+               "fallas", "riesgo", "riesgos", "peligro", "proteger", "evitar",
+               "problema", "problemas", "miedo"},
+    "route": {"paso", "pasos", "camino", "empezar", "empieza", "empiezas",
+              "seguir", "sigue", "continuar", "siguiente", "despues", "después",
+              "primero", "luego", "entonces"},
+    "scale": {"decidir", "decide", "decides", "decision", "decisión", "elegir",
+              "elige", "eliges", "opcion", "opciones", "comparar", "versus",
+              "mejor", "peor", "conviene"},
+    "target": {"objetivo", "objetivos", "meta", "metas", "lograr", "logras",
+               "conseguir", "consigues", "resultado", "resultados", "exito",
+               "éxito", "funciona", "sirve"},
+    "clock": {"momento", "momentos", "segundo", "segundos", "ahora", "antes",
+              "ya", "pronto", "espera", "esperas", "dura", "duracion", "duración"},
+    "money": {"precio", "precios", "cobrar", "cobras", "vender", "vendes",
+              "venta", "ventas", "comprar", "compra", "caro", "barato",
+              "vale", "valor", "cuesta"},
+    "lightbulb": {"secreto", "secretos", "truco", "trucos", "clave", "claves",
+                  "descubrir", "descubre", "aprende", "leccion", "lección",
+                  "insight", "revelar", "revela"},
+}
+
+for _icono, _palabras in _AMPLIACION_ICON_WORDS.items():
+    _EDITORIAL_ICON_WORDS.setdefault(_icono, set()).update(_palabras)
+
+
 def _icon_for_text(text: str) -> str:
     toks = {_clean_word(t).lower().strip(".,!?¿¡") for t in text.split()}
     for icon, vocab in _EDITORIAL_ICON_WORDS.items():
@@ -1123,11 +1181,63 @@ def editorial_map(words: list[dict], duration: float) -> dict | None:
 
 # Tarjetas VISUALES de relleno: ilustración protagonista + kicker (sin titular).
 # Se usan para que el lienzo NUNCA quede vacío más de ~1s entre frases fuertes.
+# Frases de apoyo para las tarjetas visuales, agrupadas por FAMILIA de ilustración.
+#
+# Antes era una lista plana de seis frases que rotaba por su cuenta, mientras la
+# ilustración rotaba por la suya entre ~450 opciones. Dos ruedas de distinto
+# tamaño girando en paralelo emparejan cualquier cosa con cualquier cosa: se
+# reportó "OJO ACÁ" ilustrado con unas tijeras. Ahora la frase se elige DENTRO de
+# la familia del ícono, así que aunque el texto siga rotando para dar variedad,
+# nunca contradice lo que se ve.
+_KICKERS_POR_FAMILIA: dict[str, list[str]] = {
+    "mirar": ["MIRÁ ESTO", "OJO ACÁ", "FIJATE"],
+    "tiempo": ["MIENTRAS TANTO", "CON EL TIEMPO", "JUSTO ACÁ"],
+    "dinero": ["LA CUENTA", "EL NÚMERO", "LO QUE CUESTA"],
+    "gente": ["LA GENTE", "DEL OTRO LADO", "ENTRE NOSOTROS"],
+    "idea": ["EL PUNTO CLAVE", "ACÁ ESTÁ", "NO ES CASUALIDAD"],
+    "camino": ["EL CAMINO", "HACIA DÓNDE", "EL SIGUIENTE PASO"],
+    "generico": ["EL DETALLE", "EL PUNTO CLAVE", "MIRÁ ESTO"],
+}
+
+# A qué familia pertenece cada ilustración. Sólo hace falta clasificar las que se
+# usan seguido: lo que no esté acá cae en "generico", que es neutro y no puede
+# contradecir a ninguna imagen.
+_FAMILIA_DE_ICONO: dict[str, str] = {
+    **{k: "mirar" for k in ("eye", "radar", "crosshair", "search", "scan-eye", "camera",
+                            "binoculars", "target", "focus", "zoom-in", "telescope")},
+    **{k: "tiempo" for k in ("clock", "hourglass", "timer", "alarm-clock", "history",
+                             "calendar", "calendar-days", "calendar-check", "watch")},
+    **{k: "dinero" for k in ("money", "coin", "coins", "banknote", "piggy-bank", "wallet",
+                             "credit-card", "receipt", "calculator", "percent", "diamond",
+                             "gem", "badge-dollar-sign", "circle-dollar-sign", "faucet")},
+    **{k: "gente" for k in ("users", "user-plus", "user-check", "handshake", "heart",
+                            "heart-handshake", "smile", "message-circle", "speech",
+                            "megaphone", "mic", "contact", "hand-heart")},
+    **{k: "idea" for k in ("lightbulb", "brain", "sparkles", "star", "zap", "flame",
+                           "fire", "gears", "puzzle", "key")},
+    **{k: "camino" for k in ("route", "compass", "map", "milestone", "flag", "mountain",
+                             "trending-up", "goal", "rocket", "arrow-right", "network")},
+}
+
+
+def _kicker_para(icono: str, i: int) -> str:
+    """Frase que acompaña a una ilustración, sin contradecirla.
+
+    Rota dentro de la familia para que dos tarjetas seguidas del mismo tipo no
+    digan lo mismo, pero nunca cruza de familia — que era el bug reportado.
+    """
+    familia = _FAMILIA_DE_ICONO.get((icono or "").lower(), "generico")
+    opciones = _KICKERS_POR_FAMILIA[familia]
+    return opciones[i % len(opciones)]
+
+
 _VISUAL_KICKERS = ["MIRÁ ESTO", "EL DETALLE", "MIENTRAS TANTO", "OJO ACÁ", "EL PUNTO CLAVE", "NO ES CASUALIDAD"]
 _VISUAL_ICONS = ["eye", "compass", "network", "diamond", "money", "mountain", "magnet", "coin", "heart", "radar", "hourglass", "fire"]
 
 
-def _fill_card_gaps(cards: list[dict], duration: float, seed: int = 0) -> list[dict]:
+def _fill_card_gaps(cards: list[dict], duration: float, seed: int = 0,
+                    palabras: list[dict] | None = None) -> list[dict]:
+    palabras = palabras or []
     """Rellena cualquier hueco >1s (antes de la primera tarjeta o entre tarjetas)
     con tarjetas VISUALES. Huecos largos se parten en bloques de ~7s para que la
     ilustración y el kicker vayan rotando (variedad constante en pantalla)."""
@@ -1140,12 +1250,35 @@ def _fill_card_gaps(cards: list[dict], duration: float, seed: int = 0) -> list[d
 
     def _visual(at: float, dur: float) -> dict:
         nonlocal vi
+        # El ícono sale de LO QUE SE DICE en este tramo, no de una rotación.
+        #
+        # Antes el texto y la ilustración venían de dos listas independientes
+        # indexadas por el mismo contador, con largos distintos (6 frases contra
+        # ~450 íconos). Se desfasaban y emparejaban cualquier cosa con cualquier
+        # cosa: reportado con captura, "OJO ACÁ" salía con unas tijeras. No era un
+        # emparejamiento fallido — nunca hubo emparejamiento.
+        #
+        # El vocabulario semántico (`_icon_for_text`) ya existía y lo usaban las
+        # tarjetas con título; las de relleno no lo tocaban porque su título va
+        # vacío. Acá se les da el texto hablado de su propia ventana, que es
+        # justamente lo que el espectador está escuchando cuando la ve.
+        fin = at + max(2.0, dur)
+        dicho = " ".join(
+            str(w.get("word", ""))
+            for w in palabras
+            if at - 0.4 <= float(w.get("start", 0)) <= fin
+        )
+        icono = _icon_for_text(dicho) if dicho.strip() else ""
+        if not icono:
+            # Sin coincidencia, la rotación de siempre: la pantalla nunca queda
+            # vacía, que era el propósito original de estas tarjetas.
+            icono = vis_pool[vi % len(vis_pool)]
         c = {
             "at": round(at, 2), "duration": round(max(2.0, dur), 2),
-            "kicker": _VISUAL_KICKERS[vi % len(_VISUAL_KICKERS)],
+            "kicker": _kicker_para(icono, vi),
             "title": "", "accent": "", "subtitle": "",
             "number": "", "statValue": "", "statUnit": "",
-            "icon": vis_pool[vi % len(vis_pool)],
+            "icon": icono,
         }
         vi += 1
         return c
@@ -1219,7 +1352,7 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
         return []
     if not sents:
         # Sin frases utilizables: el lienzo igual se llena con tarjetas visuales.
-        return _fill_card_gaps([], duration, seed)
+        return _fill_card_gaps([], duration, seed, palabras=words)
     # Ventanas CORTAS (~1 tarjeta cada 6-8s): el texto cambia al ritmo de la voz,
     # nunca se queda la misma tarjeta clavada en pantalla. `density` >1 acorta la
     # ventana (más tarjetas, ritmo más viral), con piso 3.5s para que se lean.
@@ -1376,7 +1509,7 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
         last["duration"] = round(min(9.0, max(last["duration"], duration - last["at"] - 0.2)), 2)
     # Y cualquier hueco restante (>1s) se rellena con tarjetas VISUALES:
     # la pantalla NUNCA se queda con el video solo y el lienzo desnudo.
-    return _fill_card_gaps(cards, duration, seed)
+    return _fill_card_gaps(cards, duration, seed, palabras=words)
 
 
 _EDITORIAL_LLM_PROMPT = """Sos el director de arte de un documental viral en español.

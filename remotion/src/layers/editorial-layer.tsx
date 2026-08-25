@@ -138,10 +138,93 @@ function _contrastRatio(a: string, b: string): number {
   const lb = _relLuminance(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
-/** Color legible para el DETALLE de una ilustración sobre `bg`: el acento si
- *  contrasta lo suficiente; si no, el color del texto (que siempre se ve). */
+/** Color legible para una ilustración sobre `bg`, CONSERVANDO el tono elegido.
+ *
+ * El umbral estaba en 2 y dejaba pasar colores que no se ven. Medido contra el
+ * lienzo crema del tema editorial (#FDFBF5):
+ *
+ *     fucsia  #f472b6 → 2.56    violeta #a78bfa → 2.63
+ *     rosa    #fb7185 → 2.60    azul    #60a5fa → 2.46
+ *
+ * Los cuatro pasaban el filtro y salían casi transparentes, fundidos con el
+ * fondo. Y los que NO pasaban (ámbar 1.61, verde 1.86) se veían bien, porque
+ * caían al color del texto: el filtro premiaba justo al revés.
+ *
+ * Devolver el color del texto tampoco es la respuesta. Si alguien elige fucsia,
+ * espera ver fucsia — no gris. Así que en vez de descartar el acento se le baja
+ * (o sube) la LUMINOSIDAD conservando tono y saturación, hasta que contraste. El
+ * fucsia sigue siendo fucsia, sólo que uno que se ve.
+ *
+ * El objetivo es 3:1, que es lo que WCAG 2.1 pide para elementos gráficos y de
+ * interfaz (criterio 1.4.11). Si ni el negro ni el blanco puros llegan —lienzo
+ * de luminosidad intermedia— se devuelve el que más contraste dé, que es lo
+ * mejor disponible.
+ */
 export function illustrationAccent(accent: string, bg: string, text: string): string {
-  return _contrastRatio(accent, bg) >= 2 ? accent : text;
+  const objetivo = 3;
+  if (!accent) return text;
+  if (_contrastRatio(accent, bg) >= objetivo) return accent;
+
+  const [h, s, l] = _hexAHsl(accent);
+  if (s < 0.08) return text; // un gris no tiene tono que valga la pena conservar
+
+  // Hacia dónde mover la luminosidad: lejos del fondo. Sobre lienzo claro se
+  // oscurece; sobre fondo oscuro se aclara.
+  const bgClaro = _relLuminance(bg) > 0.35;
+  const paso = bgClaro ? -0.04 : 0.04;
+
+  let mejor = accent;
+  let mejorRatio = _contrastRatio(accent, bg);
+  for (let i = 1; i <= 24; i++) {
+    const nl = Math.min(1, Math.max(0, l + paso * i));
+    const cand = _hslAHex(h, s, nl);
+    const r = _contrastRatio(cand, bg);
+    if (r > mejorRatio) {
+      mejorRatio = r;
+      mejor = cand;
+    }
+    if (r >= objetivo) return cand;
+    if (nl === 0 || nl === 1) break;
+  }
+  // No se llegó a 3:1 ni en el extremo: se entrega lo más contrastado que hay.
+  return mejorRatio > _contrastRatio(text, bg) ? mejor : text;
+}
+
+function _hexAHsl(hex: string): [number, number, number] {
+  const h = (hex || "").replace("#", "").trim();
+  const s6 = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.slice(0, 6).padEnd(6, "0");
+  const r = parseInt(s6.slice(0, 2), 16) / 255;
+  const g = parseInt(s6.slice(2, 4), 16) / 255;
+  const b = parseInt(s6.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let hue: number;
+  if (max === r) hue = ((g - b) / d) % 6;
+  else if (max === g) hue = (b - r) / d + 2;
+  else hue = (r - g) / d + 4;
+  hue *= 60;
+  if (hue < 0) hue += 360;
+  return [hue, s, l];
+}
+
+function _hslAHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let [r, g, b] = [0, 0, 0];
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const dos = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, (v + m) * 255))).toString(16).padStart(2, "0");
+  return `#${dos(r)}${dos(g)}${dos(b)}`;
 }
 
 /** [familia del titular, familia de kickers] resueltas del tema (la usa el
