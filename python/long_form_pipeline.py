@@ -43,6 +43,7 @@ from config import (
 from hw_profile import ffmpeg_full_args
 from lib.bitacora import Bitacora
 from lib.ffmpeg_safe_run import safe_ffmpeg
+from lib import ollama_opts as _ollama_opts
 from lib import proc as _proc
 from postencode import post_encode
 from normalize_audio import normalize as normalize_loudness
@@ -1799,6 +1800,11 @@ def main() -> int:
         print(f"[ERROR ANALYZE] no pude leer {proposals_path}: {e}", file=sys.stderr)
         return 1
 
+    # El hilo de whyViral solo nace en una de las ramas de abajo (y no nace si el
+    # proposals venia cacheado). Mas adelante hace falta saber si sigue vivo para
+    # no pelearle la VRAM a Whisper, asi que la referencia se declara aca.
+    hilo_explicacion = None
+
     # Virality Score + whyViral SOLO si el proposals es nuevo. En --from-proposals
     # NO se re-scorea: el score reordena los clips y eso rompería las posiciones
     # que el usuario ya aprobó/ajustó en el paso de revisión.
@@ -1839,9 +1845,9 @@ def main() -> int:
                     name="explain-virality",
                 )
                 explain_thread.start()
+                hilo_explicacion = explain_thread
                 print(
-                    "[whyViral] explicación con IA local corriendo en paralelo "
-                    "(no bloquea el render)",
+                    "[whyViral] explicación con IA local corriendo en paralelo",
                     file=sys.stderr,
                 )
 
@@ -1865,6 +1871,30 @@ def main() -> int:
 
     # Step 6: extract clips (con aspect ratio + face tracking opcional;
     # --clips limita al subset aprobado en el flujo REVISAR)
+    # Antes de extraer, dejarle la GPU a Whisper.
+    #
+    # `extract_clips` re-transcribe cada clip, o sea que necesita ~2.4 GB de VRAM
+    # para large-v3. Y llega justo despues del analisis, que deja a Ollama con el
+    # modelo cargado: medido, 4718 MB de 6144. Son 7.1 GB pedidos sobre una placa
+    # de 6, y encima whyViral puede seguir usando Ollama en su hilo.
+    #
+    # No habia estallado por casualidad: en las corridas donde el analisis estaba
+    # cacheado, Ollama nunca se cargaba antes de extraer. Una corrida limpia si lo
+    # toca.
+    #
+    # El hilo de whyViral se penso para no bloquear el render, y esa idea es buena
+    # en TIEMPO pero ignora la MEMORIA. Se le da un plazo para terminar solo; si no
+    # llega, se le suelta el modelo igual. Perder el campo whyViral es aceptable
+    # (el codigo ya contempla que Ollama no este y sigue sin el); quedarse sin VRAM
+    # para transcribir no lo es.
+    if hilo_explicacion is not None and hilo_explicacion.is_alive():
+        print("[vram] esperando a whyViral antes de extraer (hasta 120s)...", file=sys.stderr)
+        hilo_explicacion.join(timeout=120)
+        if hilo_explicacion.is_alive():
+            print("[vram] whyViral sigue: se le suelta el modelo igual", file=sys.stderr)
+    if _ollama_opts.liberar():
+        print("[vram] Ollama solto el modelo antes de extraer", file=sys.stderr)
+
     print("\n========== STEP 6: extract clips ==========", file=sys.stderr)
     seleccion = seleccion_de_clips(proposals_path, args.max_clips, args.clips)
 
@@ -1922,6 +1952,23 @@ def main() -> int:
 
     # Step 7: render (opcional) — N estilos × M clips
     if args.render and clips_info:
+        # Antes de renderizar, que Ollama suelte la VRAM.
+        #
+        # `KEEP_ALIVE` deja el modelo cargado diez minutos tras la ultima llamada,
+        # y eso es lo correcto MIENTRAS se analiza: entre clip y clip la recarga
+        # cuesta segundos. Pero al terminar esa etapa nadie le decia que lo
+        # soltara, asi que el render arrancaba con la memoria tomada por un modelo
+        # que ya no se va a usar. Medido al final de un lote de largos: Ollama
+        # retenia 4718 MB de 6144 y dejaba 1279 MB libres, menos de lo que
+        # necesita large-v3 para transcribir (~2.4 GB).
+        #
+        # Esta maquina esta dedicada a Viralito, asi que no hay nadie mas
+        # compitiendo por la placa: la memoria que se libera aca la aprovecha el
+        # propio render. Es best-effort: si falla se pierde memoria libre, no
+        # trabajo, y Ollama la recupera sola a los diez minutos.
+        if _ollama_opts.liberar():
+            print("[vram] Ollama solto el modelo antes de renderizar", file=sys.stderr)
+
         print("\n========== STEP 7: render con Remotion ==========", file=sys.stderr)
         styles = [s.strip() for s in args.styles.split(",") if s.strip()]
         # VALID_STYLES se DERIVA del registro (módulo, _load_style_catalog): antes vivía
