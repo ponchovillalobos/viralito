@@ -120,7 +120,12 @@ viral y el wizard muestra un badge 🔥 con el puntaje + razones.
   fallback heurístico si Ollama está offline.
 - **Captions/hooks**: Claude Code / Codex / Ollama (OAuth, sin API keys) + dataset de
   hooks virales reales, tono LATAM, multi-red.
-- **Voz IA**: Piper (TTS) + XTTS (clonación de voz).
+- **Voz IA**: Piper (TTS, licencia permisiva — uso comercial OK) + XTTS-v2
+  (clonación de voz). **XTTS-v2 es NO COMERCIAL**: se publica bajo la Coqui
+  Public Model License, y "gratis" no es "libre". Para locución en contenido que
+  se monetiza hay que usar Piper. El modelo no viaja con el proyecto (se descarga
+  a la máquina del usuario la primera vez). Coqui cerró en enero de 2024, así que
+  no hay que esperar un cambio de licencia.
 - **Traducción**: argos-translate offline (texto).
 - **Visión**: tracking de cara, quitar fondo (MediaPipe), texto-detrás-del-sujeto.
 - **Audio**: detección de silencios (VAD) + corte, detección de beats (librosa).

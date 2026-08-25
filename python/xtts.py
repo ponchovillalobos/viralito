@@ -1,5 +1,21 @@
 #!/usr/bin/env python
-"""xtts.py — Clonar tu voz con XTTS-v2 (Coqui TTS, gratis, local).
+"""xtts.py — Clonar tu voz con XTTS-v2 (Coqui TTS, local).
+
+LICENCIA: XTTS-v2 se publica bajo la Coqui Public Model License, que es
+explícitamente NO COMERCIAL. "Gratis" no es lo mismo que "libre": el modelo se
+puede usar sin pagar, pero no para producir contenido comercial. Coqui cerró en
+enero de 2024, así que no hay que esperar un cambio de licencia.
+
+Qué significa en la práctica, si el contenido se monetiza:
+  - el resto del sistema (Piper para voz, Whisper, el catálogo curado) no tiene
+    esta restricción y sirve para uso comercial;
+  - la voz CLONADA con XTTS, no. Para locución comercial hay que usar Piper (ver
+    tts.py) o un servicio con licencia comercial.
+
+El modelo NO viaja con el proyecto: se descarga a la máquina del usuario la
+primera vez, así que el programa en sí no redistribuye material restringido.
+Aun así conviene tenerlo presente antes de apoyar un flujo de trabajo en esto.
+Texto de la licencia: https://coqui.ai/cpml
 
 Toma una muestra de tu voz (~6-30s WAV mono 22050Hz idealmente) + el texto y
 sintetiza un WAV que suena como vos. La PRIMERA VEZ que se llama, coqui-tts

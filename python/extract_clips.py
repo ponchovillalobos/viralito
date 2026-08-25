@@ -719,6 +719,11 @@ def main() -> int:
                 "words": n_words,
                 "face_detected": meta.get("face_detected"),
                 "face_bbox": meta.get("face_bbox"),
+                # Cuánto silencio se quitó de ESTE clip. Viaja en el resultado para
+                # que la bitácora pueda sumarlo: saber que el recorte "estaba
+                # activado" no dice nada, saber que quitó 13s de 147 sí — es la
+                # diferencia entre una opción que vale la pena y una que sobra.
+                "recorte": recorte,
             })
         except subprocess.CalledProcessError as e:
             # safe_ffmpeg() fuerza text=True, asi que e.stderr YA es str. El

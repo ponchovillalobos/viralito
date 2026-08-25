@@ -1635,17 +1635,21 @@ def main() -> int:
         # Pasos 2-4 no aplican en modo inteligente: los marcamos saltados para que
         # la UI no quede en "pending" esperándolos.
         #
-        # OJO: esto NO es una optimización, es una capacidad ausente. Las funciones
-        # step_detect / step_cut / step_re_transcribe_clean existen y funcionan,
-        # pero no se llaman desde ningún sitio, así que los clips se cortan del
-        # RAW con silencios y muletillas intactos. Queda registrado en la bitácora
-        # para que el dato no se pierda entre ejecuciones.
+        # Estas tres etapas limpiaban el video ENTERO antes de cortar clips, y en
+        # este modo no se usan: los clips salen del raw. La limpieza no se perdió,
+        # se movió — ahora cada clip se recorta por su cuenta dentro de
+        # extract_clips, que evita transcribir la hora completa dos veces.
+        #
+        # Este bloque decía "no implementado en el flujo", y era cierto cuando se
+        # escribió: el recorte no existía en ninguna parte. Al implementarlo por
+        # clip nadie volvió a tocar el mensaje, así que la bitácora siguió
+        # informando una carencia ya resuelta. Un log que miente es peor que no
+        # tenerlo, porque se usa para decidir qué arreglar: alguien podría
+        # "arreglar" dos veces algo que ya funciona, o dar por rota una etapa sana.
         for _skip in ("detect_silences", "cut_silences", "re-transcribe"):
             print(f"[skip] {_skip} (modo inteligente: clips se cortan del raw)", file=sys.stderr)
         with bit.etapa("recorte_de_silencios") as _e:
-            _e.saltar("no implementado en el flujo: los clips salen del raw")
-            _e.metrica("silencios_recortados", 0)
-            _e.metrica("muletillas_recortadas", 0)
+            _e.saltar("se hace por clip dentro de extraer_clips, no sobre el video entero")
 
         # max_clips: mínimo 15, y más si el video es largo (~1 cada 5 min), tope 30.
         # Es un TECHO — Ollama propone solo los que realmente valen; si hay menos
@@ -1830,6 +1834,16 @@ def main() -> int:
         )
         _e.metrica("clips_extraidos", len(clips_info))
         _e.metrica("recorte_silencios", not args.sin_recorte_silencios)
+        # Cuánto se recortó de verdad, no sólo si estaba activado. Sin esto la
+        # bitácora no permitía contestar la única pregunta que importa de esta
+        # opción: ¿vale la pena el tiempo que cuesta?
+        recortes = [c.get("recorte") for c in clips_info if c.get("recorte")]
+        quitado = round(sum(float(r.get("quitado_s") or 0) for r in recortes), 2)
+        total = round(sum(float(c.get("duration") or 0) for c in clips_info), 2)
+        _e.metrica("silencio_quitado_s", quitado)
+        _e.metrica("clips_recortados", sum(1 for r in recortes if (r.get("quitado_s") or 0) > 0))
+        if total > 0:
+            _e.metrica("silencio_quitado_pct", round(quitado * 100 / (total + quitado), 1))
     print(f"\n[ok] {len(clips_info)} clips extraídos", file=sys.stderr)
     for c in clips_info:
         print(f"  - {c['clip_id']} ({c.get('duration', '?')}s)", file=sys.stderr)
