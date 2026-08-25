@@ -387,7 +387,31 @@ def _recommend(prof: dict) -> dict:
         video_decoder_hwaccel = "none"
 
     # ollama_model
-    # Con GPU (VRAM) usamos el modelo más grande que entre en la VRAM.
+    #
+    # OJO CON "que entre en la VRAM": en 6 GB, qwen3:8b NO entra entero, y este
+    # comentario decía lo contrario. Medido con `ollama ps` en la RTX 3060, con la
+    # placa en reposo (142-323 MB ocupados):
+    #
+    #     num_ctx 2048  ->  5.7 GB  ->  25 % CPU / 75 % GPU
+    #     num_ctx 4096  ->  6.0 GB  ->  30 % CPU / 70 % GPU
+    #     num_ctx 8192  ->  6.6 GB  ->  36 % CPU / 64 % GPU     <- el que usa el pipeline
+    #
+    # El umbral de abajo compara contra el TAMAÑO DEL ARCHIVO (~5.2 GB) y no cuenta
+    # el KV-cache ni el buffer de cómputo, que nunca son cero. Con el contexto que
+    # el análisis necesita, un TERCIO del modelo corre en el procesador — y eso
+    # explica en buena parte por qué `analizar_clips` es el 68 % del tiempo del
+    # pipeline mientras transcribir es el 11 %.
+    #
+    # Se acepta ese costo a propósito. Se midió la alternativa: qwen3:4b corre 100 %
+    # en GPU y tarda 11 s contra 142 s sobre el MISMO prompt real, pero devolvió
+    # JSON sin el envoltorio que el parser espera y alucinó un hook sin relación con
+    # el fragmento — justo lo que la regla de fidelidad prohíbe. Bajar de modelo
+    # arregla la velocidad rompiendo lo que el paso existe para hacer.
+    #
+    # Ollama no ofrece hoy una cuantización más chica de qwen3:8b (sólo q4_K_M, q8_0
+    # y fp16). Un GGUF comunitario más liviano (IQ4_XS / Q3_K_M, ~4.2-4.6 GB) podría
+    # dejarlo entero en la placa sin perder los 8B de parámetros: sin verificar.
+    #
     # SIN GPU (Ollama corre en CPU) el límite no es la RAM sino la VELOCIDAD: un
     # modelo grande igual carga, pero genera lento. Aun así, en un CPU fuerte
     # (muchos núcleos) con RAM holgada, qwen3:8b vale la pena para tareas de

@@ -316,6 +316,34 @@ def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
     timeout_s = int(os.environ.get("VIRAL_OLLAMA_TIMEOUT", "1800"))
     with urllib.request.urlopen(req, timeout=timeout_s) as resp:
         body = json.loads(resp.read().decode("utf-8"))
+
+    # Aviso si el prompt se acerca al techo de contexto.
+    #
+    # Cuando el prompt excede `num_ctx`, llama.cpp NO lanza un error: lo recorta y
+    # sigue. Y como las instrucciones del sistema van PRIMERO en la concatenación,
+    # son lo primero que se pierde — el modelo se queda con el transcript entero y
+    # sin las reglas de fidelidad y formato que lo gobiernan. Sale JSON, sale
+    # plausible, y nadie se entera de que se generó a ciegas.
+    #
+    # Medido sobre el chunk más grande de un video real de 98.9 min (1607 palabras):
+    # 6031 tokens de entrada de 8192, o sea 73.6% del contexto sólo para entrar.
+    # Ese video hablaba a ~110 palabras por minuto; a 150-180, que es común en
+    # cursos y webinars, el margen desaparece.
+    #
+    # No se baja `num_ctx` (reduciría el margen del caso que hoy funciona): se deja
+    # rastro, para que el día que pase quede medido en vez de supuesto.
+    try:
+        usados = int(body.get("prompt_eval_count") or 0)
+        if usados and usados > 8192 * 0.9:
+            print(
+                f"[ollama] el prompt ocupó {usados} de 8192 tokens ({usados / 8192:.0%}). "
+                f"Por encima del techo, Ollama recorta en silencio y lo primero que se "
+                f"pierde son las instrucciones. Bajá --chunk-sec si esto se repite.",
+                file=sys.stderr,
+            )
+    except (TypeError, ValueError):
+        pass
+
     return body.get("response", "").strip()
 
 

@@ -373,7 +373,16 @@ def call_llm_adapt(transcript_text: str, provider: str, model: str | None) -> di
             file=sys.stderr,
             flush=True,
         )
-        return call_ollama(transcript_text, video_id="adapt", model=model or "qwen3:1.7b")
+        # El default sale de config (autodetectado por hardware), no de un tag fijo.
+        # Estaba clavado en "qwen3:1.7b", que es el modelo para maquinas SIN GPU:
+        # cuando las CLIs de red no estaban disponibles —sin internet, o sin login—
+        # este camino caia al modelo mas debil del catalogo teniendo una RTX 3060
+        # que sostiene qwen3:8b. No fallaba: entregaba una adaptacion peor, sin
+        # avisar. Es la familia de bug que este proyecto ya documento como la mas
+        # cara (ver memoria/trampas/fallas-que-no-dan-error.md).
+        from config import OLLAMA_MODEL  # noqa: PLC0415
+
+        return call_ollama(transcript_text, video_id="adapt", model=model or OLLAMA_MODEL)
 
 
 def mexicanize(text: str) -> str:

@@ -380,6 +380,13 @@ def _ollama(prompt: str, temperature: float = 0.3, timeout: float = 120) -> str:
         "prompt": prompt,
         "stream": False,
         "format": "json",
+        # Los otros tres llamadores de Ollama lo agregaron despues de pisar el bug:
+        # sin esto el modelo manda su razonamiento a `thinking` y `response` llega
+        # VACIO -> "Expecting value" al parsear. Este quedo afuera. No se reprodujo
+        # el fallo con Ollama 0.32.15, pero la inconsistencia es real y el fallback
+        # de _enrich_cards_llm es SILENCIOSO (devuelve las tarjetas sin reescribir,
+        # sin aviso), asi que un fallo aca no se notaria.
+        "think": False,
         "options": {"temperature": temperature, "num_ctx": 8192},
     }
     data = json.dumps(payload).encode("utf-8")
