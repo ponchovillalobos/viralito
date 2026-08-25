@@ -1083,7 +1083,7 @@ export function SettingsDialog({ open, onOpenChange, onSaved }: SettingsDialogPr
             <section className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium flex items-center gap-1.5">
-                  🎵 Pixabay API (audio CC0)
+                  🎵 Pixabay API (audio extra)
                 </h3>
                 <a
                   href="https://pixabay.com/accounts/register/"
@@ -1098,7 +1098,26 @@ export function SettingsDialog({ open, onOpenChange, onSaved }: SettingsDialogPr
                 <strong>Opcional</strong> — el sistema ya trae 54 pistas de música y 67
                 sonidos gratis SIN ninguna key. Esto solo suma variedad extra: regístrate
                 en Pixabay (gratis), pega tu API key y el modo cinematográfico descarga
-                ~21 SFX + 7 pistas CC0 adicionales. Uso comercial OK.
+                ~21 SFX + 7 pistas adicionales.
+              </p>
+              {/* Esto decía "CC0. Uso comercial OK" y era falso: Pixabay dejó CC0 en
+                  enero de 2019. La distinción no es formal — cambia qué se puede hacer
+                  con los archivos, y el usuario merece saberla antes de bajarlos. */}
+              <p className="text-[11px] text-amber-200/70">
+                Ojo con la licencia: <strong>no</strong> es CC0. Podés usar este audio
+                dentro de los videos que hagas, incluso para vender, pero{" "}
+                <strong>no</strong> podés repartir los archivos como archivos ni
+                empaquetarlos con un programa. Quedan en tu compu, bajados con tu propia
+                key. Las 54 pistas y 67 sonidos que ya vienen sí son CC0 y no tienen esa
+                restricción.{" "}
+                <a
+                  href="https://pixabay.com/service/license-summary/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-300 underline"
+                >
+                  ver la licencia
+                </a>
               </p>
               <div className="space-y-1.5">
                 <Label className="text-xs">

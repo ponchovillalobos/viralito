@@ -517,8 +517,32 @@ def step_analyze(
 ) -> Path:
     out = LF_PROPOSALS / f"{video_id}.json"
     if out.exists():
-        print(f"[skip] analyze_clips (existe {out})", file=sys.stderr)
-        return out
+        # No alcanza con que el archivo EXISTA: las propuestas se derivan del
+        # transcript, así que si el transcript se rehízo, las de antes hablan de
+        # un texto que ya no es el vigente. Pasó de verdad al mover la
+        # transcripción a la GPU: el modelo saltó de `small` a `large-v3`, el
+        # texto mejoró, y los clips se seguían eligiendo con el análisis viejo —
+        # sin ningún aviso, porque un archivo presente parece trabajo hecho.
+        #
+        # Comparar fechas es suficiente y no cuesta nada. Ante la duda (no se
+        # puede leer alguna fecha) se reusa, que es el comportamiento de antes.
+        transcript = LF_TRANSCRIPTS / f"{video_id}.json"
+        try:
+            quedo_viejo = (
+                transcript.exists()
+                and transcript.stat().st_mtime > out.stat().st_mtime
+            )
+        except OSError:
+            quedo_viejo = False
+        if quedo_viejo:
+            print(
+                f"[analyze] el transcript es más nuevo que las propuestas: se rehacen "
+                f"(si no, se elegirían los clips con el texto anterior)",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[skip] analyze_clips (existe {out})", file=sys.stderr)
+            return out
     cmd = [
         str(VENV_PYTHON),
         str(PYTHON_DIR / "analyze_clips.py"),

@@ -50,6 +50,31 @@ warnings.filterwarnings("ignore", message=r".*torchcodec.*", category=UserWarnin
 # Si dudás del karaoke con beam=1, dejá beam=1 (default) y reportá; el override
 # VIRAL_WHISPER_BEAM=5 recupera la calidad anterior exacta.
 
+def _batch_size(device: str) -> int:
+    """Cuántos fragmentos de voz se transcriben a la vez, según el hardware.
+
+    El valor estaba escrito a mano como `16 if device == "cuda" else 8` en TRES
+    lugares de este archivo. El peso del modelo no depende del lote, pero la
+    memoria de trabajo sí, así que un número pensado para una tarjeta grande deja
+    a una chica al borde: medido en una RTX 3060 de 6 GB, el lote 16 llegaba a
+    5893 MB de 6144 — 251 MB libres, con el escritorio ya adentro de esa cuenta.
+
+    Bajarlo no cambia qué se transcribe ni con qué modelo: sólo cuántos
+    fragmentos van juntos. La decisión vive en hw_profile con el resto de las
+    recomendaciones por hardware; si no está disponible se conserva el valor de
+    antes, que es exactamente el comportamiento previo.
+    """
+    try:
+        from hw_profile import detect  # noqa: PLC0415
+
+        bs = detect().get("recommend", {}).get("whisper_batch_size")
+        if isinstance(bs, int) and bs > 0:
+            return bs
+    except Exception:  # noqa: BLE001
+        pass
+    return 16 if device == "cuda" else 8
+
+
 def _whisper_beam() -> int:
     """beam_size para el decoder. Default 1 (rápido); override VIRAL_WHISPER_BEAM."""
     try:
@@ -167,7 +192,7 @@ def transcribe(
     # Decisión de device/compute_type en UN solo lugar: config (autodetectado por
     # hardware vía hw_profile, con override por env VIRAL_WHISPER_DEVICE/_COMPUTE_TYPE).
     device, compute_type = WHISPER_DEVICE, WHISPER_COMPUTE_TYPE
-    batch_size = 16 if device == "cuda" else 8
+    batch_size = _batch_size(device)
     print(f"[transcribe] device={device} compute={compute_type} align={align}", file=sys.stderr)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -306,7 +331,7 @@ def _try_batched_transcribe(
         base = WhisperModel(model_size, device=device, compute_type=compute_type, **wm_kwargs)
         pipeline = BatchedInferencePipeline(model=base)
         # batch_size alto en GPU, moderado en CPU. VAD recorta silencios.
-        batch_size = 16 if device == "cuda" else 8
+        batch_size = _batch_size(device)
         beam = _whisper_beam()
         cond_prev = _condition_on_previous()
         print(
@@ -365,7 +390,7 @@ def transcribe_chunked(
     import whisperx
 
     device, compute_type = WHISPER_DEVICE, WHISPER_COMPUTE_TYPE
-    batch_size = 16 if device == "cuda" else 8
+    batch_size = _batch_size(device)
     print(f"[chunked] device={device} compute={compute_type}", file=sys.stderr)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -507,7 +532,7 @@ def transcribe_batch(jobs: list[dict[str, str]], model_size: str = WHISPER_MODEL
     import whisperx
 
     device, compute_type = WHISPER_DEVICE, WHISPER_COMPUTE_TYPE
-    batch_size = 16 if device == "cuda" else 8
+    batch_size = _batch_size(device)
     print(
         f"[batch] {len(jobs)} clips · device={device} · modelo se carga UNA sola vez",
         file=sys.stderr, flush=True,

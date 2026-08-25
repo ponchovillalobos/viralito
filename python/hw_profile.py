@@ -486,10 +486,36 @@ def _recommend(prof: dict) -> dict:
     except Exception:  # noqa: BLE001
         pass
 
+    # whisper_batch_size — cuántos fragmentos de voz se transcriben a la vez.
+    #
+    # Estaba clavado en 16 para cualquier GPU. El peso del modelo es fijo, pero la
+    # memoria de trabajo crece con el lote, así que el mismo número que en una
+    # tarjeta grande sobra apenas alcanza en una chica. Medido en una RTX 3060 de
+    # 6 GB transcribiendo con lote 16: pico de 5893 MB de 6144 — 251 MB libres.
+    # Funcionó, pero cualquier cosa que pida memoria al mismo tiempo (una pestaña
+    # más del navegador, un render) lo tira.
+    #
+    # Bajar el lote no cambia lo que se transcribe ni con qué modelo: sólo cuántos
+    # fragmentos van juntos. Es la palanca más barata para ganar aire.
+    if whisper_device != "cuda":
+        whisper_batch_size = 8
+    elif vram_total >= 16000:
+        whisper_batch_size = 24
+    elif vram_total >= 10000:
+        whisper_batch_size = 16
+    elif vram_total >= 6000:
+        whisper_batch_size = 8
+    else:
+        whisper_batch_size = 4
+    env_bs = os.environ.get("VIRAL_WHISPER_BATCH_SIZE")
+    if env_bs and env_bs.isdigit() and int(env_bs) > 0:
+        whisper_batch_size = int(env_bs)
+
     return {
         "whisper_device": whisper_device,
         "whisper_compute_type": whisper_compute_type,
         "whisper_model": whisper_model,
+        "whisper_batch_size": whisper_batch_size,
         "video_encoder": video_encoder,
         "video_decoder_hwaccel": video_decoder_hwaccel,
         "ollama_model": ollama_model,

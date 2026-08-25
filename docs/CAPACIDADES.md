@@ -87,10 +87,19 @@ viral y el wizard muestra un badge 🔥 con el puntaje + razones.
 
 ---
 
-## 7. Assets (todos gratis / CC0)
+## 7. Assets (todos gratis; el catálogo que viaja con el proyecto es CC0)
+
+> El título decía "todos CC0" y no era exacto. Lo que se empaqueta con el
+> proyecto sí es CC0 y se puede redistribuir; los clientes opcionales bajan
+> material con OTRAS licencias, a la máquina del usuario y con su propia key.
+> La distinción importa si el programa se vende: ver la nota de Pixabay abajo.
 
 - **Música**: 54 temas CC0 de FreePD vía GitHub (sin API key), por mood. Ampliable.
   También clientes opcionales de Freesound/Pixabay (requieren key gratis).
+  **Pixabay NO es CC0** desde enero de 2019 (rige la Pixabay Content License):
+  su audio se puede usar dentro de los videos que uno produce, incluso
+  comercialmente, pero no repartirse como archivos ni empaquetarse con un
+  programa. Por eso se baja con la key del usuario y se queda en su equipo.
 - **SFX**: banco sintetizado local + repo CC0 de GitHub + matching automático a la
   transcripción (palabra → sonido).
 - **B-roll**: Pexels por transcripción (`autoMatchBroll`), fullscreen o PIP. Sólo en

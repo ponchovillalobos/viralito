@@ -1,10 +1,29 @@
 """Cliente para descargar audio (SFX + música) desde Pixabay API.
 
-Pixabay es CC0 (uso libre, comercial OK, sin atribución requerida) y tiene
-endpoints públicos para SFX y música. Requiere API key gratuita (registro en
-https://pixabay.com/accounts/register/).
+CUIDADO CON LA LICENCIA. Este archivo decía "Pixabay es CC0", y no lo es desde
+enero de 2019: hoy rige la Pixabay Content License, que NO es CC0 ni equivalente.
 
-Doc oficial: https://pixabay.com/api/docs/
+La diferencia importa para el producto, no en abstracto:
+  - Usar el audio DENTRO de un video que producís: permitido, incluso comercial.
+  - Redistribuir los archivos como archivos —empaquetarlos con la app, venderlos
+    sueltos, subirlos a otro banco de sonidos— NO está permitido.
+
+O sea que estos assets sirven para editar, pero NO pueden viajar dentro de una
+copia del programa que se venda o se reparta. El catálogo curado del proyecto es
+CC0 de verdad y ése sí se puede empaquetar; esto es un extra que cada quien baja
+con SU propia API key, a su nombre, y queda en SU máquina. Por eso la descarga
+pide la key del usuario en vez de traer una nuestra.
+
+Texto de la licencia: https://pixabay.com/service/license-summary/
+Requiere API key gratuita: https://pixabay.com/accounts/register/
+
+Doc oficial de la API: https://pixabay.com/api/docs/
+
+PENDIENTE DE VERIFICAR: la doc pública de Pixabay documenta imágenes y videos;
+no se pudo confirmar desde acá que `/api/sounds/` y `/api/music/` sigan vivos
+(la red de la prueba bloqueó incluso el endpoint documentado, así que el
+resultado no prueba nada en ninguna dirección). Si la descarga devuelve 404,
+empezar por ahí antes de sospechar de la key.
 
 Endpoints usados:
   /api/sounds/   — efectos de sonido cortos

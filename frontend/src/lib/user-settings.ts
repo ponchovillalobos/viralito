@@ -78,7 +78,14 @@ export interface UserSettings {
   };
   pixabay: {
     /** API key gratuita de https://pixabay.com/accounts/register/ — para descargar
-     *  SFX y música CC0 al modo cinematográfico. */
+     *  SFX y música extra al modo cinematográfico.
+     *
+     *  NO es CC0, aunque acá decía que sí: Pixabay dejó CC0 en enero de 2019 y hoy
+     *  rige la Pixabay Content License. Se puede usar el audio dentro de los videos
+     *  que uno produce, incluso comercialmente, pero no repartir los archivos como
+     *  archivos ni empaquetarlos con un programa. Por eso la descarga usa la key
+     *  DEL USUARIO y el material queda en su máquina: el catálogo que sí viaja con
+     *  el proyecto es el CC0 de verdad. */
     apiKey: string;
   };
 }
