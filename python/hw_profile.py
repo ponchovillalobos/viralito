@@ -438,16 +438,49 @@ def _recommend(prof: dict) -> dict:
     x264_crf = 24
 
     # chromium_gl: backend OpenGL del Chromium headless de Remotion.
-    # CONSERVADOR por default: None = no forzar nada (comportamiento actual de
-    # Remotion, swiftshader/swangle). SOLO "angle" (raster por GPU real, más
-    # rápido en escenas con blur/sombras) si hay GPU usable Y el usuario hace
-    # opt-in explícito con VIRAL_REMOTION_GL=="angle".
-    # NUNCA "angle" por default: tiene un memory-leak conocido + posible
-    # diferencia sutil de pixel → debe validarse con un test de paridad antes de
-    # prenderlo en producción.
-    if os.environ.get("VIRAL_REMOTION_GL") == "angle" and gpu_usable_for_gl:
+    #
+    # Estuvo apagado por omisión con un motivo explícito: «tiene un memory-leak
+    # conocido + posible diferencia sutil de pixel → debe validarse con un test de
+    # paridad antes de prenderlo en producción». La objeción era correcta y la
+    # prueba no existía, así que la aceleración quedó inalcanzable — el valor se
+    # calculaba, se testeaba, y ningún camino de render llegaba a usarlo.
+    #
+    # La prueba ahora existe (`probar_paridad_gl.py`) y se corrió sobre un clip
+    # real de 41s en la RTX 3060:
+    #
+    #     por software     123.3 s
+    #     con la placa      64.8 s        47.5 % más rápido
+    #     PSNR medio       43.65 dB
+    #     PSNR mínimo      31.86 dB
+    #
+    # Un PSNR sin referencia no dice nada, así que se midió el CONTROL: el mismo
+    # render por software DOS VECES, mismo código y misma entrada.
+    #
+    #     control sw vs sw  49.37 dB de media, 33.19 dB de mínimo
+    #
+    # O sea que el render no es determinista de por sí. El peor fotograma con la
+    # placa (31.86) queda prácticamente en el piso de ruido del propio motor
+    # (33.19): en el peor caso la diferencia no se distingue de la varianza que ya
+    # había entre dos corridas idénticas. La media sí baja unos 5.7 dB —la placa
+    # rasteriza el texto y los bordes distinto—, pero 43.65 dB sigue muy por
+    # encima del umbral de lo perceptible en video (40 dB).
+    #
+    # Las defensas contra el memory-leak ya estaban construidas y ahora se usan:
+    # el render-server se recicla con un umbral más bajo cuando corre con angle, y
+    # si un render con angle falla, el siguiente arranque lo fuerza sin angle.
+    #
+    # Escapes, en orden de precedencia:
+    #   VIRAL_REMOTION_GL=off  → vuelve al render por software
+    #   VIRAL_REMOTION_GL=<x>  → fuerza ese backend (whitelist en render-server)
+    _gl_pedido = os.environ.get("VIRAL_REMOTION_GL", "").strip().lower()
+    if _gl_pedido in ("off", "none", "software", "0"):
+        chromium_gl = None
+    elif _gl_pedido:
+        chromium_gl = _gl_pedido if gpu_usable_for_gl else None
+    elif gpu_usable_for_gl:
         chromium_gl = "angle"
     else:
+        # Sin GPU utilizable, forzar un backend sólo puede empeorar las cosas.
         chromium_gl = None
 
     # ------------------------------------------------------------------

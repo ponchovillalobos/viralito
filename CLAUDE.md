@@ -177,6 +177,56 @@ Documentado en `README.md`. Resumen:
 - ✅ **Provider de clips/caption offline-aware**: `analyze_clips.py` y `generate_caption.py` chequean DNS (`_online()`); offline van DIRECTO a Ollama local en vez de colgarse intentando el provider OAuth (claude/codex)
 - ⏳ Pendiente opcional: skills `.claude` para invocar pipeline desde Claude Code
 
+## Rendimiento: qué está medido y qué lo gobierna
+
+Los números salen de la bitácora (`python/ver_bitacora.py`) y de `nvidia-smi`, no
+de estimaciones. Medidos el 24 ago 2026 en la máquina de desarrollo (RTX 3060
+Laptop 6 GB, Ryzen 5 5600H, 28 GB RAM).
+
+**Dónde se va el tiempo** (suma de 3 ejecuciones de largos):
+
+| etapa | % del total | media |
+|---|---|---|
+| analizar_clips | 67.8 % | 531 s |
+| extraer_clips | 21.0 % | 493 s |
+| transcribe | 11.2 % | 87 s |
+
+**Transcripción en GPU.** `bootstrap.ps1` instalaba siempre el PyTorch de CPU, así
+que ninguna máquina con GPU la usaba y nada avisaba. Ahora detecta la placa e
+instala el índice CUDA. Un video de 98.9 min: **~36 min → 174.9 s**, y encima con
+`large-v3` en vez de `small`.
+
+**La memoria se administra por etapa.** Ollama mantiene el modelo cargado unos
+minutos tras la última llamada — correcto mientras se analiza, un problema
+después. Retenía 4.7 GB de VRAM y 2.75 GB de RAM durante todo el render. Se
+libera explícitamente antes de extraer clips y antes de renderizar, en los dos
+pipelines. Regla general: **cada etapa sostiene sólo lo que necesita y suelta
+antes de entregar el turno.**
+
+**Se paraleliza lo que ESPERA, no lo que calcula.** El análisis de clips va hasta
+4 trozos en vuelo cuando el proveedor es una CLI de red (claude/codex), porque
+ahí el equipo espera. Con Ollama sigue secuencial a propósito: es un servidor
+local sobre una sola placa de 6 GB, y lanzar varias no las acelera, las encola.
+
+**Aceleración por GPU del render (`chromium_gl=angle`): ENCENDIDA.** Estuvo
+apagada con un motivo válido —posible diferencia de píxel, sin prueba que lo
+descartara— hasta que la prueba se escribió (`python/probar_paridad_gl.py`).
+Sobre un clip real de 41 s:
+
+```
+por software     123.3 s
+con la placa      64.8 s     47.5 % más rápido
+PSNR medio       43.65 dB
+control sw↔sw    49.37 dB de media, 33.19 dB de mínimo
+```
+
+El control importa: el render **no es determinista**, así que el peor fotograma
+con la placa (31.86 dB) queda en el piso de ruido del propio motor. Para apagarla
+sin tocar código: `VIRAL_REMOTION_GL=off`.
+
+**Qué NO es el cuello de botella.** El render satura el procesador (90-100 %) y
+usa la GPU al 25-45 %. Subir la concurrencia no ayudaría.
+
 ## Antes de hacer cambios al composition (`remotion/src/ViralVideo.tsx`)
 
 Es el archivo más delicado del proyecto. Reglas:

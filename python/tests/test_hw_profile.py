@@ -154,8 +154,12 @@ def test_rtx4090(monkeypatch):
     # con GPU el x264 (intermedio que se re-encodea) es ultrafast; crf fijo 24
     assert rec["x264_preset"] == "ultrafast"
     assert rec["x264_crf"] == 24
-    # chromium_gl None por default (sin el env de opt-in), aunque haya GPU usable
-    assert rec["chromium_gl"] is None
+    # chromium_gl "angle" por default cuando la GPU sirve. Estuvo en None con un
+    # motivo explicito —posible diferencia de pixel, sin test de paridad que lo
+    # descartara— y la prueba se escribio y se corrio: 47.5% mas rapido, PSNR
+    # medio 43.65 dB contra un control software-vs-software de 49.37 dB. Ver la
+    # nota larga en hw_profile.py y `probar_paridad_gl.py`.
+    assert rec["chromium_gl"] == "angle"
     # legacy
     assert hw_profile.whisper_device() == ("cuda", "float16")
     assert hw_profile.ffmpeg_video_args("final")[:2] == ["-c:v", "h264_nvenc"]
@@ -221,8 +225,24 @@ def test_chromium_gl_angle_sin_gpu_es_none(monkeypatch):
     assert prof["recommend"]["chromium_gl"] is None
 
 
-def test_chromium_gl_sin_optin_es_none(monkeypatch):
-    # GPU usable pero sin el env de opt-in → None (conservador por default).
+def test_chromium_gl_se_puede_apagar(monkeypatch):
+    """La aceleracion viene encendida, pero tiene que haber forma de apagarla.
+
+    Estuvo apagada por omision con un motivo escrito en el codigo: memory-leak
+    conocido y posible diferencia de pixel, «debe validarse con un test de
+    paridad antes de prenderlo en produccion». La objecion era correcta y la
+    prueba no existia, asi que la aceleracion quedaba inalcanzable.
+
+    Ya se midio (`probar_paridad_gl.py`) sobre un clip real de 41s: 123.3s por
+    software contra 64.8s con la placa, PSNR medio 43.65 dB. El control del
+    mismo render por software DOS VECES da 49.37 dB de media y 33.19 dB de
+    minimo — o sea que el motor no es determinista de por si, y el peor
+    fotograma con la placa (31.86 dB) queda en ese mismo piso de ruido.
+
+    Aun asi la salida tiene que existir: si alguna maquina rasteriza distinto,
+    `VIRAL_REMOTION_GL=off` devuelve el render por software sin tocar codigo.
+    """
+    monkeypatch.setenv("VIRAL_REMOTION_GL", "off")
     prof = _run_detect(
         monkeypatch, gpu="NVIDIA GeForce RTX 4090", ram_gb=64.0, torch_cuda=True,
         nvenc_usable=True, nvdec_usable=True, vram_free=22000, vram_total=24564,
