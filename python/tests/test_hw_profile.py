@@ -239,3 +239,32 @@ def test_whisper_model_env_override(monkeypatch):
         compute_cap=8.9, cores_physical=16, cores_logical=32,
     )
     assert prof["recommend"]["whisper_model"] == "tiny"
+
+
+def test_gpu_moderna_pero_justa_de_vram_cuantiza_en_vez_de_achicar(monkeypatch):
+    """RTX 3060 Laptop 6 GB: large-v3, pero en int8_float16 y no float16.
+
+    Es la máquina donde se desarrolla, y hasta ahora ningún test cubría el caso
+    "GPU moderna con poca memoria". El código recomendaba float16 apoyado en un
+    comentario que estimaba ~3 GB para large-v3; medido con nvidia-smi el pico
+    real es 5201 MB de 6144, o sea 943 MB libres — y el escritorio solo ya ocupa
+    ~970 MB en reposo, antes de que el render sume Chrome y NVENC.
+
+    La respuesta correcta no es bajar de modelo: la precisión de large-v3 se
+    eligió a propósito porque de la transcripción dependen los cortes y los
+    subtítulos. Se cuantiza, que cuesta 1.4s más por cada 45s de audio y libera
+    1.8 GB (pico 3351 MB, 2793 libres).
+    """
+    prof = _run_detect(
+        monkeypatch, gpu="NVIDIA GeForce RTX 3060 Laptop GPU", ram_gb=27.9, torch_cuda=True,
+        nvenc_usable=True, nvenc_reason=None, nvdec_usable=True,
+        vram_free=5030, vram_total=6144, compute_cap=8.6, driver="610.88",
+        cores_physical=6, cores_logical=12,
+    )
+    rec = prof["recommend"]
+    assert rec["whisper_model"] == "large-v3", "no se baja de modelo: se cuantiza"
+    assert rec["whisper_compute_type"] == "int8_float16", (
+        "float16 deja menos de 1 GB libre en una tarjeta de 6 GB; el render no entra"
+    )
+    assert rec["whisper_device"] == "cuda"
+    assert rec["video_encoder"] == "h264_nvenc"

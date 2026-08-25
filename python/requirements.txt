@@ -1,8 +1,18 @@
 # Python deps para transcripción y detección de silencios
 # Instalar dentro del venv local: ./python/venv/
 
-# Torch CPU-only para evitar peso de CUDA
-# (instalar primero con: pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu)
+# Torch. IMPORTANTE: qué rueda se instale decide si la transcripción corre en la
+# GPU o en el procesador, y esa es la mayor diferencia de velocidad del flujo.
+# Medido en una RTX 3060 de 6 GB, con large-v3: una hora de video tarda ~22 min
+# en CPU (modelo small) contra ~9 min en GPU — y en GPU además entra el modelo
+# grande, que transcribe mejor. De la transcripción dependen los cortes y los
+# subtítulos, así que no es sólo una cuestión de esperar menos.
+#
+# `bootstrap.ps1` lo resuelve solo: si nvidia-smi responde instala el índice CUDA
+# y verifica que torch vea la GPU; si no, o si la descarga falla, cae al de CPU.
+# A mano:
+#   con GPU NVIDIA:  pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu128
+#   sin GPU:         pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 torch>=2.1.0
 torchaudio>=2.1.0
 

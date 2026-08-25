@@ -308,7 +308,24 @@ def _recommend(prof: dict) -> dict:
     whisper_device = "cuda" if torch_cuda else "cpu"
 
     # whisper_compute_type
-    if torch_cuda and cap >= 7.0:
+    #
+    # En GPUs modernas pero JUSTAS de memoria el modelo se cuantiza en vez de
+    # bajarlo de tamaño. La precisión de la transcripción se decidió a propósito
+    # (large-v3 completo, ver la nota de whisper_model más abajo) y de ella
+    # dependen los cortes y los subtítulos, así que sacrificar modelo sería
+    # sacrificar justo lo que se quiso cuidar; el tipo numérico cuesta mucho menos.
+    #
+    # Medido en una RTX 3060 de 6 GB, transcribiendo 45s de audio:
+    #   large-v3 float16       5.5s   pico 5201 MB → quedan 943 MB libres
+    #   large-v3 int8_float16  6.9s   pico 3351 MB → quedan 2793 MB libres
+    #
+    # Los 943 MB son el problema: el escritorio ya ocupa ~970 MB en reposo y el
+    # render suma Chrome y NVENC encima. La versión anterior asumía "~3 GB en
+    # fp16, entra en 6 GB" — la medición dice 4.2 GB. La suposición era el error,
+    # no la elección de modelo. 1.4s más de cómputo compra 1.8 GB de aire.
+    if torch_cuda and cap >= 7.0 and 0 < vram_total < 8000:
+        whisper_compute_type = "int8_float16"
+    elif torch_cuda and cap >= 7.0:
         whisper_compute_type = "float16"
     elif torch_cuda:
         # Pascal (cap>=6.0, ej GTX 10x0) y cualquier cap más viejo → float32.
@@ -499,7 +516,7 @@ def _recommend(prof: dict) -> dict:
 # reporta. Este equipo estaba en esa situación: el cache decía `qwen3:4b`
 # mientras las reglas actuales recomiendan `qwen3:8b`, o sea que el análisis
 # corría con la mitad del modelo que la máquina aguanta.
-_REGLAS_VERSION = 2
+_REGLAS_VERSION = 3
 
 
 def _fingerprint(prof: dict) -> str:

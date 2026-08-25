@@ -352,10 +352,50 @@ if (Test-Path $pyExe) {
     if ($LASTEXITCODE -eq 0) {
       Write-Ok "torch ya instalado"
     } else {
-      Write-Host "  Instalando torch CPU + torchaudio (~2 GB)..." -ForegroundColor Yellow
+      # De que rueda de torch se instale depende que la transcripcion corra en la
+      # GPU o en el procesador, y esa es la diferencia mas grande de velocidad de
+      # todo el flujo. Medido en una RTX 3060: una hora de video tarda ~22 min en
+      # CPU y ~9 min en GPU, y ademas en GPU entra el modelo grande, que transcribe
+      # mejor -- de la transcripcion dependen los cortes y los subtitulos.
+      #
+      # Antes esta linea instalaba SIEMPRE el indice de CPU. En una maquina con
+      # GPU el sistema quedaba funcionando igual, sin ningun aviso, nada mas que
+      # a menos de la mitad de velocidad: torch decia cuda=False, la deteccion de
+      # hardware lo reportaba fielmente y recomendaba CPU. Nadie veia un error.
+      #
+      # Si nvidia-smi responde, hay driver NVIDIA y vale la pena el indice CUDA.
+      # Si falla la descarga se cae al indice de CPU, que siempre funciona: mejor
+      # una instalacion lenta que una instalacion rota.
+      $tieneNvidia = $false
+      try {
+        $null = & nvidia-smi --query-gpu=name --format=csv,noheader 2>$null
+        $tieneNvidia = ($LASTEXITCODE -eq 0)
+      } catch { $tieneNvidia = $false }
+
       & $pyExe -m pip install --upgrade pip --quiet
-      & $pyExe -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu --quiet
-      Write-Ok "torch CPU instalado"
+
+      $instalado = $false
+      if ($tieneNvidia) {
+        Write-Host "  GPU NVIDIA detectada: instalando torch con CUDA (~3 GB)..." -ForegroundColor Yellow
+        & $pyExe -m pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu128 --quiet
+        if ($LASTEXITCODE -eq 0) {
+          & $pyExe -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 1)" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Ok "torch con CUDA instalado (transcripcion por GPU)"
+            $instalado = $true
+          } else {
+            Write-Host "  torch se instalo pero no ve la GPU; se usa la rueda de CPU" -ForegroundColor Yellow
+          }
+        } else {
+          Write-Host "  fallo la descarga con CUDA; se usa la rueda de CPU" -ForegroundColor Yellow
+        }
+      }
+
+      if (-not $instalado) {
+        Write-Host "  Instalando torch CPU + torchaudio (~2 GB)..." -ForegroundColor Yellow
+        & $pyExe -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu --quiet
+        Write-Ok "torch CPU instalado"
+      }
     }
   } catch {
     Write-Err "Error instalando torch: $_"

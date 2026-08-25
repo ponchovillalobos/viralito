@@ -50,6 +50,39 @@ from normalize_audio import normalize as normalize_loudness
 
 PYTHON_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PYTHON_DIR.parent
+
+
+def _avisar_de_lo_que_no_cuadra(clip_id: str, style_id: str) -> None:
+    """Revisa el proyecto antes de gastar el render, y AVISA. No frena nada.
+
+    Un render tarda minutos y casi nunca falla con un error: falla entregando un
+    video con algo mal, que sólo se descubre mirándolo. Esta revisión cuesta menos
+    de un segundo y cruza los tiempos del proyecto contra la duración real del
+    clip, que es la familia de problemas más cara de detectar a ojo.
+
+    Avisa en vez de abortar a propósito: tumbar un lote de veinte clips porque uno
+    tiene una observación sería peor que el problema que se quiere evitar, y en un
+    lote largo la salida sirve justamente para saber qué mejorar después. Que sea
+    best-effort también es deliberado — si el verificador se rompe, el render
+    sigue: nunca puede convertirse en un motivo nuevo de fallo.
+    """
+    try:
+        from verificar_proyecto import verificar  # noqa: PLC0415
+
+        proyecto_json = LF_PROJECTS / f"{clip_id}_{style_id}.json"
+        clip_mp4 = LF_CLIPS / f"{clip_id}.mp4"
+        if not proyecto_json.exists():
+            return
+        hallazgos = verificar(
+            json.loads(proyecto_json.read_text(encoding="utf-8")),
+            clip_mp4 if clip_mp4.exists() else None,
+        )
+        for h in hallazgos:
+            print(f"[revision] {clip_id}/{style_id} [{h.nivel}] {h.texto}",
+                  file=sys.stderr, flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[revision] no se pudo revisar {clip_id}/{style_id}: {e}",
+              file=sys.stderr, flush=True)
 REMOTION_DIR = PROJECT_ROOT / "remotion"
 # El MISMO intérprete que está corriendo: venv en dev, Python embeddable en el
 # paquete distribuible (la ruta hardcodeada al venv rompía en máquinas de usuarios).
@@ -1880,6 +1913,7 @@ def main() -> int:
                 f"[render] clip {ci}/{n_clips} · estilo {style_id} ({si}/{len(styles)})",
                 file=sys.stderr, flush=True,
             )
+            _avisar_de_lo_que_no_cuadra(clip_id, style_id)
             out = step_render_clip(
                 args.video_id,
                 c["index"],
