@@ -346,19 +346,62 @@ def _try_batched_transcribe(
             vad_filter=True,
             beam_size=beam,
             condition_on_previous_text=cond_prev,
+            # Tiempos REALES por palabra, del propio modelo. Antes se pedían solo
+            # los de cada frase y las palabras se repartían linealmente dentro de
+            # ella, lo que deja a todas pegadas: medido sobre un video de 99
+            # minutos, de 10.800 huecos entre palabras sólo 55 eran mayores que
+            # cero, y la mediana era exactamente 0.000s.
+            #
+            # Eso no afecta a los subtítulos —cada clip se re-transcribe con
+            # alineación propia, y ahí los huecos sí son reales— pero sí a la
+            # ELECCIÓN de dónde termina cada clip: el ajuste al fin de frase busca
+            # puntuación o una pausa de ≥0.5s, y sin pausas reales quedaban 26
+            # candidatos en 99 minutos. Por eso 7 de cada 20 clips cerraban a
+            # mitad de oración.
+            #
+            # No es gratis (el modelo alinea por atención cruzada), pero es mucho
+            # más barato que cargar un alineador aparte, y sin esto la mitad del
+            # criterio de corte no existe.
+            word_timestamps=True,
         )
         # faster_whisper devuelve Segment (objeto), no dict: normalizamos a dicts
         # con text/start/end para reusar _segments_to_words tal cual.
         segs: list[dict[str, Any]] = []
+        palabras_reales: list[dict[str, Any]] = []
         for s in seg_iter:
             try:
                 segs.append({"text": s.text, "start": float(s.start), "end": float(s.end)})
             except Exception:
                 continue
+            # `words` puede venir vacío o ausente según versión/segmento; se juntan
+            # las que haya y recién al final se decide si alcanzan.
+            for pw in (getattr(s, "words", None) or []):
+                try:
+                    palabras_reales.append({
+                        "word": str(pw.word).strip(),
+                        "start": round(float(pw.start), 3),
+                        "end": round(float(pw.end), 3),
+                        "score": round(float(getattr(pw, "probability", 0.0) or 0.0), 3),
+                    })
+                except (AttributeError, TypeError, ValueError):
+                    continue
         if not segs:
             print("[chunked] BatchedInferencePipeline no devolvió segmentos; uso ventanas", file=sys.stderr)
             return None
-        words = _segments_to_words(segs, offset=0.0)
+        # Se exige una cobertura razonable antes de confiar en las palabras reales:
+        # una lista a medias mezclada con interpolación sería peor que interpolar
+        # todo, porque los huecos dejarían de significar lo mismo a lo largo del video.
+        esperadas = sum(len(str(x["text"]).split()) for x in segs)
+        if palabras_reales and esperadas and len(palabras_reales) >= esperadas * 0.9:
+            words = palabras_reales
+        else:
+            if palabras_reales:
+                print(
+                    f"[chunked] tiempos por palabra incompletos ({len(palabras_reales)} de "
+                    f"~{esperadas}): se interpola, como antes",
+                    file=sys.stderr,
+                )
+            words = _segments_to_words(segs, offset=0.0)
         print(
             f"[chunked] BatchedInferencePipeline OK · {len(segs)} frases · {len(words)} palabras",
             file=sys.stderr, flush=True,
@@ -411,12 +454,23 @@ def transcribe_chunked(
 
         batched_words = _try_batched_transcribe(wav_path, model_size, device, compute_type)
         if batched_words is not None:
+            # La marca de alineación se DEDUCE de los datos, no se afirma: este
+            # camino ahora pide tiempos por palabra al modelo, pero cae a
+            # interpolar si vinieron incompletos, y quien lea el transcript
+            # necesita saber cuál de las dos cosas pasó. Interpolar reparte las
+            # palabras linealmente dentro de cada frase, así que quedan pegadas —
+            # si aparecen huecos de verdad, los tiempos son del modelo.
+            _huecos = sum(
+                1 for a, b in zip(batched_words, batched_words[1:])
+                if float(b.get("start", 0)) - float(a.get("end", 0)) > 0.001
+            )
+            _por_palabra = len(batched_words) > 1 and _huecos > len(batched_words) * 0.25
             return {
                 "video": video_path.name,
                 "language": WHISPER_LANGUAGE,
                 "model": model_size,
                 "duration": round(total_sec_hdr, 3),
-                "alignment": "segment",  # marca: timestamps por frase, no palabra
+                "alignment": "word" if _por_palabra else "segment",
                 "method": "batched",
                 "words": batched_words,
             }

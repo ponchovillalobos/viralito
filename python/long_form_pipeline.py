@@ -52,6 +52,48 @@ PYTHON_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PYTHON_DIR.parent
 
 
+def seleccion_de_clips(
+    proposals_path: Path | str, max_clips: int | None, explicita: str | None
+) -> str | None:
+    """Qué clips trabajar, en el formato que espera `--clips` de extract_clips.
+
+    `--max-clips` dice «limitar cantidad de clips a renderizar», pero sólo actuaba
+    como techo del ANÁLISIS. Si las propuestas ya estaban en disco con más clips,
+    el análisis se salteaba y el tope no limitaba nada: se extraían, se les hacían
+    gráficos y sólo al final se recortaba la lista para renderizar.
+
+    Medido pidiendo 3 clips de un video de 99 minutos: 20 clips extraídos (8 min)
+    y 20 pasadas de gráficos (~33 min) para material que no se iba a usar. No
+    fallaba nada; se trabajaba de más, en silencio, durante media hora.
+
+    Quedarse con las primeras N es quedarse con las MEJORES: la etapa de virality
+    deja las propuestas ordenadas por puntaje descendente (51, 46, 38, …), no por
+    tiempo. Una elección explícita con `--clips` manda siempre.
+
+    Devuelve None cuando no hay nada que acotar — que significa «todas», igual que
+    antes.
+    """
+    if explicita:
+        return explicita
+    if not max_clips or max_clips <= 0:
+        return None
+    try:
+        todas = json.loads(Path(proposals_path).read_text(encoding="utf-8")).get("clips") or []
+    except (OSError, ValueError, TypeError):
+        return None
+    if len(todas) <= max_clips:
+        return None
+    print(
+        f"[smart] hay {len(todas)} propuestas y se pidieron {max_clips}: "
+        f"se trabajan solo las {max_clips} de mejor puntaje",
+        file=sys.stderr,
+    )
+    # 0-BASED: es lo que espera `--clips`. Escrito 1-based se saltearía el clip de
+    # mejor puntaje y tomaría uno de más — un error que no falla, sólo entrega
+    # algo distinto de lo pedido, que es la clase más difícil de notar.
+    return ",".join(str(i) for i in range(max_clips))
+
+
 def _avisar_de_lo_que_no_cuadra(clip_id: str, style_id: str) -> None:
     """Revisa el proyecto antes de gastar el render, y AVISA. No frena nada.
 
@@ -1824,34 +1866,7 @@ def main() -> int:
     # Step 6: extract clips (con aspect ratio + face tracking opcional;
     # --clips limita al subset aprobado en el flujo REVISAR)
     print("\n========== STEP 6: extract clips ==========", file=sys.stderr)
-    # `--max-clips` dice "limitar cantidad de clips a renderizar", pero sólo actuaba
-    # como techo del ANÁLISIS. Si las propuestas ya estaban en disco con más clips,
-    # el análisis se saltaba y el tope no limitaba nada: se extraían, se les hacían
-    # gráficos y se renderizaban los 20 igual.
-    #
-    # Medido en esta corrida, pidiendo 3 clips de un video de 99 minutos: 20 clips
-    # extraídos (8 min) y 20 pasadas de gráficos (~33 min) para clips que no se
-    # iban a usar. No fallaba nada; simplemente se trabajaba de más, en silencio.
-    #
-    # Truncar las primeras N es quedarse con las MEJORES: la etapa de virality deja
-    # las propuestas ordenadas por puntaje descendente (51, 46, 38, …), no por
-    # tiempo. Sólo aplica si nadie pidió clips concretos con `--clips`.
-    seleccion = args.clips
-    if not seleccion and args.max_clips:
-        try:
-            _todas = json.loads(Path(proposals_path).read_text(encoding="utf-8")).get("clips") or []
-            if len(_todas) > args.max_clips:
-                # 0-based: es lo que espera `--clips` de extract_clips.py. Escrito
-                # 1-based se habría salteado el clip de mejor puntaje y tomado uno
-                # de más — un error que no falla, sólo entrega otra cosa.
-                seleccion = ",".join(str(i) for i in range(args.max_clips))
-                print(
-                    f"[smart] hay {len(_todas)} propuestas y se pidieron {args.max_clips}: "
-                    f"se trabajan solo las {args.max_clips} de mejor puntaje",
-                    file=sys.stderr,
-                )
-        except (OSError, ValueError, KeyError):
-            seleccion = args.clips
+    seleccion = seleccion_de_clips(proposals_path, args.max_clips, args.clips)
 
     with bit.etapa("extraer_clips") as _e:
         clips_info = step_extract(
