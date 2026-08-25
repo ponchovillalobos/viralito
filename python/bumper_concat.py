@@ -46,7 +46,7 @@ def probe(path: str) -> dict:
     out = subprocess.run(
         [ffprobe_bin(), "-v", "error", "-print_format", "json",
          "-show_streams", "-show_format", path],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     info = {"width": 1080, "height": 1920, "fps": 30.0, "has_audio": False, "duration": 0.0}
     try:
@@ -135,7 +135,7 @@ def main() -> None:
         "-movflags", "+faststart",
         tmp_out,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0 or not Path(tmp_out).exists():
         print(json.dumps({"ok": False, "error": proc.stderr[-400:]}))
         sys.exit(1)

@@ -79,7 +79,7 @@ _force_x264_session: str | None = None
 # ---------------------------------------------------------------------------
 def _run(cmd: list[str], timeout: int = 15) -> subprocess.CompletedProcess | None:
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except Exception:  # noqa: BLE001
         return None
 
@@ -219,7 +219,7 @@ def _encode_probe(encoder: str, timeout: int = 30) -> subprocess.CompletedProces
                 [_ffmpeg(), "-y", "-v", "error",
                  "-f", "lavfi", "-i", "color=c=black:s=320x240:r=8:d=1",
                  "-c:v", encoder, "-frames:v", "8", str(out)],
-                capture_output=True, text=True, timeout=timeout,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
             )
             ok = r.returncode == 0 and out.exists() and out.stat().st_size > 0
             # Adjuntar si el archivo existía (para la clasificación de motivo).
@@ -263,7 +263,7 @@ def _nvdec_works() -> bool:
                 [_ffmpeg(), "-y", "-v", "error",
                  "-f", "lavfi", "-i", "testsrc=s=320x240:r=8:d=1",
                  "-c:v", "libx264", "-frames:v", "8", str(src)],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
             )
             if mk.returncode != 0 or not src.exists():
                 return False
@@ -271,7 +271,7 @@ def _nvdec_works() -> bool:
                 [_ffmpeg(), "-y", "-v", "error",
                  "-hwaccel", "cuda", "-i", str(src),
                  "-f", "null", "-"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
             )
             return r.returncode == 0
     except Exception:  # noqa: BLE001

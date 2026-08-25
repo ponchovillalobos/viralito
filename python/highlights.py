@@ -325,7 +325,7 @@ def run_emotion_director(raw_path: Path, transcript_path: Path, video_id: str) -
         r = subprocess.run(
             [str(VENV_PYTHON), str(PYTHON_DIR / "emotion_director.py"),
              str(raw_path), "--transcript", str(transcript_path), "--out", str(out_path)],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
         )
         if out_path.exists():
             data = json.loads(out_path.read_text(encoding="utf-8"))
@@ -456,7 +456,7 @@ def _probe_duration(path: Path) -> float:
         r = subprocess.run(
             [str(FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         return float((r.stdout or "0").strip() or 0)
     except Exception:  # noqa: BLE001
@@ -533,7 +533,7 @@ def assemble_montage(raw_path: Path, segments: list[dict], clip_id: str,
              *ff["video_args"], "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
              *ff["container_args"], str(tmp_out)],
-            capture_output=True, text=True, timeout=1800,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
         )
         if r.returncode != 0 or not tmp_out.exists() or tmp_out.stat().st_size < 100_000:
             last = ((r.stderr or "").strip().splitlines() or ["ffmpeg falló"])[-1]
@@ -587,7 +587,7 @@ def retranscribe(montage: Path, clip_id: str, source_transcript: Path, segments:
     try:
         subprocess.run(
             [str(VENV_PYTHON), str(PYTHON_DIR / "transcribe.py"), str(montage), "--out", str(tpath)],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
         )
     except Exception as e:  # noqa: BLE001
         print(f"[highlights] re-transcripción falló: {e}", file=sys.stderr)

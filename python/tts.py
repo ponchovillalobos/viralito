@@ -59,7 +59,7 @@ def main() -> int:
                 "--output_file", str(out_path),
             ],
             input=args.text,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             capture_output=True,
             timeout=180,
         )

@@ -60,7 +60,7 @@ def _probe_duracion(video_path: Path) -> float | None:
         r = subprocess.run(
             [str(FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(video_path)],
-            capture_output=True, text=True, check=True, timeout=60,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=60,
         )
         return round(float((r.stdout or "").strip()), 3)
     except (subprocess.SubprocessError, ValueError, OSError):
@@ -92,7 +92,7 @@ def _probe_dims_rotation(video_path: Path) -> tuple[int, int, int] | None:
                 str(video_path),
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
             check=True,
         )
         data = json.loads(result.stdout or "{}")
@@ -223,7 +223,7 @@ def run_face_tracking(clip_path: Path, out_json: Path, single_frame: bool = True
     if single_frame:
         cmd.append("--single-frame")
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=120)
+        subprocess.run(cmd, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     except subprocess.CalledProcessError as e:
         print(f"[face] tracking falló: {e.stderr[-200:]}", file=sys.stderr)
         return None
@@ -509,7 +509,7 @@ def _recortar_silencios_del_clip(clip_mp4: Path) -> dict | None:
         d = subprocess.run(
             [str(VENV_PYTHON), str(PYTHON_DIR / "detect_silences.py"),
              str(clip_mp4), "--out", str(cortes)],
-            capture_output=True, text=True, timeout=300,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
         )
         if d.returncode != 0 or not cortes.exists():
             return None
@@ -522,7 +522,7 @@ def _recortar_silencios_del_clip(clip_mp4: Path) -> dict | None:
         c = subprocess.run(
             [str(VENV_PYTHON), str(PYTHON_DIR / "cut_silences.py"),
              str(clip_mp4), "--cuts", str(cortes), "--out", str(recortado)],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
         )
         # Umbral de sanidad: un archivo diminuto es un corte fallido, no un clip
         # muy limpio. Preferimos el original a publicar algo roto.
@@ -753,7 +753,7 @@ def main() -> int:
         try:
             tr = subprocess.run(
                 [str(VENV_PYTHON), str(PYTHON_DIR / "transcribe.py"), "--batch", str(batch_file)],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if tr.returncode != 0:
                 print(f"[extract] batch de transcripción falló: {tr.stderr[-400:]}", file=sys.stderr)

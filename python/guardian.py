@@ -188,7 +188,7 @@ def main() -> int:
         pid = int(p["ProcessId"])
         # /T mata el árbol: Chromium y ffmpeg cuelgan hijos propios.
         r = subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode == 0:
             matados += 1
             print(f"  matado {p['Name']} pid {pid} ({p['_ram_gb']} GB)")

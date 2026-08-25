@@ -303,7 +303,7 @@ def _torch_ya_es_cuda() -> bool:
     try:
         r = subprocess.run(
             [PY, "-c", "import torch; print(torch.cuda.is_available())"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         return "True" in (r.stdout or "")
     except Exception:
@@ -458,7 +458,7 @@ def _ollama_pull(model: str, timeout: int) -> tuple[bool, str]:
     """`ollama pull <model>` con un solo intento (timeout largo). (ok, error)."""
     try:
         r = subprocess.run(
-            ["ollama", "pull", model], capture_output=True, text=True, timeout=timeout
+            ["ollama", "pull", model], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout
         )
         if r.returncode == 0:
             return True, ""

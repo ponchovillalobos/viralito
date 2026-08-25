@@ -80,7 +80,7 @@ def duracion_de(video: Path) -> float | None:
         r = subprocess.run(
             [str(config.FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(video)],
-            capture_output=True, text=True, check=True, timeout=60,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=60,
         )
         return float((r.stdout or "").strip())
     except (subprocess.SubprocessError, ValueError, OSError):

@@ -67,7 +67,7 @@ def _render(props_json: Path, salida: Path, con_gpu: bool) -> float:
 
     t0 = time.time()
     r = subprocess.run(cmd, cwd=str(REMOTION_DIR), env=entorno,
-                       capture_output=True, text=True, timeout=3600)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600)
     if r.returncode != 0 or not salida.exists():
         cola = (r.stderr or "").strip().splitlines()[-8:]
         raise RuntimeError(f"el render {'con GPU' if con_gpu else 'por software'} falló:\n"
@@ -80,7 +80,7 @@ def _psnr(a: Path, b: Path) -> dict:
     r = subprocess.run(
         [str(config.FFMPEG_PATH), "-hide_banner", "-i", str(a), "-i", str(b),
          "-lavfi", "psnr", "-f", "null", "-"],
-        capture_output=True, text=True, timeout=1800,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
     )
     salida = (r.stderr or "")
     m = re.search(r"PSNR.*?average:([\d.]+|inf)", salida)
@@ -99,7 +99,7 @@ def _psnr(a: Path, b: Path) -> dict:
 def _duracion(v: Path) -> float:
     r = subprocess.run(
         [str(config.FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
-         "-of", "csv=p=0", str(v)], capture_output=True, text=True)
+         "-of", "csv=p=0", str(v)], capture_output=True, text=True, encoding="utf-8", errors="replace")
     try:
         return float((r.stdout or "0").strip())
     except ValueError:

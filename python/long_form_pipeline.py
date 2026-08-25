@@ -833,7 +833,7 @@ def _blaze_trackpath(clip_video: Path) -> list[dict]:
                 str(VENV_PYTHON), str(PYTHON_DIR / "face_tracking.py"),
                 str(clip_video), str(out_json), "--sample-every", "5",
             ],
-            check=False, cwd=PYTHON_DIR, capture_output=True, text=True, timeout=180,
+            check=False, cwd=PYTHON_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
         )
         d = json.loads(out_json.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
@@ -894,7 +894,7 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         else:
             proc = subprocess.run(
                 [str(VENV_PYTHON), str(PYTHON_DIR / "track_subject.py"), str(clip_video), "0.15"],
-                check=False, cwd=PYTHON_DIR, capture_output=True, text=True, timeout=180,
+                check=False, cwd=PYTHON_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
             )
             line = next(
                 (l for l in reversed(proc.stdout.splitlines()) if l.strip().startswith("{")),

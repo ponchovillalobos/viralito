@@ -142,7 +142,7 @@ def run_yt_dlp(url: str, output_dir: Path, item_id: str, platform: str) -> Path:
                 )
 
     print(f"[yt-dlp] descargando {url}", file=sys.stderr)
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         stderr_tail = proc.stderr[-500:]
         print(f"[yt-dlp] stderr: {stderr_tail}", file=sys.stderr)

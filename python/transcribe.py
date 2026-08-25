@@ -169,7 +169,7 @@ def extract_audio(video_path: Path, out_wav: Path) -> None:
         "-ac", "1",
         str(out_wav),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         err = (proc.stderr or "").lower()
         if "moov atom not found" in err or "invalid data" in err:

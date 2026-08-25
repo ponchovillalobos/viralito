@@ -48,7 +48,7 @@ def _probe_duration(path: Path) -> float:
         res = subprocess.run(
             [str(FFPROBE_PATH), "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         return float((res.stdout or "0").strip() or 0)
     except Exception:  # noqa: BLE001
@@ -143,7 +143,7 @@ def build_supercut(video_id: str, top: int, max_seconds: float, style_pref: str 
                 *ff["container_args"],
                 str(tmp_out),
             ],
-            capture_output=True, text=True, timeout=1800,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
         )
         if res.returncode != 0 or not tmp_out.exists() or tmp_out.stat().st_size < 100_000:
             last = ((res.stderr or "").strip().splitlines() or ["ffmpeg falló"])[-1]
