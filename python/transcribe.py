@@ -50,7 +50,7 @@ warnings.filterwarnings("ignore", message=r".*torchcodec.*", category=UserWarnin
 # Si dudás del karaoke con beam=1, dejá beam=1 (default) y reportá; el override
 # VIRAL_WHISPER_BEAM=5 recupera la calidad anterior exacta.
 
-def _batch_size(device: str) -> int:
+def _batch_size(device: str, con_tiempos_por_palabra: bool = False) -> int:
     """Cuántos fragmentos de voz se transcriben a la vez, según el hardware.
 
     El valor estaba escrito a mano como `16 if device == "cuda" else 8` en TRES
@@ -64,15 +64,29 @@ def _batch_size(device: str) -> int:
     recomendaciones por hardware; si no está disponible se conserva el valor de
     antes, que es exactamente el comportamiento previo.
     """
+    bs = 16 if device == "cuda" else 8
     try:
         from hw_profile import detect  # noqa: PLC0415
 
-        bs = detect().get("recommend", {}).get("whisper_batch_size")
-        if isinstance(bs, int) and bs > 0:
-            return bs
+        perfil = detect()
+        recomendado = perfil.get("recommend", {}).get("whisper_batch_size")
+        if isinstance(recomendado, int) and recomendado > 0:
+            bs = recomendado
+        vram = int((perfil.get("gpu_nvidia") or {}).get("vram_total_mb") or 0)
     except Exception:  # noqa: BLE001
-        pass
-    return 16 if device == "cuda" else 8
+        vram = 0
+
+    # Pedir tiempos por palabra cuesta memoria: el modelo alinea por atención
+    # cruzada y guarda esas matrices además de lo normal. Medido en la RTX 3060 de
+    # 6 GB con large-v3, sobre un video de 99 minutos:
+    #     lote 8 + tiempos por palabra  →  se cayó sin mensaje (código 58)
+    #     lote 4 + tiempos por palabra  →  228 s, sin problemas
+    # La caída no dejó rastro en el log porque el proceso muere de golpe al
+    # quedarse sin VRAM, así que es de las que se diagnostican mirando nvidia-smi
+    # y no la salida.
+    if con_tiempos_por_palabra and device == "cuda" and 0 < vram < 8000:
+        bs = max(1, bs // 2)
+    return bs
 
 
 def _whisper_beam() -> int:
@@ -331,7 +345,9 @@ def _try_batched_transcribe(
         base = WhisperModel(model_size, device=device, compute_type=compute_type, **wm_kwargs)
         pipeline = BatchedInferencePipeline(model=base)
         # batch_size alto en GPU, moderado en CPU. VAD recorta silencios.
-        batch_size = _batch_size(device)
+        # Este camino pide tiempos por palabra, que consumen memoria extra: el lote
+        # se ajusta por eso (ver `_batch_size`).
+        batch_size = _batch_size(device, con_tiempos_por_palabra=True)
         beam = _whisper_beam()
         cond_prev = _condition_on_previous()
         print(
@@ -346,19 +362,62 @@ def _try_batched_transcribe(
             vad_filter=True,
             beam_size=beam,
             condition_on_previous_text=cond_prev,
+            # Tiempos REALES por palabra, del propio modelo. Antes se pedían solo
+            # los de cada frase y las palabras se repartían linealmente dentro de
+            # ella, lo que deja a todas pegadas: medido sobre un video de 99
+            # minutos, de 10.800 huecos entre palabras sólo 55 eran mayores que
+            # cero, y la mediana era exactamente 0.000s.
+            #
+            # Eso no afecta a los subtítulos —cada clip se re-transcribe con
+            # alineación propia, y ahí los huecos sí son reales— pero sí a la
+            # ELECCIÓN de dónde termina cada clip: el ajuste al fin de frase busca
+            # puntuación o una pausa de ≥0.5s, y sin pausas reales quedaban 26
+            # candidatos en 99 minutos. Por eso 7 de cada 20 clips cerraban a
+            # mitad de oración.
+            #
+            # No es gratis (el modelo alinea por atención cruzada), pero es mucho
+            # más barato que cargar un alineador aparte, y sin esto la mitad del
+            # criterio de corte no existe.
+            word_timestamps=True,
         )
         # faster_whisper devuelve Segment (objeto), no dict: normalizamos a dicts
         # con text/start/end para reusar _segments_to_words tal cual.
         segs: list[dict[str, Any]] = []
+        palabras_reales: list[dict[str, Any]] = []
         for s in seg_iter:
             try:
                 segs.append({"text": s.text, "start": float(s.start), "end": float(s.end)})
             except Exception:
                 continue
+            # `words` puede venir vacío o ausente según versión/segmento; se juntan
+            # las que haya y recién al final se decide si alcanzan.
+            for pw in (getattr(s, "words", None) or []):
+                try:
+                    palabras_reales.append({
+                        "word": str(pw.word).strip(),
+                        "start": round(float(pw.start), 3),
+                        "end": round(float(pw.end), 3),
+                        "score": round(float(getattr(pw, "probability", 0.0) or 0.0), 3),
+                    })
+                except (AttributeError, TypeError, ValueError):
+                    continue
         if not segs:
             print("[chunked] BatchedInferencePipeline no devolvió segmentos; uso ventanas", file=sys.stderr)
             return None
-        words = _segments_to_words(segs, offset=0.0)
+        # Se exige una cobertura razonable antes de confiar en las palabras reales:
+        # una lista a medias mezclada con interpolación sería peor que interpolar
+        # todo, porque los huecos dejarían de significar lo mismo a lo largo del video.
+        esperadas = sum(len(str(x["text"]).split()) for x in segs)
+        if palabras_reales and esperadas and len(palabras_reales) >= esperadas * 0.9:
+            words = palabras_reales
+        else:
+            if palabras_reales:
+                print(
+                    f"[chunked] tiempos por palabra incompletos ({len(palabras_reales)} de "
+                    f"~{esperadas}): se interpola, como antes",
+                    file=sys.stderr,
+                )
+            words = _segments_to_words(segs, offset=0.0)
         print(
             f"[chunked] BatchedInferencePipeline OK · {len(segs)} frases · {len(words)} palabras",
             file=sys.stderr, flush=True,
@@ -411,12 +470,29 @@ def transcribe_chunked(
 
         batched_words = _try_batched_transcribe(wav_path, model_size, device, compute_type)
         if batched_words is not None:
+            # La marca de alineación se DEDUCE de los datos, no se afirma: este
+            # camino ahora pide tiempos por palabra al modelo, pero cae a
+            # interpolar si vinieron incompletos, y quien lea el transcript
+            # necesita saber cuál de las dos cosas pasó. Interpolar reparte las
+            # palabras linealmente dentro de cada frase, así que quedan pegadas —
+            # si aparecen huecos de verdad, los tiempos son del modelo.
+            _huecos = sum(
+                1 for a, b in zip(batched_words, batched_words[1:])
+                if float(b.get("start", 0)) - float(a.get("end", 0)) > 0.001
+            )
+            # El umbral sale de medir, no de estimar. Interpolar deja las palabras
+            # pegadas: sobre un video de 99 minutos daba 55 huecos de 10.800 (0.5%).
+            # Con tiempos del modelo, el MISMO video da 2.364 de 10.844 (21%) — la
+            # gente encadena palabras al hablar, así que la mayoría sigue sin hueco.
+            # El primer umbral que puse fue 25% y habría clasificado mal justamente
+            # el caso bueno. Con 10% las dos situaciones quedan lejos del borde.
+            _por_palabra = len(batched_words) > 1 and _huecos > len(batched_words) * 0.10
             return {
                 "video": video_path.name,
                 "language": WHISPER_LANGUAGE,
                 "model": model_size,
                 "duration": round(total_sec_hdr, 3),
-                "alignment": "segment",  # marca: timestamps por frase, no palabra
+                "alignment": "word" if _por_palabra else "segment",
                 "method": "batched",
                 "words": batched_words,
             }
