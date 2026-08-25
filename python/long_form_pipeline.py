@@ -1954,12 +1954,17 @@ def main() -> int:
     wants_illustrations = bool(requested_styles & ILLUSTRATION_STYLES)
     if wants_graphics and clips_info:
         print("\n========== Modo Gráficos: charts + íconos por clip ==========", file=sys.stderr)
-        for c in clips_info:
-            step_graphics(
-                c["clip_id"],
-                use_llm=not args.use_heuristic,
-                illustrations=wants_illustrations,
-            )
+        # Etapa medida: son ~35-60s POR CLIP contra Ollama, secuenciales, y hasta
+        # ahora no aparecian en la bitacora — que es justo la herramienta que se
+        # usa para decidir donde optimizar.
+        with bit.etapa("graficos") as _e:
+            for c in clips_info:
+                step_graphics(
+                    c["clip_id"],
+                    use_llm=not args.use_heuristic,
+                    illustrations=wants_illustrations,
+                )
+            _e.metrica("clips_con_graficos", len(clips_info))
 
     # Contadores de render para el resumen final (existen aunque no se renderice).
     # Distinguen clips EXTRAÍDOS de clips realmente RENDERIZADOS: antes el JSON solo
@@ -2078,39 +2083,52 @@ def main() -> int:
             )
             return (c["index"], style_id, out, False)
 
-        try:
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {pool.submit(_render_one, t): t for t in tasks}
-                for fut in as_completed(futures):
-                    ci, c, si, style_id = futures[fut]
+        # Etapa medida: el render y todo lo que viene pegado (LUT, mastering de
+        # audio, re-encode NVENC, normalizacion de volumen) no aparecian en la
+        # bitacora. En la unica corrida historica con render eso fue el 69.8% del
+        # tiempo total — 1744 de 2499 segundos invisibles para la herramienta que
+        # existe justamente para decidir donde optimizar. Se median cuatro etapas
+        # y se leia el resultado como si fuera el 100% del pipeline.
+        with bit.etapa("render") as _er:
+            _er.metrica("tareas", len(tasks))
+            _er.metrica("estilos", len(styles))
+            _er.metrica("trabajadores", workers)
+            _er.metrica("concurrencia_por_render", rc)
+            try:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    futures = {pool.submit(_render_one, t): t for t in tasks}
+                    for fut in as_completed(futures):
+                        ci, c, si, style_id = futures[fut]
+                        try:
+                            _, _, out, was_skipped = fut.result()
+                            done_count += 1
+                            if was_skipped:
+                                skipped_count += 1
+                            else:
+                                print(
+                                    f"[ok] render -> {out} ({done_count}/{len(tasks)} listos)",
+                                    file=sys.stderr, flush=True,
+                                )
+                        except subprocess.CalledProcessError as e:
+                            print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
+                        except Exception as e:  # noqa: BLE001 — un clip fallido no tumba el lote
+                            print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
+            finally:
+                if skipped_count:
+                    print(
+                        f"[render] {skipped_count}/{len(tasks)} clip(s) saltado(s) (ya en disco); "
+                        f"{done_count - skipped_count} renderizado(s) en esta corrida",
+                        file=sys.stderr, flush=True,
+                    )
+                # Apagar el pool SIEMPRE: libera los N procesos Node + browser (RAM).
+                if render_pool is not None:
                     try:
-                        _, _, out, was_skipped = fut.result()
-                        done_count += 1
-                        if was_skipped:
-                            skipped_count += 1
-                        else:
-                            print(
-                                f"[ok] render -> {out} ({done_count}/{len(tasks)} listos)",
-                                file=sys.stderr, flush=True,
-                            )
-                    except subprocess.CalledProcessError as e:
-                        print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
-                    except Exception as e:  # noqa: BLE001 — un clip fallido no tumba el lote
-                        print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
-        finally:
-            if skipped_count:
-                print(
-                    f"[render] {skipped_count}/{len(tasks)} clip(s) saltado(s) (ya en disco); "
-                    f"{done_count - skipped_count} renderizado(s) en esta corrida",
-                    file=sys.stderr, flush=True,
-                )
-            # Apagar el pool SIEMPRE: libera los N procesos Node + browser (RAM).
-            if render_pool is not None:
-                try:
-                    render_pool.shutdown()
-                except Exception:  # noqa: BLE001
-                    pass
+                        render_pool.shutdown()
+                    except Exception:  # noqa: BLE001
+                        pass
 
+            _er.metrica("renderizados", done_count - skipped_count)
+            _er.metrica("saltados", skipped_count)
         # Cuántos clips se renderizaron REALMENTE (vs solo extraídos) → resumen final.
         render_done = done_count
 

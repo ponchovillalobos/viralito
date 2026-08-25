@@ -545,6 +545,47 @@ def _recortar_silencios_del_clip(clip_mp4: Path) -> dict | None:
         recortado.unlink(missing_ok=True)
 
 
+def transcript_es_por_palabra(transcript: dict) -> bool:
+    """¿Los tiempos de este transcript son del modelo, o interpolados?
+
+    Se MIRAN LOS DATOS en vez de creerle al campo `alignment`. La etiqueta la
+    escribe quien generó el archivo, y un archivo en disco sobrevive a los
+    cambios de código: si el criterio de clasificación se ajusta después, todo lo
+    ya escrito queda con la etiqueta vieja para siempre.
+
+    Pasó exactamente eso. El transcript de producción de un video de 99 minutos
+    decía `"alignment": "segment"` y en realidad tenía 2364 huecos reales de
+    10844 (21.8 %) y CERO palabras interpoladas — fue escrito cuando el umbral de
+    clasificación era 25 %, y quedó así cuando bajó a 10 %.
+
+    El costo no era cosmético: `extract_clips` usa este dato para decidir si
+    puede cortar el transcript o tiene que re-transcribir cada clip. Medido sobre
+    ese mismo video, 20 clips con las banderas por defecto: **365 s
+    re-transcribiendo contra ~9.7 s por clip cortando**. Y no avisa — sólo un
+    `print` a stderr que se pierde entre el resto de la salida.
+
+    Interpolar reparte las palabras linealmente dentro de cada frase, así que
+    quedan pegadas (hueco 0) y con `score` 0.0. Dos señales independientes, y
+    cualquiera de las dos alcanza: si hay huecos de verdad o hay puntajes del
+    modelo, los tiempos son reales.
+    """
+    palabras = transcript.get("words") or []
+    if len(palabras) < 2:
+        # Sin datos que mirar, se respeta lo que diga la etiqueta.
+        return transcript.get("alignment") != "segment"
+
+    con_puntaje = sum(1 for w in palabras if float(w.get("score") or 0) > 0)
+    if con_puntaje > len(palabras) * 0.5:
+        return True
+
+    huecos = sum(
+        1 for a, b in zip(palabras, palabras[1:])
+        if float(b.get("start", 0)) - float(a.get("end", 0)) > 0.001
+    )
+    return huecos > (len(palabras) - 1) * 0.10
+
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id", help="ID del video largo (sin extensión)")
@@ -638,7 +679,8 @@ def main() -> int:
     if full_transcript_path.exists():
         try:
             _t = json.loads(full_transcript_path.read_text(encoding="utf-8"))
-            use_full = _t.get("alignment") != "segment"  # solo si es nivel palabra
+            # Se miran los DATOS, no la etiqueta (ver transcript_es_por_palabra).
+            use_full = transcript_es_por_palabra(_t)
         except Exception:
             use_full = False
     if not use_full:

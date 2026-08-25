@@ -224,8 +224,26 @@ El control importa: el render **no es determinista**, así que el peor fotograma
 con la placa (31.86 dB) queda en el piso de ruido del propio motor. Para apagarla
 sin tocar código: `VIRAL_REMOTION_GL=off`.
 
-**Qué NO es el cuello de botella.** El render satura el procesador (90-100 %) y
-usa la GPU al 25-45 %. Subir la concurrencia no ayudaría.
+**Cuidado con la tabla de arriba: son porcentajes de LO MEDIDO, no del total.**
+Hasta el 25 ago la bitácora sólo instrumentaba cuatro etapas. En la única corrida
+histórica con render, lo no medido —gráficos, render, LUT, mastering, re-encode,
+normalización— fue el **69.8 % del tiempo total** (1744 de 2499 s). Ya están
+instrumentadas las seis etapas; las corridas nuevas sí reflejan el total.
+
+**Sobre la concurrencia del render.** Esta sección afirmaba que subirla no
+ayudaría, deduciéndolo de ver el procesador al 100 %. Medido después sobre un
+clip real: `--concurrency 3` (el valor que calcula `hw_profile` hoy) tarda
+131.7 s y `--concurrency 6` tarda **107.8 s, un 18 % menos**. La deducción era
+incorrecta. Antes de cambiar la fórmula falta repetir el barrido con el *pool*
+de `render-server.mjs`, que es el camino real de producción — la medición se hizo
+con el CLI directo, que re-empaqueta en cada corrida.
+
+**Lo que sí está medido sobre correr cosas en paralelo:** un render de Remotion
+tardó **20.6× más** (266 s → 5492 s) al competir con una generación de Ollama.
+El render no usa VRAM (69 MB durante toda la corrida): la contención es de
+procesador. Por eso la cola es serial por omisión, y por eso subir
+`VIRAL_MAX_CONCURRENT_JOBS` sin planificar por etapa puede ser catastrófico y no
+sólo "algo más lento".
 
 ## Antes de hacer cambios al composition (`remotion/src/ViralVideo.tsx`)
 
