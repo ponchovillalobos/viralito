@@ -21,7 +21,7 @@ import {
   pickRandomMusicTrack,
   type BuildContext,
 } from "@/lib/style-templates";
-import { createJob, updateStep, setCurrentStyle, type Job } from "@/lib/job-store";
+import { createJob, updateStep, setCurrentStyle, type Job , registerEditorPid, unregisterEditorPid } from "@/lib/job-store";
 import { enqueue } from "@/lib/job-queue";
 import { autoMatchBroll, type BrollClip } from "@/lib/pexels";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
@@ -488,9 +488,23 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       await writeJsonFileAtomic(projectPath, project);
 
       // build-props
+      //
+      // El archivo de props lleva el id del proyecto en el nombre, no "props.json".
+      // `build-props.mjs` ya aceptaba ese 4to argumento —su propio comentario dice
+      // que existe "para que los previews/render paralelo no se pisen"— y este
+      // camino nunca se lo pasaba: los tres pipelines del repo arman props, dos ya
+      // usaban nombre unico (`videos/render/route.ts` y `long_form_pipeline.py`,
+      // este ultimo con el comentario explicito de que "dos workers escribiendo
+      // props.json se pisarian"), y este quedo con el literal compartido.
+      //
+      // Hoy esta dormido porque la cola corre de a uno. Se despierta en cuanto
+      // alguien suba VIRAL_MAX_CONCURRENT_JOBS, o si un proceso zombi sigue
+      // renderizando mientras el siguiente ya sobrescribio el archivo. El sintoma
+      // no seria un error: seria un video con el contenido de otro.
+      const propsFileName = `props_${projectId}.json`;
       const buildProps = await runProcess(
         "node",
-        ["build-props.mjs", videoId, projectPath],
+        ["build-props.mjs", videoId, projectPath, propsFileName],
         REMOTION_DIR,
         undefined,
         120_000
@@ -522,6 +536,9 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       // en "Video.mp4" (truncado en el primer espacio). Solución: quote explícito.
       const needsQuote = process.platform === "win32" && /\s/.test(outPath);
       const outArg = needsQuote ? `"${outPath}"` : outPath;
+      // Se registra el PID mientras el render corre, para que `forceUnstuck` pueda
+      // matar el arbol si el job se atasca. Sin esto, recuperar un job de shorts
+      // liberaba el slot de la cola pero dejaba el render vivo escribiendo detras.
       const doRender = () =>
         runProcess(
           npxExe,
@@ -541,7 +558,7 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
             // render-server.mjs lo setea en chromiumOptions; este es el fallback CLI.)
             "--disable-web-security",
             offthreadCacheFlag(),
-            "--props=props.json",
+            `--props=${propsFileName}`,
           ],
           REMOTION_DIR,
           (chunk) => {
@@ -568,7 +585,8 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
           undefined,
           // idleTimeoutMs = 15 min: si Remotion deja de emitir progreso por 15 min está colgado
           // → se mata, el step falla y la cola sigue con el próximo. Nunca queda trabada.
-          15 * 60 * 1000
+          15 * 60 * 1000,
+          (pid: number) => registerEditorPid(job.id, pid)
         );
 
       // Antes de renderizar, que Ollama suelte la memoria.
@@ -600,7 +618,7 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       if (renderServerEnabled()) {
         try {
           await renderWithServer({
-            propsPath: path.join(REMOTION_DIR, "props.json"),
+            propsPath: path.join(REMOTION_DIR, propsFileName),
             outPath,
             concurrency: remotionConcurrency(),
             timeoutMs: REMOTION_DELAY_TIMEOUT_MS,

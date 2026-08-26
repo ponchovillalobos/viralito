@@ -892,8 +892,28 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         if use_blaze:
             points = _blaze_trackpath(clip_video)
         else:
+            # Los parametros de muestreo salen del hardware, no de un literal.
+            #
+            # `hw_profile` los calcula escalonados (0.33s en equipos potentes, 0.8s
+            # en modestos; ancho de 400 o 480 px) y el flujo de SHORTS ya los lee.
+            # Este los tenia clavados en "0.15" — mas fino incluso que el nivel
+            # "potente"— sin importar la maquina. El propio docstring de
+            # `track_subject.py` afirma que "el caller pasa sample_every/downscale_w
+            # segun el hardware": cierto para shorts, falso aca.
+            #
+            # No rompia nada: 0.15 es mas preciso, solo mas lento. Pero en un equipo
+            # modesto —justo el perfil que hw_profile identifica como necesitado de
+            # muestreo mas ligero— el tracking de cada clip corria cinco veces mas
+            # denso de lo que el propio sistema recomienda, y nadie lo notaba porque
+            # no falla: tarda.
+            try:
+                _rec = __import__("hw_profile").detect().get("recommend", {})
+                _muestreo = float(_rec.get("tracking_sample_sec") or 0) or 0.15
+            except Exception:  # noqa: BLE001
+                _muestreo = 0.15
             proc = subprocess.run(
-                [str(VENV_PYTHON), str(PYTHON_DIR / "track_subject.py"), str(clip_video), "0.15"],
+                [str(VENV_PYTHON), str(PYTHON_DIR / "track_subject.py"),
+                 str(clip_video), str(_muestreo)],
                 check=False, cwd=PYTHON_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
             )
             line = next(

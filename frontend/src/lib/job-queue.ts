@@ -18,7 +18,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { getJob as getEditorJob, updateStep, persistNow } from "@/lib/job-store";
+import { getJob as getEditorJob, updateStep, persistNow , getEditorPid, unregisterEditorPid } from "@/lib/job-store";
 import {
   getLongFormJob,
   updateLongFormStep,
@@ -236,8 +236,13 @@ export function forceUnstuck(): { activeBefore: number; pendingBefore: number } 
     const kind = ACTIVE_KINDS.get(jobId);
     // 1) Matar el proceso real si lo conocemos. Sin esto, el render viejo sigue
     //    escribiendo mientras arranca uno nuevo sobre los mismos archivos.
-    if (kind === "long_form") {
-      const pid = getLongFormPid(jobId);
+    // Vale para los DOS tipos. Antes solo se mataba el arbol de los jobs de
+    // largos, porque solo esos registraban su PID: un job de shorts atascado
+    // liberaba el slot de la cola y se marcaba fallido, pero el render seguia
+    // vivo detras y el siguiente job arrancaba en paralelo real con ese zombi
+    // — encima escribiendo sobre los mismos archivos.
+    {
+      const pid = kind === "long_form" ? getLongFormPid(jobId) : getEditorPid(jobId);
       if (pid) {
         try {
           const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
@@ -245,7 +250,8 @@ export function forceUnstuck(): { activeBefore: number; pendingBefore: number } 
             windowsHide: true,
           });
           killer.on("error", () => {});
-          unregisterLongFormPid(jobId);
+          if (kind === "long_form") unregisterLongFormPid(jobId);
+          else unregisterEditorPid(jobId);
           console.log(`[job-queue] forceUnstuck: matado el arbol del pid ${pid} (${jobId})`);
         } catch {
           // best-effort: si no se pudo matar, igual se marca el job y se sigue.

@@ -35,7 +35,17 @@ export function runProcess(
   cwd?: string,
   onProgress?: (data: string) => void,
   timeoutMs?: number,
-  idleTimeoutMs?: number
+  idleTimeoutMs?: number,
+  /**
+   * Se llama con el PID apenas arranca el proceso.
+   *
+   * Existe para poder MATARLO despues. `forceUnstuck` mataba el arbol de procesos
+   * solo en los jobs de largos, porque solo esos registraban su PID; un job de
+   * shorts atascado liberaba el slot de la cola y se marcaba fallido, pero el
+   * render seguia vivo detras, escribiendo. El siguiente job arrancaba en
+   * paralelo real con ese zombi.
+   */
+  onPid?: (pid: number) => void
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     // Node 17+ rechaza .cmd/.bat con shell:false en Windows (CVE-2024-27980 → EINVAL).
@@ -51,6 +61,7 @@ export function runProcess(
       // llega en ráfagas tardías y la UI parece colgada ("Conectando…" 4 min).
       env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", PYTHONUNBUFFERED: "1" },
     });
+    if (proc.pid !== undefined) onPid?.(proc.pid);
     let stdout = "";
     let stderr = "";
     let timedOut = false;

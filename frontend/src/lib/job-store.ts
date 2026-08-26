@@ -273,3 +273,30 @@ setInterval(() => {
   }
   if (changed) persist();
 }, 5 * 60 * 1000);
+
+
+// ─── PID del proceso en curso, por job ───────────────────────────────────────
+//
+// Mismo mecanismo que `long-form-job-store.ts`, que ya lo tenia. Sin esto,
+// `forceUnstuck` sobre un job de shorts liberaba el slot de la cola y marcaba el
+// job como fallido, pero el `remotion render` seguia vivo detras — escribiendo
+// props y .mp4 mientras el siguiente job de la cola ya habia arrancado.
+declare global {
+  // eslint-disable-next-line no-var
+  var __viral_editor_pid_map__: Map<string, number> | undefined;
+}
+
+const EDITOR_PID_MAP: Map<string, number> =
+  globalThis.__viral_editor_pid_map__ ?? (globalThis.__viral_editor_pid_map__ = new Map());
+
+export function registerEditorPid(jobId: string, pid: number): void {
+  EDITOR_PID_MAP.set(jobId, pid);
+}
+
+export function getEditorPid(jobId: string): number | undefined {
+  return EDITOR_PID_MAP.get(jobId);
+}
+
+export function unregisterEditorPid(jobId: string): void {
+  EDITOR_PID_MAP.delete(jobId);
+}
