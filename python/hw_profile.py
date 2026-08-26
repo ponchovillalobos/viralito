@@ -599,7 +599,13 @@ def _recommend(prof: dict) -> dict:
 # reporta. Este equipo estaba en esa situación: el cache decía `qwen3:4b`
 # mientras las reglas actuales recomiendan `qwen3:8b`, o sea que el análisis
 # corría con la mitad del modelo que la máquina aguanta.
-_REGLAS_VERSION = 3
+# 4: se encendio la aceleracion por GPU del render (chromium_gl="angle") tras la
+#    prueba de paridad. Subir este numero es OBLIGATORIO al cambiar las reglas —
+#    me lo saltee al hacer ese cambio y el cache siguio entregando la
+#    recomendacion vieja (chromium_gl=None) mientras el codigo ya decia "angle".
+#    O sea: la aceleracion quedo encendida en el codigo y apagada en la practica,
+#    dentro del mismo mecanismo que existe para evitar exactamente eso.
+_REGLAS_VERSION = 4
 
 
 def _fingerprint(prof: dict) -> str:

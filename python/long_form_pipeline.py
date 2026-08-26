@@ -327,6 +327,24 @@ def _remotion_render_cmd(out: Path, remotion_concurrency: int, props_name: str) 
     preset, _crf = _x264_recommend()
     if preset:
         base_args.append(f"--x264-preset={preset}")
+
+    # Aceleracion por GPU tambien en ESTE camino.
+    #
+    # `hw_profile` recomienda `chromium_gl` y `render-server.mjs` lo lee — pero el
+    # server es el POOL, y el pool no siempre se usa: cuando solo cabe una
+    # instancia en RAM (mensaje "[lf-pool] ... sin pool (CLI directo)"), los
+    # largos renderizan por aca. En esta maquina de 28 GB eso es lo NORMAL, asi
+    # que la aceleracion quedaba encendida en la configuracion y sin aplicarse
+    # nunca en el camino real. Es el mismo patron de "implementado pero
+    # inalcanzable" que este proyecto ya pago tres veces.
+    try:
+        from hw_profile import detect  # noqa: PLC0415
+
+        _gl = (detect().get("recommend", {}) or {}).get("chromium_gl")
+        if _gl:
+            base_args.append(f"--gl={_gl}")
+    except Exception:  # noqa: BLE001 — sin recomendacion se renderiza como siempre
+        pass
     node = _node_bin()
     cli = _remotion_cli_js()
     if node and cli:
@@ -1708,7 +1726,21 @@ def main() -> int:
                     _e.metrica("duracion_audio_min", round(_dur / 60, 1))
                     if _dur > 0:
                         _e.metrica("palabras_por_min", round(_pal / (_dur / 60), 1))
-                    _e.metrica("alineacion", _tj.get("alignment"))
+                    # Se mira el DATO, no la etiqueta. El campo `alignment` lo
+                    # escribe quien genero el archivo y sobrevive a los cambios de
+                    # criterio: un transcript con tiempos reales del modelo podia
+                    # quedar marcado "segment" para siempre, y la bitacora repetia
+                    # esa mentira. Es la misma comprobacion que usa extract_clips
+                    # para decidir si re-transcribe.
+                    try:
+                        from extract_clips import transcript_es_por_palabra  # noqa: PLC0415
+
+                        _alin = "word" if transcript_es_por_palabra(_tj) else "segment"
+                        if _alin != _tj.get("alignment"):
+                            _alin += f" (el archivo dice {_tj.get('alignment')!r})"
+                    except Exception:  # noqa: BLE001
+                        _alin = _tj.get("alignment")
+                    _e.metrica("alineacion", _alin)
                     _e.metrica("modelo", _tj.get("model"))
                 except Exception:
                     pass
