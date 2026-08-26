@@ -36,6 +36,7 @@ from config import (
     OLLAMA_URL,
     ensure_long_form_dirs,
 )
+from lib import ollama_opts as _ollama_opts
 
 EFFECTS = ["split_letters", "glitch", "shimmer", "draw_on", "gradient_sweep", "tracking_in"]
 ACCENTS = ["#34d399", "#fbbf24", "#60a5fa", "#f472b6", "#a78bfa", "#fb7185"]
@@ -387,6 +388,13 @@ def _ollama(prompt: str, temperature: float = 0.3, timeout: float = 120) -> str:
         # de _enrich_cards_llm es SILENCIOSO (devuelve las tarjetas sin reescribir,
         # sin aviso), asi que un fallo aca no se notaria.
         "think": False,
+        # Del modulo compartido, como los otros llamadores. Sin `keep_alive` el
+        # modelo se descarga entre llamadas y hay que recargarlo (segundos cada
+        # vez, y en una placa de 6 GB la carga duele); sin `num_thread` las capas
+        # que quedan en CPU usan el default de 4 hilos en vez de los nucleos
+        # fisicos reales.
+        "keep_alive": _ollama_opts.KEEP_ALIVE,
+        "num_thread": _ollama_opts.num_thread(),
         "options": {"temperature": temperature, "num_ctx": 8192},
     }
     data = json.dumps(payload).encode("utf-8")

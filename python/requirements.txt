@@ -31,6 +31,10 @@ Pillow>=10.0.0
 # Visión: motion tracking (OpenCV) + quitar fondo con IA (MediaPipe selfie segmenter)
 opencv-python>=4.9.0
 mediapipe>=0.10.0
+# onnxruntime: NO lo importa ningun script del proyecto, y aun asi NO se quita.
+# Lo requiere `faster-whisper` (verificado con `pip show onnxruntime` ->
+# Required-by: faster-whisper). Una auditoria lo marco como dependencia
+# muerta mirando solo los imports directos; sacarlo rompe la transcripcion.
 onnxruntime>=1.17.0
 
 # Beat-sync: detección de beats de la música para "cortar al ritmo"

@@ -26,6 +26,7 @@ from generate_caption import (
     _run_cli_utf8,
 )
 import urllib.request
+from lib import ollama_opts as _ollama_opts
 
 
 def build_variants_prompt(clip_text: str, current_hook: str) -> str:
@@ -60,6 +61,13 @@ def call_ollama_variants(prompt: str) -> dict[str, Any]:
         # Modelos "thinking" (qwen3): sin esto el output se va a `thinking` y
         # `response` llega VACÍO → "Expecting value". Ollama viejo ignora el campo.
         "think": False,
+        # Del modulo compartido, como los otros llamadores. Sin `keep_alive` el
+        # modelo se descarga entre llamadas y hay que recargarlo (segundos cada
+        # vez, y en una placa de 6 GB la carga duele); sin `num_thread` las capas
+        # que quedan en CPU usan el default de 4 hilos en vez de los nucleos
+        # fisicos reales.
+        "keep_alive": _ollama_opts.KEEP_ALIVE,
+        "num_thread": _ollama_opts.num_thread(),
         "options": {"temperature": 0.9, "num_ctx": 4096},
     }
     req = urllib.request.Request(

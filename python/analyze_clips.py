@@ -266,16 +266,16 @@ def _try_parse_clips(response_text: str) -> list[dict[str, Any]] | None:
     return rescued if rescued else None
 
 
+# `lib/ollama_opts.py` existe justamente para esto: su docstring dice que nacio
+# porque "el tuning de Ollama estaba INCONSISTENTE entre callers". Este archivo
+# tenia una copia identica de la funcion, con la misma logica escrita dos veces —
+# el problema que el modulo declaraba haber resuelto seguia vivo aca.
+from lib import ollama_opts as _ollama_opts  # noqa: E402
+
+
 def _ollama_num_thread() -> int:
-    """Núcleos FÍSICOS para Ollama (num_thread), clamp >=4. Import lazy de hw_profile
-    para no pagar la detección si nunca se llama a Ollama. Si la detección falla por
-    cualquier motivo, caemos a 4 (no rompe el análisis)."""
-    try:
-        import hw_profile  # noqa: PLC0415
-        cores = int(hw_profile.detect().get("cores_physical") or 0)
-    except Exception:
-        cores = 0
-    return max(4, cores)
+    """Nucleos fisicos para Ollama. Delega en el modulo compartido."""
+    return _ollama_opts.num_thread()
 
 
 def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
@@ -294,7 +294,7 @@ def _ollama_request(prompt: str, model: str, temperature: float = 0.3) -> str:
         "think": False,
         # keep_alive mantiene el modelo en RAM entre clips para no pagar la recarga (segundos).
         # 10m es moderado: en PC sin GPU/8GB no presiona la RAM mientras Remotion renderiza.
-        "keep_alive": "10m",
+        "keep_alive": _ollama_opts.KEEP_ALIVE,
         # num_thread = núcleos físicos (clamp >=4): cuando Ollama corre en CPU usa toda
         # la CPU para el análisis. Si hay GPU, Ollama ya descarga en la GPU y este valor
         # no estorba (sólo aplica a las capas que queden en CPU). Mantenemos num_ctx y
