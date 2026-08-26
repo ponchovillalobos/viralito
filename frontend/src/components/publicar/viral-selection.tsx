@@ -233,7 +233,7 @@ export function ViralSelection() {
             >
               <X className="h-4 w-4" />
             </button>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            { }
             <video
               src={`/api/videos/${encodeURIComponent(playing)}/stream?source=render`}
               controls

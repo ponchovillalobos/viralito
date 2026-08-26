@@ -282,7 +282,7 @@ setInterval(() => {
 // job como fallido, pero el `remotion render` seguia vivo detras — escribiendo
 // props y .mp4 mientras el siguiente job de la cola ya habia arrancado.
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __viral_editor_pid_map__: Map<string, number> | undefined;
 }
 

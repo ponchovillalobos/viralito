@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -70,11 +71,20 @@ export function ProductionList() {
 
   // Deep-link: /publicar?q=<texto> pre-filtra la lista (p.ej. el botón "ver mi video de
   // Mejores Momentos" del wizard abre acá filtrado directo al reel recién creado).
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const q = new URLSearchParams(window.location.search).get("q");
-    if (q) setSearch(q);
-  }, []);
+  // El filtro inicial sale del hook de Next, no de leer `window` en un efecto.
+  //
+  // Con el efecto la lista se pintaba UNA VEZ sin filtrar y despues se corregia
+  // — un parpadeo visible cuando venis del enlace del asistente. Y era un
+  // setState sincrono dentro de un efecto, el render en cascada que React 19
+  // marca como error. `useSearchParams` funciona igual en el render del servidor
+  // y en el del navegador, asi que no hay desajuste de hidratacion.
+  const parametros = useSearchParams();
+  const qInicial = parametros.get("q") ?? "";
+  const [prevQ, setPrevQ] = useState(qInicial);
+  if (prevQ !== qInicial) {
+    setPrevQ(qInicial);
+    if (qInicial) setSearch(qInicial);
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();

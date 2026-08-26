@@ -27,7 +27,7 @@ export function StyleMotionPreview({
   const [failed, setFailed] = useState(false);
   if (failed) return <>{fallback}</>;
   return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption
+     
     <video
       src={`/style-previews/${styleId}_${horizontal ? "h" : "v"}.mp4`}
       autoPlay

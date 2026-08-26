@@ -54,8 +54,13 @@ export function PublishComposer({
   onOpenChange: (v: boolean) => void;
   onScheduled: () => void;
 }) {
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
+  // `null` = todavia no se pidieron. Distinto de `[]`, que significa "se
+  // pidieron y no hay ninguno". Esa distincion permite DERIVAR el estado de
+  // carga en vez de sincronizarlo con un setState dentro del efecto — que era
+  // un render en cascada (efecto -> setState -> render -> efecto) y lo que el
+  // linter de React 19 marcaba como error.
+  const [projects, setProjects] = useState<ProjectItem[] | null>(null);
+  const loadingProjects = open && projects === null;
   const [videoId, setVideoId] = useState<string>("");
   const [nets, setNets] = useState<Set<PlatformKey>>(new Set(["instagram"]));
   const [caption, setCaption] = useState("");
@@ -66,26 +71,36 @@ export function PublishComposer({
   // Cargar los videos disponibles al abrir.
   useEffect(() => {
     if (!open) return;
-    setLoadingProjects(true);
     fetch("/api/projects")
       .then((r) => r.json())
       .then((d) => {
         const list: ProjectItem[] = Array.isArray(d) ? d : d.projects ?? [];
         setProjects(list.filter((p) => p && p.id));
       })
-      .catch(() => setProjects([]))
-      .finally(() => setLoadingProjects(false));
+      .catch(() => setProjects([]));
   }, [open]);
 
-  const selected = useMemo(() => projects.find((p) => p.id === videoId), [projects, videoId]);
+  const selected = useMemo(() => projects?.find((p) => p.id === videoId), [projects, videoId]);
 
   // Al elegir video, pre-cargar el caption (del primer red seleccionada o el general).
-  useEffect(() => {
-    if (!selected) return;
-    const firstNet = [...nets][0];
-    const fromNet = firstNet && selected.captions?.[firstNet];
-    setCaption(fromNet || selected.caption || "");
-  }, [selected, nets]);
+  // Al cambiar de video (o de red), se re-carga el caption sugerido.
+  //
+  // Va durante el RENDER y no en un efecto, comparando contra el valor anterior.
+  // Es el patron que React documenta para "ajustar estado cuando una prop
+  // cambia": React descarta el render en curso y vuelve a renderizar antes de
+  // pintar, asi que no se ve un parpadeo con el caption viejo. Hacerlo en un
+  // efecto era un render en cascada — el usuario alcanzaba a ver el texto
+  // anterior un instante.
+  const claveFuente = `${selected?.id ?? ""}|${[...nets][0] ?? ""}`;
+  const [prevFuente, setPrevFuente] = useState(claveFuente);
+  if (prevFuente !== claveFuente) {
+    setPrevFuente(claveFuente);
+    if (selected) {
+      const firstNet = [...nets][0];
+      const fromNet = firstNet && selected.captions?.[firstNet];
+      setCaption(fromNet || selected.caption || "");
+    }
+  }
 
   function toggleNet(k: PlatformKey) {
     setNets((prev) => {
@@ -169,7 +184,7 @@ export function PublishComposer({
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Elegí un video —</option>
-                {projects.map((p) => (
+                {(projects ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.id}
                   </option>

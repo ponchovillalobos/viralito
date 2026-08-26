@@ -109,7 +109,14 @@ export function StickerPicker({ onAdd, currentTime, selectedCount = 0 }: Props) 
   // handlePick para que ese callback NO se recree cada tick (lo que re-renderizaría
   // todas las celdas virtualizadas vía cellProps).
   const currentTimeRef = useRef(currentTime);
-  currentTimeRef.current = currentTime;
+  // Se actualiza en un efecto, no durante el render. Mutar un ref mientras React
+  // renderiza es de las cosas que el compilador de React 19 puede reordenar u
+  // omitir al optimizar, y entonces el callback leeria un tiempo viejo. El ref
+  // solo se consulta dentro de `handlePick`, que corre cuando alguien hace clic
+  // — mucho despues del render — asi que el efecto llega de sobra.
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
 
   // FAVORITOS y RECIENTES — persistidos en localStorage (sobreviven recargas).
   const favorites = useLocalStorageList(FAVORITES_KEY);
@@ -486,12 +493,11 @@ function StickerCell({
   // Lottie: traer el JSON SÓLO al primer hover (nunca al montar). Una vez bajado,
   // queda en el cache de MÓDULO (por url) para todas las celdas y reciclajes.
   useEffect(() => {
+    // El cache ya no se copia al estado: se lee directo mas abajo (`animacion`).
+    // Copiarlo era un setState sincrono dentro del efecto — un render en cascada
+    // para un dato que ya estaba en memoria y no necesitaba pasar por el estado.
     if (item.type !== "lottie" || !hover || lottieData) return;
-    const cached = lottieCache.get(item.url);
-    if (cached) {
-      setLottieData(cached);
-      return;
-    }
+    if (lottieCache.has(item.url)) return;
     let cancelled = false;
     fetch(item.url)
       .then((r) => (r.ok ? r.json() : null))
@@ -504,6 +510,14 @@ function StickerCell({
       cancelled = true;
     };
   }, [hover, item.type, item.url, lottieData]);
+
+  // Lo que se dibuja: el estado si ya se bajo en ESTA celda, y si no el cache de
+  // modulo (otra celda pudo haberlo bajado despues de que esta se monto). Se
+  // DERIVA en vez de copiarse al estado — copiarlo era un setState sincrono
+  // dentro del efecto, y ademas dejaba un hueco: una celda montada antes de que
+  // el archivo entrara al cache se quedaba sin animacion para siempre, porque su
+  // inicializacion perezosa ya habia corrido con el cache vacio.
+  const animacion = lottieData ?? (hover ? lottieCache.get(item.url) ?? null : null);
 
   // Las ilustraciones (personas CC0) ya son a color → NO se tiñen (sin filtro invert).
   const isIllustration = item.type === "illustration";
@@ -522,10 +536,10 @@ function StickerCell({
       >
         <div className="flex h-12 w-12 items-center justify-center">
           {item.type === "lottie" ? (
-            hover && lottieData ? (
+            hover && animacion ? (
               <Lottie
                 lottieRef={lottieRef}
-                animationData={lottieData}
+                animationData={animacion}
                 loop
                 autoplay
                 style={{ width: 48, height: 48 }}

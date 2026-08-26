@@ -14,7 +14,7 @@
  */
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __viral_serial_locks__: Map<string, Promise<void>> | undefined;
 }
 

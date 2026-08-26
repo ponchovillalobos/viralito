@@ -450,7 +450,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
 
   // Load on mount: lista de videos raw. Patrón válido aunque el lint quiera use(promise).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     loadVideos();
   }, []);
 
@@ -507,7 +507,13 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   // Sincroniza cinematicConfig.enabled con la selección del estilo cinematic_pro,
   // SIN pisar los toggles/overlays que el user haya ajustado a mano (solo togglea
   // `enabled` y aplica defaults la PRIMERA vez que se enciende).
-  useEffect(() => {
+  // Va durante el RENDER, comparando contra el valor anterior, en vez de en un
+  // efecto: es el patron que React documenta para ajustar estado cuando una prop
+  // cambia. Con el efecto, el paso 2 alcanzaba a pintarse una vez con la config
+  // vieja antes de corregirse.
+  const [prevCinematic, setPrevCinematic] = useState(hasCinematic);
+  if (prevCinematic !== hasCinematic) {
+    setPrevCinematic(hasCinematic);
     setCinematicConfig((prev) => {
       if (hasCinematic && !prev.enabled) {
         // Al activar el estilo: encender con defaults cine (no toca overlays ya subidos).
@@ -525,7 +531,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       }
       return prev;
     });
-  }, [hasCinematic]);
+  }
 
   // Mapeo inverso preset ← selectedStyles (DERIVADO, sin estado extra): con
   // EXACTAMENTE 1 estilo que pertenece a una familia, esa tarjeta+chip se
