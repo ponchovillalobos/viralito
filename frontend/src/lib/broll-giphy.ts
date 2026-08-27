@@ -43,6 +43,46 @@ function conTimeout(url: string, ms = 10_000): Promise<Response> {
  * `rating: pg-13` filtra el catálogo: es material que va a salir sobreimpreso
  * en un video que se publica, así que se descarta lo explícito de entrada.
  */
+/**
+ * Una imagen fija de Giphy, para la vista previa del selector.
+ *
+ * `buscarGifMp4` exige que la variante traiga MP4 — con razon, porque el render
+ * necesita video. Pero la MINIATURA no: pedir un mp4 para mostrar una imagen
+ * acoplaba la vista previa a un requisito que no le corresponde, y la dejaba
+ * vacia cada vez que el primer resultado no tuviera esa variante.
+ *
+ * Devuelve `null` ante cualquier fallo: la tarjeta se muestra sin miniatura y se
+ * puede elegir igual.
+ */
+export async function buscarMuestraGiphy(query: string): Promise<string | null> {
+  const key = process.env.GIPHY_API_KEY;
+  if (!key || !query.trim()) return null;
+  try {
+    const params = new URLSearchParams({
+      api_key: key,
+      q: query,
+      limit: "1",
+      rating: "g",
+    });
+    const res = await conTimeout(`${GIPHY_API}?${params}`);
+    if (!res.ok) {
+      console.warn(`[giphy] muestra "${query}" devolvio ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as { data?: GiphyItem[] };
+    const im = data.data?.[0]?.images as Record<string, { url?: string }> | undefined;
+    // De mas chica a mas grande: alcanza con que se vea el estilo del material.
+    for (const k of ["fixed_width_still", "480w_still", "original_still", "downsized_still"]) {
+      const u = im?.[k]?.url;
+      if (u) return u;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+
 export async function buscarGifMp4(
   query: string
 ): Promise<{ url: string; thumbnail?: string; width?: number; height?: number } | null> {

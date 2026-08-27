@@ -68,7 +68,9 @@ interface ProcessBody {
    * elegirlo; el de largos fijaba Pexels, asi que pedir GIFs o fotos no era
    * posible aunque el buscador supiera hacerlo.
    */
-  brollSource?: "auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0";
+  brollSource?:
+    | "auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0"
+    | Array<"auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0">;
   /**
    * Flujo REVISAR antes de generar:
    *   "full" (default)  → comportamiento clásico intacto (analiza+extrae+genera).
@@ -146,8 +148,11 @@ export async function processJob(
   if (body.accentColor) args.push("--accent-color", body.accentColor);
   // "auto" no viaja: sin el argumento el pipeline decide como siempre, asi que
   // quien no elija nada obtiene exactamente el resultado de antes.
-  if (body.brollSource && body.brollSource !== "auto") {
-    args.push("--broll-source", body.brollSource);
+  // Varias fuentes viajan separadas por coma; el pipeline las reparte entre los
+  // momentos del video. "auto" no viaja: sin el argumento se decide como siempre.
+  const fuentesBroll = [body.brollSource ?? []].flat().filter((f) => f && f !== "auto");
+  if (fuentesBroll.length) {
+    args.push("--broll-source", fuentesBroll.join(","));
   }
   if (body.subtitleFont && body.subtitleFont !== "auto") {
     args.push("--subtitle-font", body.subtitleFont);

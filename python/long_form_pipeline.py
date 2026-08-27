@@ -812,8 +812,19 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
         # Sin fuente elegida el endpoint decide como siempre. Se omite en vez de
         # mandar "auto" para que el comportamiento por defecto sea identico al
         # de antes, byte por byte.
-        if fuente and fuente != "auto":
-            cuerpo["source"] = fuente
+        # Se acepta una fuente o varias separadas por coma. Se validan aca en vez
+        # de con `choices` de argparse porque argparse compara el valor ENTERO
+        # contra la lista, y "giphy,pexels_photo" no es ninguno de los cinco:
+        # rechazaria una peticion valida con un error confuso.
+        VALIDAS = {"auto", "pexels_video", "pexels_photo", "giphy", "cc0"}
+        elegidas = [f.strip() for f in str(fuente or "").split(",") if f.strip()]
+        desconocidas = [f for f in elegidas if f not in VALIDAS]
+        if desconocidas:
+            print(f"[broll] fuente(s) desconocida(s), se ignoran: {desconocidas}",
+                  file=sys.stderr)
+        elegidas = [f for f in elegidas if f in VALIDAS and f != "auto"]
+        if elegidas:
+            cuerpo["source"] = elegidas if len(elegidas) > 1 else elegidas[0]
         payload = json.dumps(cuerpo).encode("utf-8")
         req = urllib.request.Request(
             f"{api.rstrip('/')}/api/long_form/broll",
@@ -1493,11 +1504,13 @@ def main() -> int:
     parser.add_argument(
         "--broll-source",
         default=None,
-        choices=["auto", "pexels_video", "pexels_photo", "giphy", "cc0"],
         help=(
             "De donde salen las imagenes de apoyo en los estilos de archivo "
-            "(editorial_broll / broll_full / broll_pip). Sin esto se decide como "
-            "siempre, que es lo mismo que 'auto'."
+            "(editorial_broll / broll_full / broll_pip). Una fuente, o VARIAS "
+            "separadas por coma: 'giphy,pexels_photo'. Con varias se alternan "
+            "momento a momento — agrupadas se verian como dos videos pegados. "
+            "Validas: auto, pexels_video, pexels_photo, giphy, cc0. Sin esto se "
+            "decide como siempre, que es lo mismo que 'auto'."
         ),
     )
     parser.add_argument(

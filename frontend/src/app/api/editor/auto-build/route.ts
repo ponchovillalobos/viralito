@@ -366,7 +366,7 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
             source: body.brollSource,
           });
           console.log(
-            `[auto-build] auto b-roll (${styleId}, fuente ${body.brollSource ?? "auto"}): ` +
+            `[auto-build] auto b-roll (${styleId}, fuente ${[body.brollSource ?? "auto"].flat().join("+")}): ` +
               `${autoBroll.length}/${brollCount} clips (video ${Math.round(transcript.duration)}s)`
           );
         } catch (err) {

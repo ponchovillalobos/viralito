@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     clipId?: string;
     aspectRatio?: string;
-    // De donde salen las imagenes de apoyo. El de shorts ya lo aceptaba; este
-    // fijaba Pexels, asi que en largos no habia forma de pedir GIFs ni fotos.
-    source?: BrollSource;
+    // De donde salen las imagenes de apoyo. Una fuente, o varias que se
+    // alternan momento a momento.
+    source?: BrollSource | BrollSource[];
     count?: number;
   };
   const clipId = (body.clipId ?? "").trim();

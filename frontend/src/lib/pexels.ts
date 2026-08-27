@@ -266,6 +266,44 @@ async function buscarFotoPexels(
  * Busca clips de Pexels para las keywords del transcript y los devuelve temporizados.
  * `count` clips, cada uno de `clipDur` segundos arrancando en el timestamp de su keyword.
  */
+/**
+ * Una miniatura de muestra de Pexels, para el selector de fuentes.
+ *
+ * El selector pedia elegir entre "Videos", "Fotos" y "GIFs" a ciegas: los
+ * nombres no dicen como se ve el resultado. Esto trae material del MISMO sitio
+ * del que va a salir el B-roll, asi que lo que se ve al elegir es lo que se va a
+ * obtener — no un dibujito representativo.
+ *
+ * Devuelve `null` ante cualquier fallo: el selector muestra la tarjeta sin
+ * miniatura y sigue funcionando. Nadie se queda sin poder elegir porque una
+ * fuente esta caida.
+ */
+export async function buscarMuestraPexels(
+  q: string,
+  key: string,
+  esFoto: boolean
+): Promise<string | null> {
+  try {
+    const ruta = esFoto
+      ? `${PEXELS_API}/v1/search?query=${encodeURIComponent(q)}&per_page=1&orientation=portrait`
+      : `${PEXELS_API}/videos/search?query=${encodeURIComponent(q)}&per_page=1&orientation=portrait`;
+    const res = await fetch(ruta, {
+      headers: { Authorization: key, "User-Agent": PEXELS_UA },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      photos?: Array<{ src?: { medium?: string; small?: string } }>;
+      videos?: Array<{ image?: string }>;
+    };
+    return esFoto
+      ? data.photos?.[0]?.src?.medium ?? data.photos?.[0]?.src?.small ?? null
+      : data.videos?.[0]?.image ?? null;
+  } catch {
+    return null;
+  }
+}
+
+
 export async function autoMatchBroll(
   keywords: Keyword[],
   duration: number,

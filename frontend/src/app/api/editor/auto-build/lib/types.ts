@@ -59,7 +59,8 @@ export interface AutoBuildRequest {
    *   giphy          — GIFs de Giphy, servidos como MP4 para que se animen
    *   cc0            — solo dominio público, sin clave
    */
-  brollSource?: BrollSource;
+  /** Una fuente, o varias que se alternan momento a momento. */
+  brollSource?: BrollSource | BrollSource[];
   /** Modo cinematográfico opt-in. Si undefined, render sale idéntico a antes. */
   cinematic?: CinematicConfig;
   /**
