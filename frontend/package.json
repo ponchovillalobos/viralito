@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run && node ../remotion/check-style-parity.mjs",
+    "test": "vitest run && node ../remotion/check-style-parity.mjs && node ../remotion/check-lucide-names.mjs && node ../remotion/check-icon-coverage.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 import { AbsoluteFill, spring, interpolate } from "remotion";
-import { ICON_MAP, FallbackIcon } from "../icon-map";
+import { resolverIcono } from "../icon-map";
 import { RemoteLottie } from "./lottie-sticker-layer";
 import type { IconSticker } from "../schemas";
 
@@ -24,7 +24,9 @@ export const IconStickerLayer: React.FC<{
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const Icon = ICON_MAP[sticker.icon.toLowerCase()] ?? FallbackIcon;
+  // Resuelve cualquier nombre de lucide, no sólo los 30 del mapa curado: el
+  // generador emite 253 y el 92 % caía al ícono genérico (ver `resolverIcono`).
+  const Icon = resolverIcono(sticker.icon);
   // ICONO SVG EXTERNO (Phosphor/Tabler de la galería): el build embebió el markup
   // en sticker.iconSvg. Usa currentColor → se pinta con el color del sticker.
   const hasSvg = Boolean(sticker.iconSvg);

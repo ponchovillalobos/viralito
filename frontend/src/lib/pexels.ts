@@ -273,19 +273,37 @@ export async function autoMatchBroll(
     count?: number;
     clipDur?: number;
     orientation?: "portrait" | "landscape";
-    /** Fuente del material. Ver `BrollSource`. Default: "auto" (lo de siempre). */
-    source?: BrollSource;
+    /**
+     * De donde sale el material. Una fuente, o VARIAS mezcladas.
+     *
+     * Con varias, cada momento del video rota entre ellas en orden: el primer
+     * corte de una, el segundo de otra, y asi. Rotar en vez de agrupar es lo que
+     * hace que la mezcla se note como variedad — si fueran los cinco primeros de
+     * Pexels y los cinco ultimos de Giphy, se veria como dos videos pegados.
+     *
+     * Default "auto" (el comportamiento de siempre).
+     */
+    source?: BrollSource | BrollSource[];
   } = {}
 ): Promise<BrollClip[]> {
   const count = opts.count ?? 5;
   const clipDur = opts.clipDur ?? 3;
   const orientation = opts.orientation ?? "portrait";
-  const source = opts.source ?? "auto";
+  // Normaliza a lista: el resto del codigo trabaja igual con una o con varias.
+  const pedidas: BrollSource[] = Array.isArray(opts.source)
+    ? opts.source.filter(Boolean)
+    : [opts.source ?? "auto"];
+  const fuentes: BrollSource[] = pedidas.length ? pedidas : ["auto"];
+  const source = fuentes[0];
+  const variasFuentes = fuentes.length > 1;
 
   const key = process.env.PEXELS_API_KEY;
-  const necesitaKey = source === "auto" || source === "pexels_video" || source === "pexels_photo";
+  const usaPexels = (f: BrollSource) => f === "auto" || f === "pexels_video" || f === "pexels_photo";
+  const necesitaKey = fuentes.some(usaPexels);
 
-  if (source === "cc0" || (necesitaKey && !key)) {
+  // Solo CC0 (o Pexels pedido sin clave) va por el camino corto. Con una mezcla
+  // que INCLUYA otras fuentes se sigue de largo y CC0 entra en la rotacion.
+  if ((!variasFuentes && source === "cc0") || (necesitaKey && !key)) {
     if (necesitaKey && !key) {
       console.warn("[broll] sin PEXELS_API_KEY → fuente CC0 (Internet Archive + Openverse)");
     }
@@ -296,7 +314,10 @@ export async function autoMatchBroll(
   const picks = selectVisualKeywords(keywords, count);
 
   const clips: BrollClip[] = [];
-  for (const kw of picks) {
+  for (const [indice, kw] of picks.entries()) {
+    // Con varias fuentes se rota una por momento. Con una sola, `fuentes[0]`
+    // siempre: el comportamiento de antes, sin ramas nuevas que mantener.
+    const fuente = fuentes[indice % fuentes.length];
     // Query VISUAL en inglés (IA local con contexto de la frase → diccionario →
     // palabra tal cual). Ver bloque RELEVANCIA arriba. La MISMA consulta sirve
     // para las tres fuentes: lo que cambia es a quién se le pregunta.
@@ -307,7 +328,7 @@ export async function autoMatchBroll(
       end: +Math.min(kw.start + clipDur, duration).toFixed(2),
     };
     try {
-      if (source === "giphy") {
+      if (fuente === "giphy") {
         const { buscarGifMp4 } = await import("./broll-giphy");
         const gif = await buscarGifMp4(q);
         if (gif) {
@@ -322,9 +343,17 @@ export async function autoMatchBroll(
         continue;
       }
 
-      if (source === "pexels_photo") {
+      if (fuente === "pexels_photo") {
         const foto = await buscarFotoPexels(q, key!, orientation);
         if (foto) clips.push({ ...rango, url: foto.url, thumbnail: foto.thumbnail });
+        continue;
+      }
+
+      if (fuente === "cc0") {
+        // CC0 dentro de la rotacion: se pide UN clip para este momento concreto.
+        const { autoMatchBrollCC0 } = await import("./broll-cc0");
+        const unos = await autoMatchBrollCC0([kw], duration, { count: 1, clipDur });
+        if (unos[0]) clips.push({ ...rango, url: unos[0].url, thumbnail: unos[0].thumbnail });
         continue;
       }
 
@@ -346,10 +375,12 @@ export async function autoMatchBroll(
     }
   }
 
-  // El relleno con CC0 solo aplica al modo "auto". Si pediste una fuente
-  // concreta es para VERLA: mezclarla con otra haría imposible comparar.
-  if (source !== "auto") {
-    console.log(`[broll] fuente ${source}: ${clips.length}/${count} clips`);
+  // El relleno con CC0 solo aplica al modo "auto" A SECAS. Si pediste fuentes
+  // concretas es para VERLAS: meterle otra por atras haria imposible comparar,
+  // y con una mezcla explicita seria peor todavia — no sabrias cual de los
+  // clips vino de lo que elegiste y cual del relleno.
+  if (variasFuentes || source !== "auto") {
+    console.log(`[broll] fuente(s) ${fuentes.join("+")}: ${clips.length}/${count} clips`);
     clips.sort((a, b) => a.start - b.start);
     return dedupeOverlaps(clips);
   }
