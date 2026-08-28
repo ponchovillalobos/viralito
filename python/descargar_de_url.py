@@ -48,6 +48,11 @@ COOKIES_DIR = DATA_ROOT.parent / "cookies"
 # video de 10.6 — medido con una descarga real, no supuesto.
 UMBRAL_LARGO_S = 3 * 60
 
+# Por debajo de esto, el video no sirve para editar en horizontal: se nota
+# en pantalla completa y ya no hay como arreglarlo aguas abajo. 720 deja
+# pasar 720p y 1080p, que es lo que el pipeline espera.
+ALTURA_MINIMA_ACEPTABLE = 720
+
 
 def slug(texto: str, largo: int = 40) -> str:
     """Convierte un título en un slug que respeta la convención del proyecto.
@@ -99,6 +104,27 @@ def duracion(mp4: Path) -> float:
         return 0.0
 
 
+def resolucion(mp4: Path) -> tuple[int, int]:
+    """(ancho, alto) MEDIDOS del archivo. (0, 0) si no se pudo leer.
+
+    No se pregunta por lo que se pidió, se mide lo que llegó. Son cosas
+    distintas y la diferencia entre las dos es justo lo que se escapaba.
+    """
+    ffprobe = str(Path(FFMPEG_PATH).with_name("ffprobe.exe"))
+    try:
+        r = subprocess.run(
+            [ffprobe, "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x",
+             str(mp4)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=60,
+        )
+        w, h = (r.stdout or "0x0").strip().split("x")[:2]
+        return int(w), int(h)
+    except Exception:  # noqa: BLE001
+        return 0, 0
+
+
 def titulo_de(url: str, cookies: list[str]) -> str:
     """Título del video, para armar el slug. Si falla, se usa uno genérico."""
     try:
@@ -119,6 +145,9 @@ def main() -> int:
     ap.add_argument("url")
     ap.add_argument("--flujo", choices=["corto", "largo"], required=True,
                     help="corto → raw/ (un video, un short) · largo → long_form/raw/ (sale en clips)")
+    ap.add_argument("--exigir-calidad", action="store_true",
+                    help="falla (y borra el archivo) si llega por debajo de "
+                         f"{ALTURA_MINIMA_ACEPTABLE}p, en vez de solo avisar")
     ap.add_argument("--id", default=None,
                     help="id explícito (D##_slug). Sin esto se arma del título.")
     args = ap.parse_args()
@@ -187,20 +216,21 @@ def main() -> int:
         # simplemente no iba a terminar nunca, que es la version lenta de
         # fallar en silencio.
         "-N", "8",
-        # Y de que CLIENTE se pide. YouTube estrangula al cliente `web` cuando
-        # ve varias descargas seguidas desde el mismo sitio, y ahi `-N` ya no
-        # alcanza: el tope no es por conexion sino por cliente.
+        # NO se fuerza el cliente de YouTube. Estuvo puesto
+        # `player_client=android,web` y fue un error caro: parecia arreglar la
+        # lentitud y lo que hizo fue TOPAR LA CALIDAD.
         #
-        # Medido sobre el mismo video, 30 s por cliente, con el `web` ya
-        # estrangulado:
-        #   web       nada (no llega a arrancar)
-        #   android   4.58 MiB/s
-        #   tv, ios   nada
+        # Medido sobre el mismo video, altura maxima que ofrece cada uno:
+        #   sin forzar nada   1080   <- el conjunto por omision de yt-dlp
+        #   android            360
+        #   web                180
         #
-        # Se piden los dos: `android` primero, y `web` detras por si algun dia
-        # android deja de servir formatos. Con esto la tanda de once videos paso
-        # de tres horas y media POR VIDEO a un par de minutos.
-        "--extractor-args", "youtube:player_client=android,web",
+        # yt-dlp ya prueba varios clientes y se queda con el que sirve mas; al
+        # nombrar uno a mano se le quita justo esa capacidad. De once videos de
+        # una tanda, NUEVE llegaron en 640x360 por esto.
+        #
+        # Si vuelve la lentitud, el remedio es esperar y reintentar, no fijar un
+        # cliente: la degradacion de YouTube pasa sola.
         # yt-dlp necesita ffmpeg para UNIR el video y el audio, que YouTube
         # sirve por separado. Desde una consola con ffmpeg en el PATH funciona;
         # lanzado por el servidor de Next, no — y fallaba con "no pudo bajar el
@@ -228,11 +258,50 @@ def main() -> int:
         return 1
 
     d = duracion(salida)
+    ancho, alto = resolucion(salida)
+
+    # SE DICE QUÉ CALIDAD LLEGÓ. Pedir "hasta 1080p" no garantiza 1080p: cuando
+    # YouTube limita a quien descarga, sirve formatos degradados y yt-dlp baja
+    # el que haya, contento. De once videos de una tanda, NUEVE llegaron en
+    # 640x360 y el script dijo "ok" en los nueve: 224 MB para 110 minutos, unos
+    # 280 kbps. Editar eso en horizontal se ve mal, y no se enteraba nadie hasta
+    # ver el render terminado.
+    #
+    # Es la falla silenciosa de siempre: el archivo existe, dura lo que debe y
+    # abre bien. Sólo es peor.
+    if alto and alto < ALTURA_MINIMA_ACEPTABLE:
+        print(
+            f"[descarga] OJO: llegó en {ancho}x{alto}, por debajo de "
+            f"{ALTURA_MINIMA_ACEPTABLE}p. YouTube está sirviendo formatos "
+            f"degradados a este equipo.",
+            file=sys.stderr, flush=True,
+        )
+        print(
+            "[descarga] Editar esto se va a ver mal. Esperá un rato y volvé a "
+            "bajarlo, o poné cookies de sesión en "
+            f"{COOKIES_DIR / 'youtube.txt'} para que sirva la calidad completa.",
+            file=sys.stderr, flush=True,
+        )
+        if args.exigir_calidad:
+            salida.unlink(missing_ok=True)
+            print(json.dumps({
+                "ok": False,
+                "error": f"solo se consiguió {ancho}x{alto}, y se exigió "
+                         f"{ALTURA_MINIMA_ACEPTABLE}p como mínimo",
+                "pista": "se borró el archivo para no dejar un video malo "
+                         "pareciendo bueno. Reintentá más tarde.",
+                "alto": alto,
+            }, ensure_ascii=False))
+            return 1
+
     print(json.dumps({
         "ok": True,
         "id": video_id,
         "ruta": str(salida),
         "duracion_s": d,
+        "ancho": ancho,
+        "alto": alto,
+        "calidad_degradada": bool(alto and alto < ALTURA_MINIMA_ACEPTABLE),
         "flujo": args.flujo,
         # Se dice si el flujo elegido encaja con lo que de verdad se bajó, pero
         # no se cambia solo: quien pidió corto puede querer un corto igual.
