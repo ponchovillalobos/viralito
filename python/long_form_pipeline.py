@@ -738,7 +738,23 @@ def step_extract(
 
 
 # Estilos de largos que ILUSTRAN con videos de archivo (b-roll).
+# Estilos que TRAEN material de archivo por su cuenta: es su rasgo definitorio.
 _BROLL_STYLES = {"editorial_broll", "broll_full", "broll_pip"}
+
+# Estilos que PUEDEN mostrarlo, aunque no lo busquen solos. El composition dibuja
+# B-roll para cualquiera con `editorialLayout` —los cuatro editoriales— y esta
+# lista era la QUINTA copia de lo mismo en el proyecto:
+#
+#   1. BROLL_STYLE_IDS          el selector del wizard
+#   2. BROLL_CAPABLE_STYLE_IDS  lo que el composition sabe dibujar
+#   3. una copia a mano en auto-build/route.ts (el camino de cortos)
+#   4. `editorialLayout && bRoll.map()` en el propio composition
+#   5. esta, que decide el camino de LARGOS
+#
+# Arreglar las cuatro primeras no alcanzaba: con esta sin tocar, elegir "Videos"
+# en `editorial` desde el wizard de largos habria pasado `--broll-source` para
+# que `_apply_broll` lo descartara igual. El selector prometia y no cumplia.
+_BROLL_CAPABLES = _BROLL_STYLES | {"editorial", "editorial_full", "paper_cut"}
 
 
 def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
@@ -752,7 +768,12 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
 
     Best-effort: si no hay endpoint/red/clips, deja bRoll vacío y el render sigue
     (idéntico a antes). El video de archivo se baja en build-clip-props (localize)."""
-    if style_id not in _BROLL_STYLES:
+    # Se busca material si el estilo lo trae por naturaleza, O si quien edita
+    # eligio una fuente a proposito en un estilo que sabe mostrarlo.
+    eligio_fuente = bool(fuente and fuente != "auto")
+    if style_id not in _BROLL_STYLES and not (
+        eligio_fuente and style_id in _BROLL_CAPABLES
+    ):
         return
     try:
         project_path = LF_PROJECTS / f"{clip_id}_{style_id}.json"

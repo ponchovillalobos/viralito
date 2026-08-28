@@ -88,4 +88,31 @@ describe("estilos que pueden llevar material de apoyo", () => {
       );
     }
   });
+
+  it("el pipeline de largos acepta los mismos estilos capaces", () => {
+    // QUINTA copia de la lista, en `long_form_pipeline.py`, y la que casi se
+    // escapa: arreglar el wizard y el backend de cortos no alcanzaba. Con esta
+    // sin tocar, elegir "Videos" en `editorial` desde el wizard de largos
+    // habria pasado `--broll-source` para que `_apply_broll` lo descartara
+    // igual — el selector prometiendo algo que no ocurre.
+    const py = leer(join("python", "long_form_pipeline.py"));
+
+    const m = py.match(/_BROLL_CAPABLES\s*=\s*_BROLL_STYLES\s*\|\s*\{([^}]*)\}/);
+    expect(m, "largos no define _BROLL_CAPABLES").toBeTruthy();
+    const extras = [...m![1].matchAll(/"([a-z_]+)"/g)].map((x) => x[1]).sort();
+
+    // Los que la lista compartida agrega por encima de los que traen material.
+    const traen = new Set<string>(BROLL_STYLE_IDS);
+    const esperados = BROLL_CAPABLE_STYLE_IDS.filter((s) => !traen.has(s)).sort();
+
+    expect(
+      extras,
+      "la lista de largos y BROLL_CAPABLE_STYLE_IDS se separaron",
+    ).toEqual([...esperados]);
+
+    // Y tiene que MIRAR la fuente elegida: sin eso el estilo capaz nunca pasa.
+    expect(py, "largos no considera la fuente elegida para los estilos capaces").toContain(
+      "eligio_fuente and style_id in _BROLL_CAPABLES",
+    );
+  });
 });

@@ -612,7 +612,7 @@ Hay dos grados, y no son lo mismo:
   composition sabe dibujarlo, pero sólo aparece si elegís una fuente a propósito.
   Con "Automático" siguen sin material, igual que siempre.
 
-#### Cuatro listas de lo mismo, separadas
+#### Cinco listas de lo mismo, separadas
 
 Lo reportó el usuario: *«el estilo editorial no tiene la posibilidad de elegir
 inserción de videos... el wizard no permite al usuario saber ni desde la elección
@@ -625,6 +625,12 @@ veces:
 | 2 | una copia a mano en `auto-build/route.ts` — decide si se **busca** | los mismos 3 |
 | 3 | `editorialLayout && bRoll.map()` en el composition — lo **dibuja** | **4** |
 | 4 | `fullscreenBRoll` / PIP — los otros dos caminos del composition | — |
+| 5 | `_BROLL_STYLES` en `long_form_pipeline.py` — decide el camino de **largos** | los mismos 3 |
+
+La quinta apareció al monitorear una corrida real, después de dar por cerrado el
+arreglo. Con ella sin tocar, elegir "Videos" en `editorial` desde el wizard de
+largos habría pasado `--broll-source` para que `_apply_broll` lo descartara
+igual: el selector prometiendo algo que no ocurre.
 
 El composition dibujaba B-roll para los cuatro editoriales y el selector aparecía
 en uno. En `editorial`, `editorial_full` y `paper_cut` la capacidad existía y
