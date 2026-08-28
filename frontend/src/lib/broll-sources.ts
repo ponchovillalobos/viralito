@@ -59,3 +59,19 @@ export const BROLL_SOURCES: readonly {
   { id: "giphy", name: "GIFs", hint: "Giphy en MP4: divertido, muy corto", emoji: "🕺" },
   { id: "cc0", name: "Mi biblioteca", hint: "Sólo lo que ya está descargado", emoji: "📁" },
 ] as const;
+
+/**
+ * Estilos que dibujan ADORNOS encima del video: ilustraciones, iconos animados
+ * o gráficas de datos.
+ *
+ * Sale del registro (`illustrations` / `hasGraphics`), no de una lista escrita a
+ * mano: es la sexta lista de "qué estilos hacen X" que aparece en este
+ * proyecto, y las cinco anteriores se habían separado entre sí.
+ */
+export const ADORNO_STYLE_IDS = [
+  "hype", "hype_max", "hype_max_sfx", "supreme",
+  "graphics_pro", "graphics_max",
+  "motion_pro", "motion_beat", "motion_grid",
+  "editorial", "editorial_full", "editorial_broll",
+  "lottie_pop", "paper_cut",
+] as const;

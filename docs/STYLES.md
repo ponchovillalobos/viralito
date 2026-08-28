@@ -708,3 +708,74 @@ transcript no pasa **ninguna** cifra: no hay con qué respaldarla.
 
 Un texto sin datos es flojo. Un dato falso, con la cara y el nombre de quien
 habla encima, es otra cosa.
+
+## Qué se agrega encima del video (adornos)
+
+Tres capas, **encendibles por separado** en los dos asistentes:
+
+| capa | qué es |
+|---|---|
+| **Ilustraciones** | figuras dibujadas en una esquina |
+| **Iconos** | símbolos animados con fondo de color |
+| **Gráficas** | barras y porcentajes de lo que se dice |
+
+Antes no se elegía: si el estilo las soportaba, entraban. Y con ellas entraba el
+problema — *«si el texto y las ilustraciones animadas ya tienen un estilo y color
+particular, meter más elementos puede dañar el estilo»*. En editorial, que vive
+de una tipografía cuidada, tres capas de adornos encima la arruinan.
+
+### La colección: de 158 a 1653
+
+El desbalance era grande: **22.897 iconos** en disco contra **158
+ilustraciones**. El icono es un símbolo abstracto; la ilustración es lo que le da
+carácter al video, y era el recurso escaso.
+
+| familia | ilustraciones | estilos |
+|---|---|---|
+| Personas | 820 | notionists, open-peeps, avataaars, lorelei (+ variantes neutral) |
+| Formas planas | 400 | thumbs, shapes, glass, rings |
+| Pixel art | 200 | pixel-art, pixel-art-neutral |
+| Criaturas y robots | 200 | bottts, bottts-neutral |
+| Trazo | 33 | open-doodles |
+
+Las familias importan tanto como los estilos: **mezclar trazos distintos dentro
+de un mismo video es la otra forma del mismo problema**. Agrupadas, se ve de un
+vistazo qué combina con qué.
+
+### Las miniaturas muestran lo que se va a agregar
+
+Cada tarjeta trae **tres ilustraciones reales del set**, no un icono que lo
+represente. Elegir `notionists` o `cutouts` por su nombre no es elegir: son
+palabras que no le dicen nada a nadie.
+
+Las muestras van repartidas a lo largo del set, no las tres primeras: en un set
+generado por semilla las contiguas se parecen, y darían una idea falsa de la
+variedad.
+
+### Licencias: sólo lo que no exige atribución
+
+Los 15 estilos nuevos son **CC0** o *"free for personal and commercial use"* sin
+atribución obligatoria, porque el video se publica sin créditos en pantalla.
+
+Quedaron fuera a propósito, aunque permiten uso comercial, los **CC BY 4.0**:
+adventurer, big-ears, big-smile, croodles, dylan, fun-emoji, micah, miniavs,
+personas, toon-head.
+
+> **Pendiente de decidir:** `croodles` (41 archivos) YA estaba en disco desde
+> antes, y el comentario de `download_illustrations.py` lo declara **CC0**. Es
+> **CC BY 4.0** (vijay verma), verificado en dicebear.com. Permite uso comercial,
+> pero exige atribución que el video no da.
+
+### Un error de método que vale documentar
+
+La primera versión del descargador listaba 23 estilos sacados de la **página de
+documentación** de DiceBear. Diez devolvían **404**: `line-face`, `gaze`,
+`cameo`, `clay`, `cutouts`, `moods`, `shadows`, `pixelbot`, `critters`,
+`sprouts`.
+
+El script no lo decía: reintentaba tres veces por semilla, con espera creciente,
+para las 80 semillas de cada estilo inexistente. Parecía colgado.
+
+**La página de documentación no es la fuente de verdad; la API sí.** Ahora se
+comprueba cada estilo con una sola petición antes de bajar nada, y el que no
+responde se reporta y se salta.

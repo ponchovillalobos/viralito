@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
@@ -31,6 +31,7 @@ import { BrandKitPicker } from "@/components/editor/wizard/brand-kit-picker";
 import { Confetti } from "@/components/ui/confetti";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
+import { AdornosPicker, ADORNOS_POR_OMISION, ADORNOS_EDITORIAL, type Adornos } from "@/components/editor/wizard/adornos-picker";
 import {
   Montserrat, Poppins, Oswald, Bangers, Luckiest_Guy, Archivo_Black, Teko, Righteous,
   Bebas_Neue, Anton,
@@ -356,6 +357,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [brollSources, setBrollSources] = useState<BrollSource[]>(["auto"]);
   // Donde aparece el material. `auto` = lo decide la forma, como siempre.
   const [brollPosition, setBrollPosition] = useState<BrollPosition>("auto");
+  // Que se agrega ENCIMA del video. En editorial arranca todo apagado: su
+  // fuerza es la tipografia, y tres capas de adornos encima la arruinan.
+  const [adornos, setAdornos] = useState<Adornos>(ADORNOS_POR_OMISION);
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
   const [showAllThemes, setShowAllThemes] = useState(false);
   // 👁️ Estilo cuyo ejemplo GRANDE se está viendo en el modal (null = cerrado).
@@ -819,6 +823,15 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
         : {}),
       // Misma regla: "auto" es el comportamiento historico, asi que no viaja.
       ...(brollPosition !== "auto" ? { brollPosition } : {}),
+      // Que se agrega encima. Solo viaja lo que difiere del default, asi que
+      // quien no lo toca obtiene exactamente el resultado de antes.
+      ...(adornos.ilustraciones !== ADORNOS_POR_OMISION.ilustraciones
+        ? { ilustraciones: adornos.ilustraciones } : {}),
+      ...(adornos.iconos !== ADORNOS_POR_OMISION.iconos
+        ? { iconosAnimados: adornos.iconos } : {}),
+      ...(adornos.graficas !== ADORNOS_POR_OMISION.graficas
+        ? { graficas: adornos.graficas } : {}),
+      ...(adornos.estilos.length ? { estilosIlustracion: adornos.estilos } : {}),
       platforms: selectedPlatforms,
       aspectRatio,
       caption: caption || undefined,
@@ -1754,6 +1767,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               <BrollPositionPicker valor={brollPosition} onChange={setBrollPosition} />
             </>
           )}
+            {selectedStyles.some((s) => ADORNO_STYLE_IDS.includes(s as (typeof ADORNO_STYLE_IDS)[number])) && (
+              <AdornosPicker valor={adornos} onChange={setAdornos} />
+            )}
           {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
           {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}
           {selectedStyles.some((s) => HYPE_STYLES.includes(s)) && fxIntensityPanel}

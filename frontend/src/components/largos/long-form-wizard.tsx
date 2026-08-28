@@ -119,10 +119,11 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 // no un descuido. El tipo ahora viene del registro para las dos.
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
+import { AdornosPicker, ADORNOS_POR_OMISION, ADORNOS_EDITORIAL, type Adornos } from "@/components/editor/wizard/adornos-picker";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -403,6 +404,9 @@ export function LongFormWizard() {
   const [brollSources, setBrollSources] = useState<BrollSource[]>(["auto"]);
   // Donde aparece el material. `auto` = lo decide la forma, como siempre.
   const [brollPosition, setBrollPosition] = useState<BrollPosition>("auto");
+  // Que se agrega ENCIMA del video. En editorial arranca todo apagado: su
+  // fuerza es la tipografia, y tres capas de adornos encima la arruinan.
+  const [adornos, setAdornos] = useState<Adornos>(ADORNOS_POR_OMISION);
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
   const [showAllThemes, setShowAllThemes] = useState(false);
   // "Ver ejemplo": estilo cuya expansión de escenas (miniaturas reales) está abierta.
@@ -776,6 +780,19 @@ export function LongFormWizard() {
       if (brollPosition !== "auto") {
         body.brollPosition = brollPosition;
       }
+      // Adornos: solo viaja lo que difiere del default.
+      if (adornos.ilustraciones !== ADORNOS_POR_OMISION.ilustraciones) {
+        body.ilustraciones = adornos.ilustraciones;
+      }
+      if (adornos.iconos !== ADORNOS_POR_OMISION.iconos) {
+        body.iconosAnimados = adornos.iconos;
+      }
+      if (adornos.graficas !== ADORNOS_POR_OMISION.graficas) {
+        body.graficas = adornos.graficas;
+      }
+      if (adornos.estilos.length) {
+        body.estilosIlustracion = adornos.estilos;
+      }
 
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -860,6 +877,19 @@ export function LongFormWizard() {
       // por que boton se salio.
       if (brollPosition !== "auto") {
         body.brollPosition = brollPosition;
+      }
+      // Adornos: solo viaja lo que difiere del default.
+      if (adornos.ilustraciones !== ADORNOS_POR_OMISION.ilustraciones) {
+        body.ilustraciones = adornos.ilustraciones;
+      }
+      if (adornos.iconos !== ADORNOS_POR_OMISION.iconos) {
+        body.iconosAnimados = adornos.iconos;
+      }
+      if (adornos.graficas !== ADORNOS_POR_OMISION.graficas) {
+        body.graficas = adornos.graficas;
+      }
+      if (adornos.estilos.length) {
+        body.estilosIlustracion = adornos.estilos;
       }
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -1532,6 +1562,9 @@ export function LongFormWizard() {
               <BrollPositionPicker valor={brollPosition} onChange={setBrollPosition} />
             </>
           )}
+            {selectedStyles.some((s) => ADORNO_STYLE_IDS.includes(s as (typeof ADORNO_STYLE_IDS)[number])) && (
+              <AdornosPicker valor={adornos} onChange={setAdornos} />
+            )}
           {/* Tema editorial: aparece solo si elegiste 📰 Editorial (paridad con shorts). */}
           {hasEditorial && (
             <div className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
