@@ -12,7 +12,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectCardSkeleton } from "@/components/ui/skeleton";
 import { RefreshCcw, ExternalLink, Clock, Copy, Check, Sparkles, Loader2, Search, X, Play, Calendar, Camera, Trash2, CheckSquare, FolderOpen } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { ScheduleDialog } from "@/components/produccion/schedule-dialog";
 import { ThumbnailButton } from "@/components/produccion/thumbnail-button";

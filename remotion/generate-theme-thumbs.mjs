@@ -28,6 +28,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { pickDataRoot } from "./data-root.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Los 17 temas del wizard (copiados 1:1 de EDITORIAL_THEMES en
@@ -62,14 +63,6 @@ const DEFAULT_ACCENT = "#fb7185";
 const FPS = 30; // fps de la composición ViralVideo (Root.tsx)
 
 // ─── Rutas (mismo pickDataRoot que build-props.mjs) ───
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
 const DATA_ROOT = pickDataRoot();
 // Temp SIN espacios (el quoting de spawn shell:true en Windows rompe con espacios).
 const TMP_DIR = path.join(DATA_ROOT, "tmp_theme_thumbs");

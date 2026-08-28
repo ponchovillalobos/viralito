@@ -13,14 +13,7 @@ const PROJECT_OVERRIDE = process.argv[3];
 // Lo usan los previews/render paralelo para no pisar el props.json de otro render.
 const OUT_NAME = process.argv[4] || "props.json";
 import { existsSync as _existsSync } from "node:fs";
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (_existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
+import { pickDataRoot } from "./data-root.mjs";
 const DATA_ROOT = pickDataRoot();
 const HOST = process.env.VIRAL_API_HOST ?? "http://localhost:3000";
 

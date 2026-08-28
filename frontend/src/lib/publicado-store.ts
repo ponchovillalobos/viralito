@@ -39,8 +39,6 @@ interface Store {
   version: number;
 }
 
-const EMPTY: Store = { videos: {}, version: 1 };
-
 function esRed(v: unknown): v is RedKey {
   return typeof v === "string" && (REDES as readonly string[]).includes(v);
 }

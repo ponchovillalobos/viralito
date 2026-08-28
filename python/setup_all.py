@@ -170,6 +170,7 @@ _VALIDATIONS: dict[str, tuple[Path, tuple[str, ...], int]] = {
     "fonts": (FONTS_DIR, (".ttf", ".otf"), 6),
     # Modelo BlazeFace (.tflite) para el reframe que sigue la cara. 1 archivo basta.
     "face_model": (HERE / "models", (".tflite",), 1),
+    "selfie_model": (HERE / "models", (".tflite",), 2),
     # MEJORAS extra. Validan la subcarpeta PROPIA del pack (no la compartida) para
     # detectar de verdad si bajó el set nuevo.
     # Material Symbols (~4,100) + Lucide (~1,700) → mín conservador por si una mitad
@@ -544,6 +545,10 @@ def main() -> int:
     # Modelo de detección de cara (reframe que sigue al que habla). Opcional: si no
     # baja, face_tracking usa el Haar de OpenCV (sin red). ~225 KB.
     _step("face_model", "modelo de detección de cara (reframe)", ["download_face_model.py"], state)
+    # Segmentación de persona: quitar fondo + texto detrás del sujeto. Los dos
+    # scripts lo referenciaban y NINGÚN paso lo bajaba — no estaba roto, es que
+    # nunca hubo forma de tenerlo.
+    _step("selfie_model", "modelo de segmentación de persona (quitar fondo)", ["download_selfie_model.py"], state)
     _step("iconos_editoriales", "iconos editoriales", ["download_editorial_icons.py"], state)
     # Ilustraciones animadas: hay DOS sets y NO son acumulativos. Sin --all baja el
     # set CURADO por concepto (noto/*.json: money, rocket, fire…) que es lo que el

@@ -9,15 +9,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o && existsSync(o)) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (existsSync(c)) return c;
-  }
-  return null;
-}
 
+import { pickDataRoot } from "./data-root.mjs";
 const PACKS = {
   "ph:": { dir: "phosphor-duotone", file: (n) => `${n}-duotone.svg` },
   "tb:": { dir: "tabler", file: (n) => `${n}.svg` },
@@ -51,7 +44,7 @@ function readExternalIconSvg(root, icon) {
 /** Muta las cards: agrega iconSvg a las que usan iconos externos. */
 export function resolveEditorialCardIcons(cards) {
   if (!Array.isArray(cards)) return cards;
-  const root = pickDataRoot();
+  const root = pickDataRoot({ permitirNulo: true });
   for (const card of cards) {
     const icon = (card && card.icon) || "";
     if (!icon.startsWith("ph:") && !icon.startsWith("tb:")) continue;
@@ -72,7 +65,7 @@ export function resolveEditorialCardIcons(cards) {
  */
 export function resolveIconStickerSvg(stickers) {
   if (!Array.isArray(stickers)) return stickers;
-  const root = pickDataRoot();
+  const root = pickDataRoot({ permitirNulo: true });
   for (const s of stickers) {
     const icon = (s && s.icon) || "";
     if (!icon.startsWith("ph:") && !icon.startsWith("tb:")) continue;

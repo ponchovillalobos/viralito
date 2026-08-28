@@ -2,14 +2,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { existsSync as _existsSync } from "node:fs";
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (_existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
+import { pickDataRoot } from "./data-root.mjs";
 const DATA_ROOT = pickDataRoot();
 const PROJECTS_DIR = path.join(DATA_ROOT, "projects");
 

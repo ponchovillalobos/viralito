@@ -21,7 +21,7 @@ import {
   pickRandomMusicTrack,
   type BuildContext,
 } from "@/lib/style-templates";
-import { createJob, updateStep, setCurrentStyle, type Job , registerEditorPid, unregisterEditorPid } from "@/lib/job-store";
+import { createJob, updateStep, setCurrentStyle, type Job , registerEditorPid } from "@/lib/job-store";
 import { enqueue } from "@/lib/job-queue";
 import { autoMatchBroll, type BrollClip } from "@/lib/pexels";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";

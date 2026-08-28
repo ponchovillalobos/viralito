@@ -24,19 +24,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProjectForStyle } from "./style-templates.mjs";
 
+import { pickDataRoot } from "./data-root.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ACCENT = "#fb7185"; // mismo default del wizard
 const FPS = 30; // fps de ViralVideo (Root.tsx)
 
 // ─── Rutas (mismo pickDataRoot que generate-style-thumbs.mjs) ───
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
 const DATA_ROOT = pickDataRoot();
 const TMP_DIR = path.join(DATA_ROOT, "tmp_style_previews"); // sin espacios (quoting de spawn)
 const OUT_DIR = path.join(__dirname, "..", "frontend", "public", "style-previews");

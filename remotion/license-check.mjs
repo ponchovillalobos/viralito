@@ -14,15 +14,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
 
+import { pickDataRoot } from "./data-root.mjs";
 /**
  * true → el video debe llevar la marca de agua "PRUEBA GRATUITA".
  *

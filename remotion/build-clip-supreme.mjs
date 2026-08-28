@@ -24,16 +24,9 @@ import { buildProjectForStyle } from "./style-templates.mjs";
 import { needsTrialWatermark } from "./license-check.mjs";
 import { VALID_STYLE_IDS } from "./style-catalog.mjs";
 
+import { pickDataRoot } from "./data-root.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function pickDataRoot() {
-  const o = process.env.VIRAL_DATA_ROOT;
-  if (o) return o;
-  for (const c of ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"]) {
-    if (existsSync(c)) return c;
-  }
-  return "C:\\viral-data\\videos";
-}
 
 const DATA_ROOT = pickDataRoot();
 const LF = path.join(DATA_ROOT, "long_form");

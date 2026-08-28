@@ -1761,8 +1761,24 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                   />
                   También al final (outro)
                 </label>
-                {bumperLogoUrl && (
+                {/* El logo. El backend lo soporta de punta a punta —schema,
+                    BrandBumper, build-props— y el UNICO eslabon que faltaba era
+                    este: no habia donde escribirlo, asi que `setBumperLogoUrl`
+                    no se llamaba nunca y el sting salia siempre sin logo,
+                    mientras el texto de arriba prometia "tu logo animado". */}
+                <input
+                  type="url"
+                  value={bumperLogoUrl}
+                  onChange={(e) => setBumperLogoUrl(e.target.value)}
+                  placeholder="URL de tu logo (PNG con fondo transparente)"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500/60"
+                />
+                {bumperLogoUrl ? (
                   <p className="text-[10px] text-emerald-400">✓ Usando el logo de tu marca</p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">
+                    Sin logo, el sting sale solo con la frase.
+                  </p>
                 )}
               </div>
             )}
