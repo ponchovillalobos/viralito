@@ -2440,12 +2440,46 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                       MP4 pre-generado, cae al mini-demo CSS de siempre. */}
                   <StyleMotionPreview
                     styleId={s.id}
+                    horizontal={aspectRatio === "16:9"}
                     className="max-h-[46vh] w-auto"
                     fallback={<StyleMiniDemo styleId={s.id} accent={accent} big />}
                   />
                   <p className="text-center text-xs text-muted-foreground">
                     Así se mueve este estilo. Tu video real saldrá con TU contenido y este look.
                   </p>
+
+                  {/* Los tres stills REALES del estilo, como en el asistente de
+                      largos. Estaban generados (25 estilos x 2 orientaciones x 3
+                      escenas, en public/style-thumbs) y este asistente no los
+                      mostraba en ningun lado: la miniatura existia y no tenia
+                      puerta. El de largos si los mostraba, asi que ademas los
+                      dos asistentes ensenaban cosas distintas del mismo estilo.
+
+                      Tres momentos separados del clip, no tres fotogramas
+                      seguidos: un estilo se juzga por como varia, y tres cuadros
+                      contiguos se parecen entre si. */}
+                  <div
+                    className={cn(
+                      "grid w-full gap-1.5",
+                      aspectRatio === "16:9" ? "grid-cols-1" : "grid-cols-3"
+                    )}
+                  >
+                    {[1, 2, 3].map((n) => (
+                      <img
+                        key={`${aspectRatio}-${n}`}
+                        src={`/style-thumbs/${s.id}_${aspectRatio === "16:9" ? "h" : "v"}_${n}.png`}
+                        alt=""
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                        className={cn(
+                          "w-full rounded-md border border-white/10 object-cover",
+                          aspectRatio === "16:9" ? "aspect-video" : "aspect-[9/16]"
+                        )}
+                      />
+                    ))}
+                  </div>
                 </div>
                 <DialogFooter>
                   {!selectedStyles.includes(s.id) && (
