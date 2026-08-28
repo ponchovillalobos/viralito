@@ -226,6 +226,25 @@ El control importa: el render **no es determinista**, así que el peor fotograma
 con la placa (31.86 dB) queda en el piso de ruido del propio motor. Para apagarla
 sin tocar código: `VIRAL_REMOTION_GL=off`.
 
+**Segunda medición (27 ago 2026), sobre un proyecto real y pesado** —
+`pop_reels`, 44 s, con todos los efectos encendidos. La primera se hizo sobre un
+clip liviano; ésta se hizo sobre lo que la máquina renderiza de verdad:
+
+```
+por software     945.4 s     35.3 MB
+con la placa     377.4 s     35.2 MB     60.1 % más rápido
+PSNR medio        40.56 dB
+PSNR mínimo       37.43 dB
+```
+
+El número que decide es el **mínimo**: 37.43 dB, por encima del peor fotograma
+del control software↔software (33.19 dB). La diferencia que introduce la placa
+es *menor que la que el motor introduce contra sí mismo*. Queda encendida.
+
+La mejora crece con el peso del proyecto (47.5 % en el clip liviano, 60.1 % en
+éste), que es lo esperable: cuanto más dibuja el navegador, más se nota quién
+dibuja.
+
 **Cuidado con la tabla de arriba: son porcentajes de LO MEDIDO, no del total.**
 Hasta el 25 ago la bitácora sólo instrumentaba cuatro etapas. En la única corrida
 histórica con render, lo no medido —gráficos, render, LUT, mastering, re-encode,
