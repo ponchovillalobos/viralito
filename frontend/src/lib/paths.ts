@@ -1,4 +1,5 @@
 import path from "node:path";
+import os from "node:os";
 import { existsSync, readdirSync } from "node:fs";
 
 /**
@@ -20,6 +21,22 @@ function pickDataRoot(): string {
   const candidates = ["C:\\viral-data\\videos", "C:\\hermes-data\\videos"];
   for (const c of candidates) {
     if (existsSync(c)) return c;
+  }
+
+  // FUERA DE WINDOWS, "C:\viral-data\videos" NO ES UNA RUTA ABSOLUTA.
+  //
+  // En Linux es un nombre relativo cualquiera, asi que cada proceso lo resuelve
+  // contra SU directorio de trabajo. El frontend escribia el archivo de palabras
+  // relativo a `frontend/` y el script de Python lo buscaba relativo a `python/`:
+  // dos rutas distintas, archivo no encontrado, y la funcion devolvia lista
+  // vacia sin error. Eso tuvo el CI en rojo, con un fallo que llegaba como
+  // "expected [] to deeply equal [ '8', '50%', '3x' ]" — ni una palabra sobre
+  // rutas.
+  //
+  // No se intenta "arreglar" la ruta de Windows: se usa uno propio del sistema,
+  // absoluto de verdad. Quien corra en Linux en serio pone VIRAL_DATA_ROOT.
+  if (path.sep !== "\\") {
+    return path.join(os.tmpdir(), "viral-data", "videos");
   }
   return candidates[0]; // crear viral-data por default si nada existe
 }
