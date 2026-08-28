@@ -31,32 +31,35 @@ import { fileURLToPath } from "node:url";
 import { pickDataRoot } from "./data-root.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ─── Los 17 temas del wizard (copiados 1:1 de EDITORIAL_THEMES en
-// frontend/src/components/editor/wizard/wizard-client.tsx — solo los campos
-// que viajan al render: id / font / background / theme / accent). Los temas
-// sin sub-theme (clásico/tinta/crema/bold) usan el editorial base. ───
-const THEMES = [
-  { id: "clasico", font: "playfair", background: "dark", theme: "" },
-  { id: "ft", font: "lora", background: "cream", theme: "ft", accent: "#0d7680" },
-  { id: "vogue", font: "bodoni", background: "dark", theme: "vogue", accent: "#c9a96a" },
-  { id: "riso", font: "abril", background: "cream", theme: "riso", accent: "#FF48B0" },
-  { id: "stripe", font: "newsreader", background: "ink", theme: "stripe", accent: "#635bff" },
-  { id: "prensa", font: "playfair", background: "cream", theme: "prensa", accent: "#8e2a1e" },
-  { id: "swiss", font: "lora", background: "cream", theme: "swiss", accent: "#e30613" },
-  { id: "bold", font: "abril", background: "dark", theme: "" },
-  { id: "tinta", font: "dmserif", background: "ink", theme: "" },
-  { id: "crema", font: "lora", background: "cream", theme: "" },
-  { id: "kinfolk", font: "lora", background: "cream", theme: "kinfolk", accent: "#b06b4c" },
-  { id: "grabado", font: "playfair", background: "cream", theme: "grabado", accent: "#8a6d3b" },
-  { id: "constructivista", font: "abril", background: "cream", theme: "constructivista", accent: "#cf2618" },
-  { id: "bauhaus", font: "lora", background: "cream", theme: "bauhaus", accent: "#be1e2d" },
-  { id: "mincho", font: "lora", background: "cream", theme: "mincho", accent: "#b3342c" },
-  { id: "brutal", font: "lora", background: "cream", theme: "brutal", accent: "#ff4d00" },
-  { id: "docu", font: "lora", background: "cream", theme: "docu", accent: "#e3120b" },
-  { id: "art_deco", font: "playfair", background: "cream", theme: "art_deco", accent: "#bd9a4e" },
-  { id: "blueprint", font: "dmserif", background: "ink", theme: "blueprint", accent: "#34c6d8" },
-  { id: "noir", font: "playfair", background: "dark", theme: "noir", accent: "#d8d2c4" },
-];
+// ─── Los temas se LEEN de la fuente compartida, no se copian ───────────────
+//
+// Aca habia una lista escrita a mano, "copiada 1:1" del wizard, con 22 entradas
+// contra las 23 reales. Al agregar `revista`, `dossier` y `cartel` nadie la
+// actualizo, asi que `--only revista,dossier,cartel` respondia
+// "Generando 0 miniaturas" — sin error, sin explicacion, y con el generador
+// aparentemente funcionando.
+//
+// Es la octava copia de "la lista de X" que aparece en este proyecto. Se lee del
+// TypeScript con una expresion regular porque este archivo es .mjs y no puede
+// importar un modulo TS; feo, pero una sola verdad.
+const _TEMAS_TS = readFileSync(
+  path.join(__dirname, "..", "frontend", "src", "lib", "editorial-themes.ts"),
+  "utf-8",
+);
+const THEMES = [...
+  _TEMAS_TS.matchAll(
+    /\{\s*id:\s*"([^"]+)"[^}]*?font:\s*"([^"]+)"[^}]*?background:\s*"([^"]+)"/g,
+  ),
+].map((m) => {
+  const bloque = _TEMAS_TS.slice(m.index, m.index + 400);
+  const theme = (bloque.match(/theme:\s*"([^"]*)"/) || [, ""])[1];
+  const accent = (bloque.match(/accent:\s*"([^"]+)"/) || [])[1];
+  return { id: m[1], font: m[2], background: m[3], theme, ...(accent ? { accent } : {}) };
+});
+if (THEMES.length === 0) {
+  console.error("✗ no se pudieron leer los temas de editorial-themes.ts");
+  process.exit(1);
+}
 
 // Mismo default de accent que el wizard cuando el tema no trae el suyo.
 const DEFAULT_ACCENT = "#fb7185";

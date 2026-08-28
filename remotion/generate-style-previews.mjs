@@ -11,7 +11,7 @@
  * versionan y viajan en el bundle (~200-500 KB c/u).
  *
  * Uso (requiere el server Next para el stream del video base):
- *   node generate-style-previews.mjs                       → los 23 estilos (video "avatar")
+ *   node generate-style-previews.mjs                       → TODOS los estilos del registro (--video es obligatorio si "avatar" no está en tu raíz de datos)
  *   node generate-style-previews.mjs --video VID_XXX       → otro video base (necesita transcript)
  *   node generate-style-previews.mjs --only hype,editorial → solo esos (lotes)
  *   node generate-style-previews.mjs --seconds 4           → duración distinta

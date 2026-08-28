@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
@@ -317,7 +317,9 @@ const FORMATS: {
 
 // Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía y
 // colores vienen del TEMA elegido en el paso 2. A nivel módulo: lista constante.
-const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll"];
+// Los CUATRO que reusan editorialLayout, de la lista compartida: cada
+// wizard tenia la suya y se habian separado.
+const EDITORIAL_LAYOUT_STYLES: StyleId[] = [...EDITORIAL_THEME_STYLE_IDS];
 
 
 export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {

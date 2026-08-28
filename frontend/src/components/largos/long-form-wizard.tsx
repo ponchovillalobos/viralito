@@ -119,7 +119,7 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 // no un descuido. El tipo ahora viene del registro para las dos.
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
@@ -1015,7 +1015,9 @@ export function LongFormWizard() {
   // Editorial (y Editorial con archivo) no llevan subtítulos: su tipografía/colores
   // vienen del tema. Si solo hay estilos editoriales, los selectores de texto de
   // subtítulos no aplican y se ocultan.
-  const EDITORIAL_LAYOUT_STYLES: StyleId[] = ["editorial", "editorial_broll", "editorial_full"];
+  // Los CUATRO que reusan editorialLayout, de la lista compartida: cada
+  // wizard tenia la suya y se habian separado.
+  const EDITORIAL_LAYOUT_STYLES: StyleId[] = [...EDITORIAL_THEME_STYLE_IDS];
   const hasEditorial = selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s));
   const editorialOnly =
     hasEditorial && selectedStyles.every((s) => EDITORIAL_LAYOUT_STYLES.includes(s));

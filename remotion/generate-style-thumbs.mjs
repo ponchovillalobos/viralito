@@ -13,7 +13,7 @@
  * versionan y viajan en el bundle.
  *
  * Uso (requiere el server Next en http://localhost:3000 para el stream del video):
- *   node generate-style-thumbs.mjs                       → los 23 estilos (video "avatar")
+ *   node generate-style-thumbs.mjs                       → TODOS los estilos del registro (--video es obligatorio si "avatar" no está en tu raíz de datos)
  *   node generate-style-thumbs.mjs --video VID_XXX       → otro video base (necesita transcript)
  *   node generate-style-thumbs.mjs --only hype,editorial → solo esos (lotes)
  */

@@ -7,6 +7,29 @@ import { isSafeId } from "@/lib/safe-id";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * El estilo `audiogram` dibuja la onda de la voz con `useWindowedAudioData`, que
+ * lee el audio con `fetch()` — y `fetch` SI pasa por CORS, a diferencia de
+ * `<OffthreadVideo>`, que Remotion resuelve por su cuenta.
+ *
+ * Sin estas cabeceras, el render sin ventana fallaba con
+ *   "CORS error was suspected due to different origins" -> Failed to fetch
+ *
+ * Se descubrio porque `audiogram` era el UNICO estilo sin vista previa
+ * generable (24 de 25). Pero no se queda en la miniatura: el render real toma
+ * el mismo camino, asi que la onda saldria plana — un audiograma sin
+ * audiograma, y sin un solo error a la vista.
+ *
+ * `*` es correcto aca: sirve archivos que el equipo ya tiene en disco, a un
+ * renderizador que corre en esta misma maquina.
+ */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "range",
+  "Access-Control-Expose-Headers": "content-length, content-range, accept-ranges",
+} as const;
+
 const CHUNK_BYTES = 4 * 1024 * 1024; // 4 MB por chunk para playback fluido
 
 function nodeToWeb(stream: NodeJS.ReadableStream): ReadableStream<Uint8Array> {
@@ -128,6 +151,7 @@ export async function GET(
         "Content-Length": String(fileSize),
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=3600",
+        ...CORS_HEADERS,
         ...downloadHeaders,
       },
     });
@@ -140,6 +164,7 @@ export async function GET(
         "Content-Length": String(fileSize),
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=3600",
+        ...CORS_HEADERS,
         ...downloadHeaders,
       },
     });
@@ -187,6 +212,7 @@ export async function GET(
       "Content-Range": `bytes ${start}-${end}/${fileSize}`,
       "Accept-Ranges": "bytes",
       "Cache-Control": "private, max-age=3600",
+      ...CORS_HEADERS,
       ...downloadHeaders,
     },
   });

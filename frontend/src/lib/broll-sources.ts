@@ -75,3 +75,27 @@ export const ADORNO_STYLE_IDS = [
   "editorial", "editorial_full", "editorial_broll",
   "lottie_pop", "paper_cut",
 ] as const;
+
+/**
+ * Estilos a los que se les puede elegir el TEMA editorial (serif + fondo).
+ *
+ * `applyWizardOverrides` lo aplica a cualquier proyecto con `editorialLayout`,
+ * y son cuatro. Pero cada wizard tenía su propia lista y se habían separado:
+ *
+ *     cortos  ["editorial", "editorial_broll"]
+ *     largos  ["editorial", "editorial_broll", "editorial_full"]
+ *
+ * O sea que "Editorial a pantalla completa" mostraba el selector de tema en
+ * largos y no en cortos, y `paper_cut` —que también reusa `editorialLayout`— no
+ * lo mostraba en ninguno. La capacidad existía; la puerta, no.
+ *
+ * (Este archivo se llama `broll-sources` por su primer contenido, pero ya es el
+ * módulo de CAPACIDADES POR ESTILO: es donde viven las cuatro listas que antes
+ * andaban duplicadas por los wizards y el backend.)
+ */
+export const EDITORIAL_THEME_STYLE_IDS = [
+  "editorial",
+  "editorial_full",
+  "editorial_broll",
+  "paper_cut",
+] as const;
