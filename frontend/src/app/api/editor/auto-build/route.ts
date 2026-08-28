@@ -461,7 +461,7 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       // EDITORIAL Ola 6 — recorte de sujeto (rembg) para la tarjeta de collage.
       await applyEditorialCutout(project, videoId);
       // F1 — Director emocional: ducking de música + zooms en picos + SFX por arousal.
-      await applyEmotionDirector(project, videoId);
+      await applyEmotionDirector(project, videoId, accentColor);
 
       // CINE CLÁSICO — drama por-pico (B&W de la imagen + SFX de cine antiguo +
       // voz "a radio vieja" gateada). Best-effort: si no hay picos, el estilo

@@ -203,7 +203,14 @@ export async function applyEditorialCutout(
  */
 export async function applyEmotionDirector(
   project: ResolvedProject,
-  videoId: string
+  videoId: string,
+  /**
+   * Acento del video. Viaja en el BuildContext, no en el proyecto, asi que
+   * llega por parametro: las particulas lo necesitan para respetar la regla
+   * mono-color. Si no llega, la capa cae a su paleta de cinco y el video sale
+   * con "chile mole y pozole" — sin error, solo mal.
+   */
+  accentColor?: string
 ): Promise<void> {
   try {
     const rawVideo = await findRawVideo(videoId);
@@ -270,9 +277,37 @@ export async function applyEmotionDirector(
       // video recibe una explosión de partículas (1 sola — el exceso lo abarata).
       const top = [...e.peaks].sort((a, b) => b.score - a.score)[0];
       if (top && top.score >= 0.6) {
+        // La PARTICULA depende del tono del video, no es siempre la misma.
+        //
+        // `emotion_director.py` ya clasifica el mood a partir de arousal y
+        // valencia, y la distincion que importa aca es el signo de la valencia:
+        // "tension" es alto arousal con valencia NEGATIVA. Tirarle confeti a un
+        // remate sobre algo que sale mal lee como burla. Brasas, no fiesta.
+        //
+        // `emoji_rain` queda deliberadamente sin usar: ningun mood dice
+        // "lluvia de emojis", y meter un efecto donde no corresponde es peor
+        // que dejarlo guardado.
+        const particula =
+          e.mood === "hype" ? "confetti" : e.mood === "tension" ? "embers" : "sparks";
+
+        // UN SOLO COLOR — el acento del video.
+        //
+        // Sin este campo la capa cae a su paleta por omision, que son CINCO
+        // colores distintos, y cada particula toma uno. Es exactamente el
+        // "chile mole y pozole" que la regla mono-color del proyecto prohibe, y
+        // pasaba en todos los videos que llegaban a tener un pico >= 0.6.
+        // `embers` ignora el campo a proposito: usa naranjas de brasa fijos.
+        const acento = accentColor;
+
         project.particleBursts = [
           ...((project.particleBursts ?? []) as unknown[]),
-          { at: top.t, duration: 1.6, kind: "sparks", count: 60 },
+          {
+            at: top.t,
+            duration: 1.6,
+            kind: particula,
+            count: 60,
+            ...(acento ? { colors: [acento] } : {}),
+          },
         ] as typeof project.particleBursts;
       }
 

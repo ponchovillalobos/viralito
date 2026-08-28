@@ -1030,12 +1030,25 @@ def _apply_emotion(clip_id: str, style_id: str) -> None:
             ]
             if micro:
                 data["zoomMarks"] = existing_zm + micro
-            # F3 — chispas en el pico emocional máximo (paridad con shorts).
+            # F3 — partículas en el pico emocional máximo (paridad con shorts).
+            #
+            # La partícula depende del TONO: "tension" es alto arousal con
+            # valencia negativa, y tirarle confeti a un remate sobre algo que
+            # sale mal lee como burla. Brasas, no fiesta.
             top = max(peaks, key=lambda p: p.get("score", 0), default=None)
             if top and top.get("score", 0) >= 0.6:
-                data["particleBursts"] = (data.get("particleBursts") or []) + [
-                    {"at": top["t"], "duration": 1.6, "kind": "sparks", "count": 60}
-                ]
+                mood = e.get("mood")
+                particula = "confetti" if mood == "hype" else "embers" if mood == "tension" else "sparks"
+                # UN SOLO COLOR. Sin `colors` la capa cae a su paleta por
+                # omisión, que son CINCO colores distintos y cada partícula toma
+                # uno: el "chile mole y pozole" que la regla mono-color prohíbe.
+                # Pasaba en todo clip con un pico >= 0.6. `embers` lo ignora a
+                # propósito (usa naranjas de brasa fijos).
+                acento = data.get("accentColor") or data.get("accent")
+                burst = {"at": top["t"], "duration": 1.6, "kind": particula, "count": 60}
+                if acento:
+                    burst["colors"] = [acento]
+                data["particleBursts"] = (data.get("particleBursts") or []) + [burst]
         project_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         print(
             f"[emotion] {clip_id}: mood={e.get('mood')} · {len(e.get('peaks') or [])} picos",
