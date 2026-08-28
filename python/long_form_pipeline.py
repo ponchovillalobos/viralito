@@ -500,74 +500,25 @@ def step_transcribe(video_path: Path, video_id: str, chunked: bool = False) -> P
     return out
 
 
-def step_detect(video_path: Path, video_id: str) -> Path:
-    out = LF_CUTS / f"{video_id}.json"
-    if out.exists():
-        print(f"[skip] detect_silences (existe {out})", file=sys.stderr)
-        return out
-    cmd = [
-        str(VENV_PYTHON),
-        str(PYTHON_DIR / "detect_silences.py"),
-        str(video_path),
-        "--out", str(out),
-    ]
-    run(cmd)
-    # Muletillas ("eh", "este…", "o sea" con firma de duda): se RESTAN de los
-    # keep_segments igual que en shorts, así el _clean.mp4 sale sin silencios NI
-    # muletillas y los clips ganan densidad. Best-effort: si falla, seguimos solo
-    # con los silencios (nunca aborta el pipeline).
-    try:
-        run([
-            str(VENV_PYTHON),
-            str(PYTHON_DIR / "detect_fillers.py"),
-            video_id,
-            "--transcripts-dir", str(LF_TRANSCRIPTS),
-            "--cuts-dir", str(LF_CUTS),
-        ])
-    except Exception as e:  # noqa: BLE001
-        print(f"[fillers] no se pudieron restar muletillas (sigo sin ellas): {e}", file=sys.stderr)
-    return out
-
-
-def step_cut(video_path: Path, cuts_path: Path, video_id: str) -> Path:
-    out = LF_CLEAN / f"{video_id}_clean.mp4"
-    if out.exists():
-        print(f"[skip] cut_silences (existe {out})", file=sys.stderr)
-        return out
-    cmd = [
-        str(VENV_PYTHON),
-        str(PYTHON_DIR / "cut_silences.py"),
-        str(video_path),
-        "--cuts", str(cuts_path),
-        "--out", str(out),
-    ]
-    run(cmd)
-    return out
-
-
-def step_re_transcribe_clean(clean_path: Path, video_id: str, force: bool = False) -> Path:
-    """Re-transcribir el video CLEAN para tener timestamps alineados con los clips extraídos.
-
-    El primer transcript es del raw (con silencios). Cuando recortamos silencios, los timestamps
-    cambian. Re-transcribimos el clean para que analyze_clips/extract_clips trabajen con
-    timestamps consistentes.
-
-    Si ya existe un marker `.from_clean`, asumimos que el transcript ya es del clean y skipeamos.
-    """
-    out = LF_TRANSCRIPTS / f"{video_id}.json"
-    marker = LF_TRANSCRIPTS / f"{video_id}.from_clean"
-    if marker.exists() and out.exists() and not force:
-        print(f"[skip] re-transcribe (marker existe)", file=sys.stderr)
-        return out
-    cmd = [
-        str(VENV_PYTHON),
-        str(PYTHON_DIR / "transcribe.py"),
-        str(clean_path),
-        "--out", str(out),
-    ]
-    run(cmd)
-    marker.write_text("ok", encoding="utf-8")
-    return out
+# LAS TRES ETAPAS QUE YA NO ESTAN
+#
+# Aca vivian `step_detect`, `step_cut` y `step_re_transcribe_clean`: recortaban
+# silencios y muletillas del video ENTERO antes de sacar los clips. Nadie las
+# llamaba, y una auditoria de 2026-08-24 lo archivo como "falta cablearlas"
+# (hallazgo #46). Era la lectura equivocada.
+#
+# Al quitar trozos del video completo, TODOS los tiempos se desplazan, asi que
+# obligaban a transcribir la hora entera por segunda vez. Para una clase de 99
+# minutos son ~9.5 min de transcripcion extra mas recodificar 1.6 GB — casi el
+# doble de pipeline, para un material del que se publican ~20 minutos.
+#
+# El recorte se movio a `extract_clips._recortar_silencios_del_clip`, que
+# procesa solo los 30-60s que de verdad se publican, y esta ENCENDIDO por
+# omision (`--sin-recorte-silencios` lo apaga). Medido hoy sobre 60s de un curso
+# real: 4 silencios, 2.7s quitados, 60.1s -> 55.5s.
+#
+# Se borran porque codigo muerto que ALGUIEN YA CONFUNDIO con una carencia hace
+# perder tiempo dos veces: una al creer que falta, otra al comprobar que no.
 
 
 def step_analyze(
