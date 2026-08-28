@@ -149,8 +149,17 @@ def test_los_hijos_heredan_la_misma_carpeta_de_datos():
         encoding="utf-8",
         errors="replace", timeout=300, env={**os.environ, "VIRAL_DATA_ROOT": ""},
     )
-    assert r.returncode == 0, r.stderr
-    datos = json.loads((r.stdout or "").strip().splitlines()[-1])
+    # El mensaje lleva las DOS salidas. Este test fallo una vez durante una
+    # corrida completa mientras el equipo renderizaba, y con solo `r.stderr` no
+    # quedo rastro de por que: paso 4 de 4 despues y no se pudo reproducir. Un
+    # fallo intermitente sin diagnostico se termina ignorando.
+    assert r.returncode == 0, (
+        f"el subproceso salio con {r.returncode}"
+        f" · stderr: {r.stderr!r} · stdout: {r.stdout!r}"
+    )
+    salida = (r.stdout or "").strip().splitlines()
+    assert salida, f"sin salida del subproceso. stderr: {r.stderr!r}"
+    datos = json.loads(salida[-1])
     if not datos["node"]:
         pytest.skip("node no disponible en esta maquina")
     assert datos["node"] == datos["python"], (
