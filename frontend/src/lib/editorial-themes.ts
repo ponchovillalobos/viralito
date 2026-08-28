@@ -1,4 +1,4 @@
-// Los 20 temas editoriales, en UN solo lugar.
+// Los 23 temas editoriales, en UN solo lugar.
 //
 // Estaban escritos dos veces —una por wizard— con los mismos 20 temas en
 // distinto orden, y con una diferencia que sí se veía: la copia de largos no
@@ -35,6 +35,17 @@ export const EDITORIAL_THEMES = [
   { id: "art_deco", name: "Art Déco", hint: "Lujo 1920, crema y dorado", theme: "art_deco", accent: "#bd9a4e", font: "playfair", background: "cream", bg: "#f3ead6", text: "#16130d", demoFont: "'Cinzel', serif" },
   { id: "blueprint", name: "Blueprint", hint: "Plano de ingeniería, azul y cian", theme: "blueprint", accent: "#34c6d8", font: "dmserif", background: "ink", bg: "#0b2138", text: "#dbe9f4", demoFont: "'Consolas', monospace" },
   { id: "noir", name: "Noir", hint: "Cine negro, blanco y negro", theme: "noir", accent: "#d8d2c4", font: "playfair", background: "dark", bg: "#0a0a0a", text: "#f2f2f0", demoFont: "'Playfair Display', serif" },
+  // Tres temas que existian a medias: `fraunces`, `robotoserif` y `bricolage`
+  // estaban en el enum del composition, con su TTF descargado en
+  // remotion/public/fonts y su `case` en editorial-ink.tsx — y ningun tema las
+  // elegia, asi que eran tres fuentes cargadas e inalcanzables.
+  //
+  // Van al FINAL a proposito: los primeros 8 son los que se ven antes de "ver
+  // todos", y ese orden ya estaba decidido. Agregar al final no cambia lo que
+  // la gente ve primero.
+  { id: "revista", name: "Revista cálida", hint: "Crema y terracota, serif suave de revista", theme: "", accent: "#c2410c", font: "fraunces", background: "cream", bg: "#f7f0e4", text: "#2b2118", demoFont: "Georgia, serif" },
+  { id: "dossier", name: "Dossier", hint: "Gris pizarra, serif neutro de informe", theme: "", accent: "#38bdf8", font: "robotoserif", background: "ink", bg: "#111827", text: "#e5e7eb", demoFont: "'Roboto Slab', Georgia, serif" },
+  { id: "cartel", name: "Cartel", hint: "Alto contraste, letras de póster moderno", theme: "", accent: "#facc15", font: "bricolage", background: "dark", bg: "#0b0b0f", text: "#fafafa", demoFont: "'Arial Black', sans-serif" },
 ] as const;
 
 export type EditorialTheme = (typeof EDITORIAL_THEMES)[number];

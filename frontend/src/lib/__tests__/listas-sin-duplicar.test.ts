@@ -64,4 +64,27 @@ describe("catálogos compartidos: una sola copia", () => {
     const fuentes = BROLL_SOURCES.map((f) => f.id);
     expect(new Set(fuentes).size, "hay ids de fuente repetidos").toBe(fuentes.length);
   });
+
+  it("toda fuente editorial del composition tiene al menos un tema que la elija", () => {
+    // Las fuentes viven en un `z.enum` de editorial-layer.tsx, con su TTF en
+    // remotion/public/fonts y su `case` en editorial-ink.tsx. Si ningun tema la
+    // nombra, la fuente esta descargada, mapeada, y es INALCANZABLE: nadie
+    // puede elegirla y nada avisa. Pasaba con fraunces, robotoserif y
+    // bricolage — tres de nueve.
+    const layer = readFileSync(
+      join(SRC, "..", "..", "remotion", "src", "layers", "editorial-layer.tsx"),
+      "utf-8",
+    );
+    // RegExp por constructor: el patron cruza saltos de linea porque el
+    // `.enum([...])` de la fuente esta partido en varias lineas en el fuente.
+    const m = layer.match(new RegExp("font:\\s*z[\\s\\S]*?\\.enum\\(\\[([^\\]]+)\\]\\)"));
+    expect(m, "no encontre el enum de fuentes en editorial-layer.tsx").toBeTruthy();
+    const declaradas = [...m![1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    const usadas = new Set(EDITORIAL_THEMES.map((t) => t.font));
+    const huerfanas = declaradas.filter((f) => !usadas.has(f));
+    expect(
+      huerfanas,
+      `fuentes sin ningun tema que las elija: ${huerfanas.join(", ")}`,
+    ).toEqual([]);
+  });
 });
