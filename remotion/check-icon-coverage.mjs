@@ -16,7 +16,25 @@
  *
  * Uso:  node check-icon-coverage.mjs
  */
-import * as Lucide from "lucide-react";
+// `lucide-react` vive en remotion/node_modules. Si falta, Node tira un
+// ERR_MODULE_NOT_FOUND crudo, con un volcado de pila y sin decir que hacer — que
+// es como se veia el fallo de CI que tuvo este repo doce corridas en rojo.
+let Lucide;
+try {
+  Lucide = await import("lucide-react");
+} catch (e) {
+  console.error("Falta `lucide-react`, que este verificador necesita para saber");
+  console.error("que iconos existen de verdad.");
+  console.error("");
+  console.error("  cd remotion && npm ci");
+  console.error("");
+  console.error("Ojo si esto pasa en CI: `npm test` de frontend encadena");
+  console.error("verificadores que viven en remotion/, asi que las dependencias de");
+  console.error("remotion tienen que instalarse ANTES de correrlo.");
+  console.error("");
+  console.error(String(e && e.message ? e.message : e));
+  process.exit(1);
+}
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

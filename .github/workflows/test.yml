@@ -20,15 +20,29 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
         working-directory: frontend
+
+      # Las dependencias de remotion se instalan ANTES de `npm test`, no después.
+      #
+      # `npm test` de frontend encadena siete verificadores que viven en
+      # `remotion/`, y dos de ellos —check-lucide-names y check-icon-coverage—
+      # importan `lucide-react`. Node resuelve los paquetes desde la carpeta del
+      # módulo que se ejecuta, o sea `remotion/node_modules`: sin instalar, los
+      # dos revientan con ERR_MODULE_NOT_FOUND.
+      #
+      # Con este paso después de `npm test`, CI llevaba ROJO desde el 27 de
+      # agosto — doce corridas seguidas — mientras en la máquina de desarrollo
+      # todo pasaba, porque ahí `remotion/node_modules` siempre está. Un CI que
+      # falla siempre deja de mirarse, y entonces es peor que no tenerlo.
+      - name: Instalar dependencias (remotion)
+        run: npm ci
+        working-directory: remotion
+
       - name: Tipos (tsc)
         run: npx tsc --noEmit
         working-directory: frontend
       - name: Tests + paridad de estilos
         run: npm test
         working-directory: frontend
-      - name: Instalar dependencias (remotion)
-        run: npm ci
-        working-directory: remotion
       - name: Tipos remotion (tsc)
         run: npx tsc --noEmit
         working-directory: remotion
