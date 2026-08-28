@@ -99,17 +99,22 @@ Para clips del long_form, Ollama genera caption + hashtags automáticamente. Par
 
 ## Estructura de carpetas crítica
 
-**Repo**:
+**Repo** (el proyecto se llama `viralito/`; el nombre viejo
+`Estrategia_Viral_Poncho/` era de otro clon):
 ```
-Estrategia_Viral_Poncho/
+viralito/
 ├── frontend/        # Next.js dashboard
 ├── remotion/        # Composición de video
 ├── python/          # Scripts IA (venv aislado)
+├── desktop/         # wrapper Tauri (el instalador se compila en GitHub Actions)
+├── mcp/             # servidor MCP propio
 ├── docs/            # Documentación
 └── *.md             # README, este archivo, etc.
 ```
 
-**Datos del usuario** (no en el repo):
+**Datos del usuario** (no en el repo). La ruta de abajo es la que el proyecto
+busca **por omisión**; cuál se usa de verdad lo decide `VIRAL_DATA_ROOT` en
+`frontend/.env.local`, y en esta máquina apunta a `D:\viral-data\`:
 ```
 C:\viral-data\
 ├── tools\ffmpeg-*\
