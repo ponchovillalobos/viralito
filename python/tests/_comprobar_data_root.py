@@ -19,5 +19,7 @@ import config  # noqa: E402
 r = subprocess.run(
     ["node", "-e", "console.log(process.env.VIRAL_DATA_ROOT || '')"],
     capture_output=True, text=True,
+        encoding="utf-8",
+        errors="replace",
 )
 print(json.dumps({"python": str(config.DATA_ROOT), "node": (r.stdout or "").strip()}))

@@ -284,6 +284,13 @@ Transitions (entrada/salida):
   - slide_down : entra desde arriba. Aplasta.
   - zoom_out   : entra grande → tamaño normal. Energético.
   - tv_off     : CRT collapse. Cierre dramático con tape-stop.mp3.
+  - escala_medida : entra al 50% y crece a tamano normal con curva suave
+                    (smoothstep). Es la entrada MAS NATURAL para una foto o
+                    captura: no aparece de la nada como el fade, no invade como
+                    el zoom_out. Preferila para inserts informativos (fotos,
+                    capturas, graficos). El respaldo mecanico cuando vos no
+                    decidis sigue siendo `fade`, a proposito: es el valor
+                    conservador y no depende de tu criterio.
 
 ═══════════════════════════════════════════════════════
 OUTPUT — JSON estricto

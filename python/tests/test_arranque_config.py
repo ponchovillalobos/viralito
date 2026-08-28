@@ -41,7 +41,9 @@ def _en_subproceso(codigo: str, env: dict[str, str] | None = None) -> str:
     entorno = {**os.environ, **(env or {})}
     r = subprocess.run(
         [sys.executable, "-c", codigo],
-        cwd=str(PYTHON_DIR), capture_output=True, text=True, timeout=300, env=entorno,
+        cwd=str(PYTHON_DIR), capture_output=True, text=True,
+        encoding="utf-8",
+        errors="replace", timeout=300, env=entorno,
     )
     assert r.returncode == 0, f"el subproceso falló:\n{r.stderr}"
     return (r.stdout or "").strip()
@@ -89,7 +91,9 @@ def test_ningun_orden_de_import_avisa_de_autodeteccion_fallida(orden):
     """
     r = subprocess.run(
         [sys.executable, "-c", orden],
-        cwd=str(PYTHON_DIR), capture_output=True, text=True, timeout=300,
+        cwd=str(PYTHON_DIR), capture_output=True, text=True,
+        encoding="utf-8",
+        errors="replace", timeout=300,
     )
     assert r.returncode == 0, r.stderr
     assert "no se pudo autodetectar" not in (r.stderr or ""), (
@@ -141,7 +145,9 @@ def test_los_hijos_heredan_la_misma_carpeta_de_datos():
     guion = Path(__file__).resolve().parent / "_comprobar_data_root.py"
     r = subprocess.run(
         [sys.executable, str(guion)], cwd=str(PYTHON_DIR), capture_output=True,
-        text=True, timeout=300, env={**os.environ, "VIRAL_DATA_ROOT": ""},
+        text=True,
+        encoding="utf-8",
+        errors="replace", timeout=300, env={**os.environ, "VIRAL_DATA_ROOT": ""},
     )
     assert r.returncode == 0, r.stderr
     datos = json.loads((r.stdout or "").strip().splitlines()[-1])

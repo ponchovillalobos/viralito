@@ -31,12 +31,45 @@ riesgo y el test las deja pasar.
 """
 from __future__ import annotations
 
+import io
 import pathlib
 import re
+import tokenize
 
 PYTHON_DIR = pathlib.Path(__file__).resolve().parent.parent
 # `lib/proc.py` es el envoltorio seguro: fija la codificación él mismo.
 EXENTOS = {"proc.py"}
+
+
+def _sin_texto_literal(codigo: str) -> str:
+    """El mismo código con cadenas y comentarios en blanco, conservando líneas.
+
+    Hace falta porque este archivo documenta el bug CITANDO la llamada rota en
+    su propio docstring, y el barrido se acusaba a sí mismo (líneas 13 y 19).
+    Un guardián que reporta su propia documentación como defecto entrena a
+    quien lo lea a ignorarlo.
+
+    Neutralizar los literales es seguro: `capture_output=True`, `text=True` y
+    `encoding=` son sintaxis, nunca contenido de una cadena.
+    """
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(codigo).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return codigo  # que lo revise el humano antes que perder el barrido
+    lineas = codigo.splitlines(keepends=True)
+    for tok in tokens:
+        if tok.type not in (tokenize.STRING, tokenize.COMMENT):
+            continue
+        (fi, ci), (ff, cf) = tok.start, tok.end
+        for n in range(fi, ff + 1):
+            linea = lineas[n - 1]
+            desde = ci if n == fi else 0
+            corte = chr(13) + chr(10)
+            hasta = cf if n == ff else len(linea.rstrip(corte))
+            cuerpo = linea.rstrip(corte)
+            fin = linea[len(cuerpo) :]
+            lineas[n - 1] = cuerpo[:desde] + " " * (hasta - desde) + cuerpo[hasta:] + fin
+    return "".join(lineas)
 
 
 def _llamadas_run(texto: str):
@@ -56,14 +89,23 @@ def _llamadas_run(texto: str):
 
 def test_ninguna_captura_de_texto_depende_del_locale():
     culpables: list[str] = []
-    for ruta in [*sorted(PYTHON_DIR.glob("*.py")), *sorted((PYTHON_DIR / "lib").glob("*.py"))]:
+    # Los TESTS entran al barrido igual que producción. No es celo: un test que
+    # lanza un subproceso y pierde su stdout por cp1252 no falla — pasa, con la
+    # aserción corriendo contra una cadena vacía. `test_warnings_suprimidos.py`
+    # estaba exactamente así: verde, y sin comprobar nada. Un guardián que se
+    # excluye a sí mismo del barrido deja de ser un guardián.
+    for ruta in [
+        *sorted(PYTHON_DIR.glob("*.py")),
+        *sorted((PYTHON_DIR / "lib").glob("*.py")),
+        *sorted((PYTHON_DIR / "tests").glob("*.py")),
+    ]:
         if ruta.name in EXENTOS:
             continue
         try:
             texto = ruta.read_text(encoding="utf-8")
         except OSError:
             continue
-        for linea, cuerpo in _llamadas_run(texto):
+        for linea, cuerpo in _llamadas_run(_sin_texto_literal(texto)):
             if "capture_output=True" not in cuerpo:
                 continue
             if "text=True" not in cuerpo:

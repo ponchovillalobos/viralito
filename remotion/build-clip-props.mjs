@@ -116,6 +116,11 @@ const props = {
   musicVolumeCurve: project.musicVolumeCurve || [],
   // F3 — Partículas procedurales (pass-through).
   particleBursts: project.particleBursts || [],
+  // Congelados del director emocional (pass-through, igual que musicVolumeCurve
+  // y particleBursts: los clips de largos no hacen jump cuts, sus tiempos ya
+  // vienen relativos al corte). `filterAndRemap` no existe en este archivo —
+  // llamarla aqui seria un ReferenceError en el primer render.
+  freezeMarks: project.freezeMarks || [],
   // MOTION PRO — fondo animado (pass-through).
   animatedBackground: project.animatedBackground ?? null,
   // EDITORIAL — layout split-screen + tarjetas (pass-through; el merge desde el

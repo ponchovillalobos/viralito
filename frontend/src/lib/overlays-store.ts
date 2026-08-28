@@ -37,7 +37,8 @@ export type OverlayTransition =
   | "slide_up"
   | "slide_down"
   | "zoom_out"
-  | "tv_off";
+  | "tv_off"
+  | "escala_medida";
 
 export type OverlayPosition = "center" | "top" | "bottom" | "left" | "right";
 

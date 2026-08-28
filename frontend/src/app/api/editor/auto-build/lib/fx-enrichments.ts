@@ -275,6 +275,22 @@ export async function applyEmotionDirector(
           { at: top.t, duration: 1.6, kind: "sparks", count: 60 },
         ] as typeof project.particleBursts;
       }
+
+      // 2d) CONGELADO en el pico máximo: la imagen se detiene un instante para
+      // que la frase aterrice.
+      //
+      // Todo el catálogo de transiciones sirve para PASAR de un plano a otro
+      // (barridos, destellos, zooms). Un freeze hace lo contrario: detiene el
+      // tiempo. Era el hueco más obvio, y el pico emocional es exactamente donde
+      // tiene sentido — rematar un remate, subrayar un dato.
+      //
+      // UNO SOLO por video, y sólo si el pico es fuerte (≥0.7, por encima del
+      // umbral de las chispas): un freeze repetido deja de leerse como énfasis y
+      // pasa a leerse como que el video se traba. 0.35s es lo justo para que se
+      // note sin que parezca un error de reproducción.
+      if (top && top.score >= 0.7) {
+        project.freezeMarks = [{ at: top.t, duration: 0.35 }] as typeof project.freezeMarks;
+      }
     }
 
     // 3) Volumen de SFX según el arousal del momento (0.28 calmo → 0.58 intenso).

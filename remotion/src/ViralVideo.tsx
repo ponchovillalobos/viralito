@@ -1,6 +1,7 @@
 import {
   AbsoluteFill,
   Audio,
+  Freeze,
   OffthreadVideo,
   Sequence,
   useCurrentFrame,
@@ -240,6 +241,20 @@ function sampleTrackAxisSmooth(
 
 export const viralVideoSchema = z.object({
   rawVideoUrl: z.string(),
+  /**
+   * Momentos donde la imagen se CONGELA para rematar.
+   *
+   * Original no tenia ninguna transicion de remate: todo el catalogo son
+   * barridos, destellos y zooms, que sirven para PASAR de un plano a otro. Un
+   * freeze hace lo contrario — detiene el tiempo para que una frase aterrice.
+   * Es el hueco mas obvio del catalogo, y sale barato porque Remotion trae
+   * `<Freeze>` nativo.
+   *
+   * `at` es el segundo donde se detiene; `duration` cuanto dura la pausa.
+   */
+  freezeMarks: z
+    .array(z.object({ at: z.number(), duration: z.number().default(0.4) }))
+    .default([]),
   videoDurationSec: z.number().default(30),
   words: z.array(wordSchema).default([]),
   bRoll: z.array(bRollSchema).default([]),
@@ -367,6 +382,7 @@ type ViralVideoProps = z.infer<typeof viralVideoSchema>;
 
 export const defaultProps: ViralVideoProps = {
   rawVideoUrl: "",
+  freezeMarks: [],
   videoDurationSec: 30,
   words: [],
   bRoll: [],
@@ -436,6 +452,7 @@ export const defaultProps: ViralVideoProps = {
 
 export const ViralVideo: React.FC<ViralVideoProps> = ({
   rawVideoUrl,
+  freezeMarks,
   videoDurationSec,
   words,
   bRoll,
@@ -924,9 +941,11 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         }}
       >
         {rawVideoUrl && (
-          hasActiveCameraMotion ? (
-            // MAX OUT (calibrado) — shutterAngle 270° + 15 samples (25 samples reventaba)
-            <CameraMotionBlur shutterAngle={270} samples={15}>
+          // El nodo del video se define UNA vez y se envuelve segun haga falta.
+          // Antes estaba escrito dos veces —con y sin desenfoque de camara— y
+          // cualquier cambio habia que hacerlo en los dos lados o se separaban.
+          (() => {
+            const nodoVideo = (
               <OffthreadVideo
                 src={rawVideoUrl}
                 style={{
@@ -937,19 +956,29 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
                   filter: videoFilter,
                 }}
               />
-            </CameraMotionBlur>
-          ) : (
-            <OffthreadVideo
-              src={rawVideoUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: panelObjectPosition,
-                filter: videoFilter,
-              }}
-            />
-          )
+            );
+
+            // CONGELADO: detiene la imagen para rematar una frase. Se congela en
+            // el fotograma donde empieza la marca, asi que la pausa se ve como
+            // "el tiempo se detuvo ahi" y no como un salto a otro momento.
+            const marca = (freezeMarks ?? []).find(
+              (m) => currentTime >= m.at && currentTime < m.at + (m.duration ?? 0.4)
+            );
+            const conCongelado = marca ? (
+              <Freeze frame={Math.max(0, Math.round(marca.at * fps))}>{nodoVideo}</Freeze>
+            ) : (
+              nodoVideo
+            );
+
+            return hasActiveCameraMotion ? (
+              // MAX OUT (calibrado) — shutterAngle 270° + 15 samples (25 reventaba)
+              <CameraMotionBlur shutterAngle={270} samples={15}>
+                {conCongelado}
+              </CameraMotionBlur>
+            ) : (
+              conCongelado
+            );
+          })()
         )}
       </AbsoluteFill>
       {/* EDITORIAL + B-ROLL — CORTINILLA DENTRO DEL PANEL (feedback del usuario):

@@ -254,6 +254,14 @@ Es el archivo más delicado del proyecto. Reglas:
 3. NO sacar el `objectFit: cover` del rawVideo (sin él, videos horizontales quedan letterbox feo)
 4. NO cambiar `wordStickerSchema` sin update de `build-props.mjs` y `build-clip-supreme.mjs`
 5. Si agregás props nuevos: defaultProps + schema + build-props update + documentar en STYLES.md
+6. **Un prop nuevo son CINCO eslabones, no dos.** Quien lo escribe, el tipo que
+   lo declara, `build-props.mjs` (shorts), `build-clip-props.mjs` (largos) y el
+   composition que lo aplica. Saltarse un builder no rompe nada: el composition
+   recibe el default vacío y el efecto no existe, sin un solo error. Pasó con
+   `freezeMarks`. Si el prop lo elige un modelo local, hay un sexto eslabón — la
+   lista dentro del prompt — y pasó con `escala_medida`. Cablealo entero y
+   dejale un test que recorra la cadena (`congelado-cableado.test.ts`,
+   `transiciones-alcanzables.test.ts` son los dos ejemplos).
 
 ## Referencias
 
@@ -261,5 +269,5 @@ Es el archivo más delicado del proyecto. Reglas:
 - `docs/SETUP.md` — instalación
 - `docs/USAGE.md` — tutorial
 - `docs/ARCHITECTURE.md` — técnica
-- `docs/STYLES.md` — los estilos (23 en total)
+- `docs/STYLES.md` — los estilos (25) + los énfasis que se aplican sobre cualquiera
 - `docs/TROUBLESHOOTING.md` — errores comunes

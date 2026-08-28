@@ -184,6 +184,10 @@ const props = {
   musicVolumeCurve: filterAndRemap(project.musicVolumeCurve || [], ["t"]),
   // F3 — Partículas procedurales (confeti/chispas/brasas). Remapean igual.
   particleBursts: filterAndRemap(project.particleBursts || [], ["at"]),
+  // Congelados del director emocional. `filterAndRemap` reancla los tiempos al
+  // inicio del corte: sin eso, un congelado marcado en el segundo 90 del video
+  // original se dispararia en el segundo 90 del CLIP, que no existe.
+  freezeMarks: filterAndRemap(project.freezeMarks || [], ["at"]),
   // MOTION PRO — fondo animado (objeto sin timestamps, pass-through).
   animatedBackground: project.animatedBackground ?? null,
   // EDITORIAL — layout split-screen + tarjetas (remapean con jump cuts).

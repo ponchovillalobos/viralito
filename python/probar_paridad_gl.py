@@ -59,6 +59,14 @@ def _render(props_json: Path, salida: Path, con_gpu: bool) -> float:
     cmd = [
         "npx", "remotion", "render", "src/index.ts", "ViralVideo", str(salida),
         f"--props={props_json}", "--log=error",
+        # Los MISMOS ajustes que usa el pipeline real (`_remotion_render_cmd`).
+        # Sin esto la medición no representa producción: con el tope por defecto
+        # de 30s, un estilo cargado como pop_reels aborta en el fotograma 115 y
+        # la prueba reporta un fallo que en producción no existe. Una herramienta
+        # de medición que no reproduce las condiciones reales mide otra cosa.
+        "--timeout=120000",
+        "--disable-web-security",
+        "--offthreadvideo-cache-size-in-bytes=4294967296",
     ]
     if con_gpu:
         cmd.append("--gl=angle")

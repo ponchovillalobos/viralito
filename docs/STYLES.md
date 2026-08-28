@@ -392,3 +392,67 @@ const PALETTE = [
 ```
 
 Cuando uses Hype/Hype Max/Hype Max SFX, elegir UN color por video (no mezclar). Para 30 videos en 30 días, el script `build-block2.mjs` rota la paleta automáticamente.
+
+## Énfasis: congelado y escala medida
+
+Dos recursos que no pertenecen a ningún estilo — se aplican por encima de
+cualquiera de los 25. Los dos vinieron de revisar el proyecto hermano, y los dos
+llenan un hueco concreto del catálogo, no son adorno.
+
+### Congelado (`freezeMarks`)
+
+La imagen se detiene un instante mientras subtítulos y stickers siguen
+animando. Es lo contrario de todo lo demás del catálogo: barridos, destellos y
+zooms existen para PASAR de un plano a otro; el congelado detiene el tiempo para
+que una frase aterrice.
+
+Lo coloca solo el director emocional (`fx-enrichments.ts`), **uno por video** y
+sólo si el pico supera 0.7 — por encima del umbral de las chispas (0.6). El
+límite es deliberado: repetido deja de leerse como énfasis y empieza a leerse
+como que el video se traba. Dura 0.35 s, lo justo para notarse sin parecer un
+error de reproducción.
+
+Medido sobre un clip real, comparando los cuadros 92 y 98 con y sin la marca:
+
+```
+banda central del video (sin subtítulos ni stickers)
+  con congelado    PSNR = inf      → idénticos bit a bit
+  sin congelado    PSNR = 18.83 dB → el video avanza
+
+cuadro completo (subtítulos incluidos)
+  con congelado    PSNR = 22.82 dB
+  sin congelado    PSNR = 16.98 dB
+```
+
+El `inf` de la banda central es la comprobación que importa: el video se detiene
+de verdad. La diferencia que queda en el cuadro completo son los overlays, que
+siguen su curso — que es exactamente el efecto buscado.
+
+### Escala medida (`escala_medida`)
+
+Transición de entrada/salida para inserts: la imagen entra al 50 % y crece a
+tamaño normal con curva suave (*smoothstep*, `p·p·(3−2p)`). Ni aparece de la
+nada como `fade`, ni invade como `zoom_out`.
+
+El agente VFX de `cinematic_assembly.py` la ofrece y la recomienda para inserts
+informativos (fotos, capturas, gráficos). **El respaldo mecánico sigue siendo
+`fade`**, a propósito: es el valor conservador y no depende del criterio del
+modelo. La evidencia de que la escala lee mejor viene del proyecto hermano —
+suficiente para ofrecerla, no para voltear un default de este proyecto sin
+medirlo acá.
+
+### Por qué cada uno lleva su propio guardián
+
+Los dos nacieron rotos de la misma forma, y no de una que dé error:
+
+- `escala_medida` estaba en el enum de Zod y en el `switch` que la dibuja, pero
+  **ausente de la lista del prompt**, que es lo único que el modelo lee. Válida,
+  tipada, y jamás elegida.
+- `freezeMarks` se escribía en el proyecto y el composition sabía aplicarlo,
+  pero **ningún builder de props lo copiaba**. El composition recibía siempre la
+  lista vacía.
+
+Ninguna de las dos habría fallado un render. Por eso hay ahora dos tests que
+recorren la cadena entera: `transiciones-alcanzables.test.ts` (las tres copias
+de la lista de transiciones dicen lo mismo) y `congelado-cableado.test.ts` (los
+cinco eslabones del congelado). Los dos se comprobaron rompiéndolos a propósito.

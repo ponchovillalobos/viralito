@@ -134,6 +134,16 @@ export interface ResolvedProject {
   audioFilterPre?: string;
   // F3 — Partículas procedurales (chispas en el pico emocional, confeti, etc.).
   particleBursts?: { at: number; duration: number; kind: string; count?: number }[];
+  /**
+   * Momentos donde la imagen se congela para rematar.
+   *
+   * Lo pone el director emocional en el pico maximo del video (ver
+   * `fx-enrichments.ts`). El schema del composition lo valida; declararlo aca
+   * es lo que permite que el enriquecedor lo escriba con el tipo puesto — sin
+   * esto compilaria igual con un `as`, y quedaria como un campo que nadie sabe
+   * que existe.
+   */
+  freezeMarks?: Array<{ at: number; duration?: number }>;
   // FX que los estilos hype*/supreme ya generan (los lee el override fxIntensity).
   wordStickers?: unknown[];
   floatingEmojis?: unknown[];
