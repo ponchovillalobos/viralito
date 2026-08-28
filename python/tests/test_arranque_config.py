@@ -166,3 +166,48 @@ def test_los_hijos_heredan_la_misma_carpeta_de_datos():
         f"Python usa {datos['python']!r} y sus hijos de Node {datos['node']!r}. "
         "La misma corrida leería de un disco y escribiría rutas apuntando al otro."
     )
+
+
+def _data_root_declarada() -> Path | None:
+    """La carpeta que declara `frontend/.env.local`, leída sin pasar por config."""
+    env = PYTHON_DIR.parent / "frontend" / ".env.local"
+    if not env.exists():
+        return None
+    for linea in env.read_text(encoding="utf-8", errors="replace").splitlines():
+        if linea.strip().startswith("VIRAL_DATA_ROOT="):
+            valor = linea.partition("=")[2].strip().strip('"').strip("'")
+            return Path(valor) if valor else None
+    return None
+
+
+def test_ver_bitacora_encuentra_el_historial_sin_variable_de_entorno():
+    """La bitácora se lee lanzándola A MANO, sin `entorno.ps1`.
+
+    `ver_bitacora.py` armaba la ruta con `os.environ.get("VIRAL_DATA_ROOT")` y
+    sin importar `config`, que es quien lee `frontend/.env.local` y exporta esa
+    variable. Desde una consola limpia caía a la carpeta por omisión —la del
+    proyecto hermano— e informaba
+
+        "Todavía no hay ejecuciones registradas."
+
+    con el historial entero sano en el disco correcto. Es la trampa documentada
+    del workspace, y la sufría justo la herramienta que existe para comparar
+    corridas y decidir qué mejorar: parecía rota mientras escribía bien.
+
+    El pipeline nunca la sufrió porque importa `config` por otros motivos.
+    """
+    declarada = _data_root_declarada()
+    if declarada is None:
+        pytest.skip("no hay frontend/.env.local con VIRAL_DATA_ROOT en esta copia")
+
+    # Se BORRA la variable para reproducir la consola común, que es donde fallaba.
+    obtenido = _en_subproceso(
+        "import ver_bitacora; print(ver_bitacora.carpeta_logs())",
+        env={"VIRAL_DATA_ROOT": ""},
+    )
+    esperada = declarada / "logs" / "ejecuciones"
+    assert Path(obtenido) == esperada, (
+        f"la bitácora se leería de {obtenido!r} y se escribe en {str(esperada)!r}. "
+        "Sin la variable, el lector cae a la carpeta del proyecto hermano e "
+        "informa que no hay ejecuciones aunque el historial esté completo."
+    )

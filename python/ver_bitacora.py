@@ -28,6 +28,24 @@ except Exception:
 
 
 def carpeta_logs() -> Path:
+    # Importar `config` es lo que RESUELVE la carpeta de datos: lee
+    # `frontend/.env.local` y exporta `VIRAL_DATA_ROOT`. Sin esto, esta función
+    # caía a `C:\viral-data\videos` —la carpeta compartida con el proyecto
+    # hermano— y decía "Todavía no hay ejecuciones registradas" con el historial
+    # entero sano en `D:\viral-data`.
+    #
+    # Es la trampa documentada del workspace: un script lanzado a mano desde la
+    # consola no pasa por `.env.local`. El pipeline nunca la sufrió porque
+    # importa `config` por otros motivos; este lector, que no lo hacía, parecía
+    # roto mientras escribía bien.
+    #
+    # Import perezoso a propósito: `config` toca disco al arrancar, y este
+    # módulo también se importa desde tests que no quieren ese coste.
+    try:
+        import config  # noqa: F401,PLC0415  (el efecto es exportar la variable)
+    except Exception:  # noqa: BLE001 — sin config igual se intenta con el entorno
+        pass
+
     raiz = os.environ.get("VIRAL_DATA_ROOT")
     base = Path(raiz) if raiz else Path(r"C:\viral-data\videos")
     return base / "logs" / "ejecuciones"
