@@ -239,3 +239,56 @@ Para entender qué hace cada estilo, ver los videos de ejemplo en `C:\viral-data
 - `D06-D12_*_hype_sfx.mp4` — Bloque 2 (cada uno con un color distinto)
 
 Ver [STYLES.md](./STYLES.md) para detalles de cada uno.
+
+## Traer un video de YouTube
+
+Los dos asistentes tienen un campo para pegar el enlace: `/editor/wizard` (un
+video corto) y `/largos` (un curso del que salen varios clips). El archivo cae en
+la **misma carpeta** que si lo subieras a mano, así que desde ahí el pipeline es
+idéntico — no hay un "camino de YouTube" aparte que pueda comportarse distinto.
+
+Por consola:
+
+```bash
+python descargar_de_url.py <url> --flujo corto           # → raw/
+python descargar_de_url.py <url> --flujo largo           # → long_form/raw/
+python descargar_de_url.py <url> --flujo largo --id D21_curso_ventas
+```
+
+Sin `--id`, el nombre sale del título del video convertido a la convención
+`D##_slug`: *"Cómo VENDER más en 2026 | Estrategia #1"* → `D03_como_vender_mas_en_2026_estrategia_1`.
+
+**Se baja en H.264, no en AV1**, aunque YouTube ofrezca AV1 con mejor
+compresión. Medido en esta máquina decodificando 30 s del mismo material con
+`-hwaccel cuda`:
+
+```
+AV1     4436 ms
+H.264   1975 ms      2.2x más rápido
+```
+
+La RTX 3060 sí decodifica AV1 por hardware —Ampere lo trae; lo que no tiene es
+*codificarlo*— así que no es que AV1 no funcione. Es que el pipeline decodifica
+el mismo video muchas veces (transcribir, detectar silencios, extraer clips,
+renderizar, re-encodear) y ahí un 2.2× se multiplica. Si no hay H.264
+disponible, cae a lo que haya.
+
+Al terminar dice cuánto dura y **si el flujo elegido encaja**: si pediste "corto"
+y bajaste 40 minutos, te lo avisa — pero no cambia de flujo por su cuenta.
+
+### Si el video pide iniciar sesión
+
+Guardá las cookies del navegador en `<datos>/cookies/youtube.txt` (formato
+Netscape) y volvé a intentar. El mensaje de error ya te dice la ruta exacta.
+
+> **Sobre qué se descarga:** esto baja lo que le pidas. Está pensado para tu
+> propio material y para contenido sobre el que tengas derechos, igual que
+> cualquier archivo que pongas en `raw/` a mano.
+
+### Un detalle que costó encontrar
+
+yt-dlp necesita **ffmpeg** para unir video y audio, que YouTube sirve por
+separado. Desde una consola con ffmpeg en el `PATH` funciona; lanzado por el
+servidor, no — y fallaba con *"no pudo bajar el video"* sin mencionar ffmpeg por
+ningún lado. Ahora se le pasa la ruta que el proyecto ya resuelve, así que no
+depende del `PATH` de quien lo llame.

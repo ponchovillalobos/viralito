@@ -46,3 +46,11 @@ soundfile>=0.12.0
 # este archivo, así que caía siempre al fallback (os.cpu_count()//2), que estima
 # mal en CPUs con hyperthreading y degrada la elección de modelo y de workers.
 psutil>=5.9.0
+
+# yt-dlp — baja videos de YouTube para editarlos (descargar_de_url.py) y para la
+# seccion de investigacion (research_download.py). Unlicense (dominio publico).
+#
+# `research_download.py` lo invocaba desde antes con `sys.executable -m yt_dlp`,
+# pero NUNCA estuvo en este archivo: la seccion de investigacion no podia bajar
+# nada, y fallaba con "No module named yt_dlp".
+yt-dlp>=2026.8.19

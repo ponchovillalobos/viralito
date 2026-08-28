@@ -336,6 +336,10 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [bumperEnabled, setBumperEnabled] = useState(false);
   // Banda inferior de nombre/cargo (lower-third). Opcional: sin nombre,
   // `word_callouts.py` devuelve la lista vacia y no se dibuja ninguna banda.
+  // Traer de YouTube. Mismo destino que "importar desde mi compu", asi que el
+  // pipeline desde ahi es identico.
+  const [urlYt, setUrlYt] = useState("");
+  const [bajandoYt, setBajandoYt] = useState(false);
   const [speakerName, setSpeakerName] = useState("");
   const [speakerRole, setSpeakerRole] = useState("");
   const [bumperTagline, setBumperTagline] = useState("");
@@ -534,6 +538,46 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
    * Importar videos desde la compu del usuario. Sube por multipart al endpoint
    * /api/videos/import que los copia a RAW_DIR. Después refresca la lista.
    */
+  async function bajarDeYoutube() {
+    const u = urlYt.trim();
+    if (!u) return;
+    setBajandoYt(true);
+    const aviso = toast.loading("Bajando el video…");
+    try {
+      const r = await fetch("/api/videos/descargar-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: u, flujo: "corto" }),
+      });
+      const d = (await r.json().catch(() => ({}))) as {
+        error?: string; pista?: string; id?: string; duracion_s?: number; sugerencia?: string;
+      };
+      if (r.ok) {
+        const min = Math.round((d.duracion_s ?? 0) / 60);
+        toast.success(`«${d.id}» listo`, {
+          id: aviso,
+          // Si es largo se DICE, no se cambia de flujo solo.
+          description:
+            d.sugerencia === "largo"
+              ? `Dura ${min} min: de algo asi salen mejores clips con «Videos largos».`
+              : undefined,
+        });
+        setUrlYt("");
+        await loadVideos();
+      } else {
+        toast.error("No se pudo bajar el video", {
+          id: aviso,
+          description: [d.error, d.pista].filter(Boolean).join(" — ") || undefined,
+        });
+      }
+    } catch (err) {
+      toast.dismiss(aviso);
+      toastError(err, "No se pudo bajar el video");
+    } finally {
+      setBajandoYt(false);
+    }
+  }
+
   async function importVideos(files: FileList | File[]) {
     setImporting(true);
     let ok = 0, fail = 0;
@@ -1321,6 +1365,38 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       {/* STEP 1: videos (multi-select) */}
       {step === 1 && (
         <Card className="border-border bg-card p-6">
+          {/* Traer de YouTube. Deja el archivo en la MISMA carpeta que
+              "importar desde mi compu", asi que desde ahi el pipeline es
+              identico: no hay un camino aparte que pueda comportarse distinto. */}
+          <div className="mb-4 rounded-md border border-red-500/25 bg-red-500/5 p-3">
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              <span className="font-medium text-red-200">¿Está en YouTube?</span>{" "}
+              Pegá el enlace y se baja solo, en H.264 hasta 1080p — que es lo que
+              el resto del pipeline procesa más rápido.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={urlYt}
+                onChange={(e) => setUrlYt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") bajarDeYoutube();
+                }}
+                placeholder="https://www.youtube.com/watch?v=…"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono-tab text-xs outline-none focus:border-red-500/60"
+              />
+              <button
+                type="button"
+                onClick={bajarDeYoutube}
+                disabled={bajandoYt || !urlYt.trim()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-red-500 px-3 py-2 text-xs font-medium text-white hover:bg-red-400 disabled:opacity-40"
+              >
+                {bajandoYt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Traer de YouTube
+              </button>
+            </div>
+          </div>
+
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-lg font-medium">1. Elige tus videos</h2>
             <div className="flex items-center gap-2">
