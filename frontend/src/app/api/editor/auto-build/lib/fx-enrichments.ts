@@ -706,3 +706,76 @@ export function applyBrollWipes(project: ResolvedProject, accentColor?: string):
     })),
   ] as typeof project.proTransitionSeries;
 }
+
+/**
+ * Cifras que el hablante MENCIONA, apareciendo en pantalla cuando las dice
+ * (`statPops`), y la banda de nombre/cargo (`lowerThirds`).
+ *
+ * `word_callouts.py` ya hacia esto entero: determinista por regex, sin IA, sin
+ * red. Detecta "8 segundos", "50%", "3x", "$1.2M" con el tiempo exacto de la
+ * palabra. Los DOS builders de props reenviaban `statPops` y `lowerThirds`, y
+ * el composition sabia dibujarlos.
+ *
+ * Nadie ejecutaba el script. Ni una linea en todo el repo lo invocaba, asi que
+ * el array llegaba siempre vacio y la funcionalidad no existia — la cuarta vez
+ * que aparece este patron: implementado, cableado, y sin nadie que lo dispare.
+ *
+ * `statPops` no pide nada a quien edita: sale del transcript. `lowerThirds`
+ * necesita nombre y cargo, y si no vienen el script devuelve la lista vacia y
+ * no se dibuja ninguna banda.
+ */
+export async function applyCallouts(
+  project: ResolvedProject,
+  videoId: string,
+  speakerName?: string,
+  speakerRole?: string
+): Promise<void> {
+  try {
+    const transcriptPath = path.join(TRANSCRIPTS_DIR, `${videoId}.json`);
+    const raw = await fs.readFile(transcriptPath, "utf-8").catch(() => null);
+    if (!raw) return;
+    const words = (JSON.parse(raw)?.words ?? []) as unknown[];
+    if (words.length === 0) return;
+
+    // El script lee las palabras de un ARCHIVO, no de la linea de comandos: un
+    // transcript de una hora no entra en un argumento de Windows.
+    const outDir = path.join(DATA_ROOT, "callouts");
+    await fs.mkdir(outDir, { recursive: true });
+    const wordsPath = path.join(outDir, `${videoId}.words.json`);
+    await fs.writeFile(wordsPath, JSON.stringify(words), "utf-8");
+
+    const args = [path.join(PYTHON_DIR, "word_callouts.py"), "--words", wordsPath];
+    if (speakerName) args.push("--name", speakerName);
+    if (speakerRole) args.push("--role", speakerRole);
+
+    const run = await runProcess(PYTHON_EXE, args, PYTHON_DIR, undefined, 60_000);
+    await fs.unlink(wordsPath).catch(() => {});
+    if (!run.ok) return;
+
+    const datos = parseLastJsonLine<{ statPops?: unknown[]; lowerThirds?: unknown[] }>(
+      run.stdout || ""
+    );
+    if (!datos) return;
+
+    if (datos.statPops?.length) {
+      project.statPops = [
+        ...((project.statPops ?? []) as unknown[]),
+        ...datos.statPops,
+      ] as typeof project.statPops;
+    }
+    if (datos.lowerThirds?.length) {
+      project.lowerThirds = [
+        ...((project.lowerThirds ?? []) as unknown[]),
+        ...datos.lowerThirds,
+      ] as typeof project.lowerThirds;
+    }
+    console.log(
+      `[auto-build] callouts: ${datos.statPops?.length ?? 0} cifras, ` +
+        `${datos.lowerThirds?.length ?? 0} bandas`
+    );
+  } catch (err) {
+    // Best-effort, igual que el resto de los enriquecedores: sin callouts el
+    // video sale como siempre.
+    console.warn("[auto-build] callouts falló:", err);
+  }
+}

@@ -512,3 +512,37 @@ barrido no aparece en ningún fotograma — comprobado renderizando, no razonand
 
 Verificado de punta a punta en un render completo de 44 s: la luminancia media
 salta de 98 a 150 exactamente en el segundo del barrido y vuelve 0.3 s después.
+
+### Cifras que el hablante menciona (`statPops`) y banda de nombre (`lowerThirds`)
+
+Cuando alguien dice «en solo **8 segundos**», «el **50 %**», «**3x** tu alcance»,
+«**$1.2M**», la cifra aparece en pantalla justo cuando se pronuncia. Lo resuelve
+`word_callouts.py`: **determinista por regex, sin IA y sin red**, sobre los
+tiempos por palabra del transcript. No cuesta ni un segundo de GPU.
+
+La banda de nombre/cargo aparece una vez al principio, como en una entrevista de
+televisión. Se llena desde el wizard (paso 3, *Color*); vacía = no se dibuja.
+
+En los clips de largos sólo salen las cifras: el pipeline no tiene de dónde sacar
+un nombre.
+
+#### La cuarta vez que aparece el mismo patrón
+
+`word_callouts.py` estaba completo. Los **dos** builders reenviaban `statPops` y
+`lowerThirds`. El composition sabía dibujarlos. Y **ni una línea en todo el repo
+ejecutaba el script**, así que el array llegaba siempre vacío y la funcionalidad
+no existía.
+
+Con ésta van cuatro en el mismo día, todas de la misma forma —implementado,
+cableado, sin nadie que lo dispare— y ninguna daba error:
+
+| | Qué faltaba |
+|---|---|
+| `escala_medida` | la lista del prompt, que es lo único que el modelo lee |
+| `freezeMarks` | que algún builder lo copiara |
+| `proTransitionSeries` | que la capa no abortara el render al activarse |
+| `statPops` / `lowerThirds` | que alguien ejecutara el script |
+
+De ahí el barrido que ahora corre sobre los 56 campos del composition
+distinguiendo quién **produce** un valor de quién sólo lo **reenvía**: los
+builders reenvían todo, así que mirarlos a ellos no delata nada.

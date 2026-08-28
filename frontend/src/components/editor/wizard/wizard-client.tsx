@@ -333,6 +333,10 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [accent, setAccent] = useState<string>("#fb7185");
   // F2.b — Bumper de marca (intro/outro). Opt-in; default apagado = render idéntico.
   const [bumperEnabled, setBumperEnabled] = useState(false);
+  // Banda inferior de nombre/cargo (lower-third). Opcional: sin nombre,
+  // `word_callouts.py` devuelve la lista vacia y no se dibuja ninguna banda.
+  const [speakerName, setSpeakerName] = useState("");
+  const [speakerRole, setSpeakerRole] = useState("");
   const [bumperTagline, setBumperTagline] = useState("");
   const [bumperSubtitle, setBumperSubtitle] = useState("");
   const [bumperLogoUrl, setBumperLogoUrl] = useState("");
@@ -745,6 +749,9 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       videoIds,
       styles,
       accentColor: accent,
+      // Vacio = sin banda. El backend solo pasa --name/--role si vienen.
+      ...(speakerName.trim() ? { speakerName: speakerName.trim() } : {}),
+      ...(speakerRole.trim() ? { speakerRole: speakerRole.trim() } : {}),
       subtitleFont,
       subtitleColor,
       // Submenús opcionales: solo viajan si el user cambió el default —
@@ -1679,6 +1686,33 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
           />
 
           {/* F2.b — Bumper de marca (intro/outro con logo animado + tagline). Opt-in. */}
+                    <div className="rounded-lg border border-border/60 p-3">
+            <span className="text-sm font-medium">🏷️ Banda con tu nombre</span>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Aparece una vez al principio, como en una entrevista de tele. Dejalo
+              vacío si no la querés.
+            </p>
+            <div className="mt-3 space-y-2">
+              <input
+                type="text"
+                value={speakerName}
+                onChange={(e) => setSpeakerName(e.target.value)}
+                placeholder="Nombre (ej. Poncho Villalobos)"
+                maxLength={40}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500/60"
+              />
+              <input
+                type="text"
+                value={speakerRole}
+                onChange={(e) => setSpeakerRole(e.target.value)}
+                placeholder="Cargo o descripción (ej. Estratega de contenido)"
+                maxLength={40}
+                disabled={!speakerName.trim()}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500/60 disabled:opacity-40"
+              />
+            </div>
+          </div>
+
           <div className="mb-4 rounded-lg border border-border bg-muted/20 p-4">
             <label className="flex cursor-pointer items-center gap-2">
               <input

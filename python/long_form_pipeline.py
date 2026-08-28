@@ -1011,6 +1011,60 @@ def _apply_tracking(clip_id: str, style_id: str) -> None:
         print(f"[tracking] skipped: {e}", file=sys.stderr)
 
 
+def _apply_callouts(clip_id: str, style_id: str) -> None:
+    """Cifras que el hablante menciona, apareciendo cuando las dice.
+
+    Paridad con `applyCallouts` de fx-enrichments.ts. `word_callouts.py` ya
+    hacia esto entero —determinista por regex, sin IA, sin red— y NADIE lo
+    ejecutaba: los dos builders de props reenviaban `statPops`/`lowerThirds` y
+    el composition sabia dibujarlos, pero el array llegaba siempre vacio.
+
+    Los clips de largos no llevan nombre/cargo (no hay de donde sacarlos en el
+    pipeline), asi que aca solo salen las cifras. Sin `--name` el script
+    devuelve `lowerThirds: []` y no se dibuja ninguna banda.
+
+    Best-effort: si falla, el clip renderiza igual que antes.
+    """
+    try:
+        project_path = LF_PROJECTS / f"{clip_id}_{style_id}.json"
+        transcript_path = LF_TRANSCRIPTS / f"{clip_id}.json"
+        if not project_path.exists() or not transcript_path.exists():
+            return
+        palabras = (json.loads(transcript_path.read_text(encoding="utf-8")).get("words") or [])
+        if not palabras:
+            return
+        # El script lee de un ARCHIVO: un transcript largo no entra en un
+        # argumento de linea de comandos en Windows.
+        tmp = LF_PROJECTS / f"_{clip_id}.words.json"
+        tmp.write_text(json.dumps(palabras, ensure_ascii=False), encoding="utf-8")
+        try:
+            # `check=False` a proposito: si el script falla, este enriquecedor
+            # se salta y el clip renderiza igual. Con el default (`check=True`)
+            # levantaria una excepcion y el `if r.returncode` de abajo seria
+            # codigo muerto.
+            r = _proc.run_capture(
+                [sys.executable, str(PYTHON_DIR / "word_callouts.py"), "--words", str(tmp)],
+                cwd=str(PYTHON_DIR), timeout=60, check=False,
+            )
+        finally:
+            tmp.unlink(missing_ok=True)
+        if r.returncode != 0:
+            return
+        linea = [l for l in (r.stdout or "").splitlines() if l.strip().startswith("{")]
+        if not linea:
+            return
+        datos = json.loads(linea[-1])
+        pops = datos.get("statPops") or []
+        if not pops:
+            return
+        proj = json.loads(project_path.read_text(encoding="utf-8"))
+        proj["statPops"] = (proj.get("statPops") or []) + pops
+        project_path.write_text(json.dumps(proj, indent=2), encoding="utf-8")
+        print(f"[callouts] {clip_id}: {len(pops)} cifras", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
+        print(f"[callouts] skipped: {e}", file=sys.stderr)
+
+
 def _apply_emotion(clip_id: str, style_id: str) -> None:
     """F1 — Director emocional sobre el clip (paridad con applyEmotionDirector de
     shorts): corre emotion_director.py y parchea el project JSON con:
@@ -1353,6 +1407,7 @@ def step_render_clip(
     _apply_broll(clip_id, style_id, aspect_ratio, fuente=broll_source)
     # 1.6) F1 — director emocional: ducking de música + zooms en picos. Best-effort.
     _apply_emotion(clip_id, style_id)
+    _apply_callouts(clip_id, style_id)
     # 2) build props — archivo ÚNICO por clip+estilo: con render paralelo, dos workers
     #    escribiendo "props.json" se pisarían (un clip renderizaría los props del otro).
     props_name = f"props_{clip_id}_{style_id}.json"

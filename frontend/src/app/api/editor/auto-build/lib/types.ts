@@ -28,6 +28,11 @@ export interface AutoBuildRequest {
   videoIds?: string[];
   styles: StyleId[];
   accentColor: string;
+  /** Nombre del hablante para la banda inferior (lower-third). Opcional: sin
+   *  el, `word_callouts.py` devuelve la lista vacia y no se dibuja ninguna. */
+  speakerName?: string;
+  /** Cargo/descripcion bajo el nombre. Solo se usa si hay `speakerName`. */
+  speakerRole?: string;
   /** Fuente de subtítulos elegida ("auto" = la del estilo). Google Fonts gratis. */
   subtitleFont?: string;
   /** Color del TEXTO de los subtítulos elegido en el wizard ("auto" = el del estilo). */
@@ -112,6 +117,11 @@ export interface ResolvedProject {
   /** Barridos de color de @remotion/transitions en los cortes a B-roll.
    *  Lo llena `applyBrollWipes`; ver el porque del limite de tres alli. */
   proTransitionSeries?: unknown[];
+  /** Cifras que el hablante menciona, sincronizadas a la palabra. Las produce
+   *  `applyCallouts` con word_callouts.py — determinista, sin IA, sin red. */
+  statPops?: unknown[];
+  /** Banda de nombre/cargo. Vacia si el wizard no trae nombre. */
+  lowerThirds?: unknown[];
   /** `fullscreen` (default) reemplaza el plano; `pip` lo deja de fondo. Decide
    *  si un corte a B-roll es un corte de verdad — y por tanto si lleva barrido. */
   bRollMode?: "fullscreen" | "pip";

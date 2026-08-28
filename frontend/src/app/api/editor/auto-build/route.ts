@@ -64,6 +64,7 @@ import {
   applyEditorialCutout,
   applyEmotionDirector,
   applyBrollWipes,
+  applyCallouts,
 } from "./lib/fx-enrichments";
 import { styleHasIllustrations } from "@/lib/style-registry";
 import { applyCineClasico } from "./lib/cine-clasico";
@@ -467,6 +468,12 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       // DESPUES del director emocional para no competir con sus zooms: si un
       // pico y un corte caen juntos, el corte ya trae su propio enfasis.
       applyBrollWipes(project, accentColor);
+
+      // Cifras que el hablante menciona, apareciendo cuando las dice, y la
+      // banda de nombre/cargo. `word_callouts.py` ya lo hacia entero y NADIE
+      // lo ejecutaba: los builders reenviaban el resultado y el composition
+      // sabia dibujarlo, pero el array llegaba siempre vacio.
+      await applyCallouts(project, videoId, body.speakerName, body.speakerRole);
 
       // CINE CLÁSICO — drama por-pico (B&W de la imagen + SFX de cine antiguo +
       // voz "a radio vieja" gateada). Best-effort: si no hay picos, el estilo
