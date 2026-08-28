@@ -119,7 +119,7 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 // no un descuido. El tipo ahora viene del registro para las dos.
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
@@ -216,7 +216,10 @@ interface ProposalsResponse {
 // Estilos que usan imagenes de apoyo. Del modulo compartido, no copiados: los
 // dos asistentes ya tuvieron su propia copia del catalogo de estilos una vez, y
 // las copias derivaron hasta dejar dos estilos sin puerta de entrada.
-const BROLL_STYLES: StyleId[] = [...BROLL_STYLE_IDS];
+// Los estilos que PUEDEN mostrar material, no solo los que lo traen solos: el
+// composition dibuja B-roll para los cuatro editoriales, y el selector aparecia
+// en uno. En los otros tres la capacidad existia sin forma de encenderla.
+const BROLL_STYLES: StyleId[] = [...BROLL_CAPABLE_STYLE_IDS];
 
 const STYLES: { id: StyleId; name: string; tagline: string; emoji: string }[] = [
   { id: "supreme", name: "Premium", tagline: "Todo activado, la máxima calidad. El mejor para largos.", emoji: "👑" },
@@ -1447,6 +1450,19 @@ export function LongFormWizard() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{s.name}</span>
+                        {BROLL_CAPABLE_STYLE_IDS.includes(
+                          s.id as (typeof BROLL_CAPABLE_STYLE_IDS)[number]
+                        ) && (
+                          // Se dice ANTES de elegir, no despues. Antes solo se
+                          // descubria seleccionando el estilo y viendo si
+                          // aparecia el selector de fuentes.
+                          <span
+                            title="Acepta videos, fotos o GIFs de apoyo — se elige la fuente mas abajo"
+                            className="rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300"
+                          >
+                            + material
+                          </span>
+                        )}
                         {sel && <CheckCircle2 className="h-4 w-4 text-violet-400" />}
                       </div>
                       <p className="text-xs text-muted-foreground">{s.tagline}</p>

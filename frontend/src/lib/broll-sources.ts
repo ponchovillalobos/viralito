@@ -17,7 +17,35 @@
 import type { BrollSource } from "@/lib/pexels";
 
 /** Estilos que usan imágenes de apoyo — el mismo conjunto que `_BROLL_STYLES` en el pipeline de Python. */
+/**
+ * Estilos que TRAEN material de archivo por su cuenta. Es su rasgo definitorio:
+ * elegir `editorial_broll` es pedir "editorial + videos que ilustren lo que digo".
+ */
 export const BROLL_STYLE_IDS = ["broll_full", "broll_pip", "editorial_broll"] as const;
+
+/**
+ * Estilos que PUEDEN mostrar material de archivo, aunque no lo busquen solos.
+ *
+ * El composition dibuja B-roll para cualquier estilo con `editorialLayout` —son
+ * cuatro: `editorial`, `editorial_full`, `editorial_broll` y `paper_cut`— y
+ * también para los de pantalla completa y PIP. Pero el selector de fuentes sólo
+ * aparecía en los tres de arriba, así que en `editorial`, `editorial_full` y
+ * `paper_cut` la capacidad existía y **no había forma de encenderla**: el video
+ * salía sin material y nada explicaba por qué.
+ *
+ * Lo reportó el usuario, no un test: «el estilo editorial no tiene la
+ * posibilidad de elegir inserción de videos... el wizard no permite al usuario
+ * saber ni desde la elección del estilo».
+ *
+ * En estos tres, elegir una fuente es una decisión explícita: con "Automático"
+ * siguen sin material, igual que siempre.
+ */
+export const BROLL_CAPABLE_STYLE_IDS = [
+  ...BROLL_STYLE_IDS,
+  "editorial",
+  "editorial_full",
+  "paper_cut",
+] as const;
 
 export const BROLL_SOURCES: readonly {
   id: BrollSource;

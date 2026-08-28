@@ -69,6 +69,7 @@ import {
 import { styleHasIllustrations } from "@/lib/style-registry";
 import { applyCineClasico } from "./lib/cine-clasico";
 import { isSafeId } from "@/lib/safe-id";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS } from "@/lib/broll-sources";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
@@ -346,11 +347,19 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       // cortinillas PIP sobre el lienzo editorial. Si Pexels falla o no hay key, queda []
       // y el render sale sin b-roll (no rompe; editorial_broll cae a editorial puro).
       let autoBroll: BrollClip[] = [];
-      if (
-        styleId === "broll_full" ||
-        styleId === "broll_pip" ||
-        styleId === "editorial_broll"
-      ) {
+      // CUARTA copia de la misma lista, escrita a mano acá. Las otras tres:
+      // `BROLL_STYLE_IDS` (el selector del wizard), `BROLL_CAPABLE_STYLE_IDS`
+      // (lo que el composition sabe dibujar) y el `editorialLayout &&` del
+      // propio composition. Ahora esta usa la compartida.
+      //
+      // Se busca material si el estilo lo trae por naturaleza, O si quien edita
+      // eligió una fuente a propósito en un estilo que sabe mostrarlo. Sin esa
+      // segunda condición, elegir "Videos" en `editorial` encendía el selector y
+      // no pasaba nada — peor que no ofrecerlo.
+      const fuentesElegidas = [body.brollSource ?? []].flat().filter((f) => f && f !== "auto");
+      const traeBrollSolo = (BROLL_STYLE_IDS as readonly string[]).includes(styleId);
+      const puedeMostrarBroll = (BROLL_CAPABLE_STYLE_IDS as readonly string[]).includes(styleId);
+      if (traeBrollSolo || (puedeMostrarBroll && fuentesElegidas.length > 0)) {
         try {
           // Escalar la cantidad de clips con la DURACIÓN del video: ~1 clip cada 16s,
           // mínimo 5, máximo 40 (cada clip = 1 request a Pexels; 40 respeta el rate limit).

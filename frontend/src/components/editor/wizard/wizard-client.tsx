@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
@@ -177,7 +177,10 @@ const SUBTITLE_FONTS: { id: string; name: string }[] = [
 const MOTION_STYLES: StyleId[] = ["motion_pro", "motion_beat", "motion_grid", "kinetic_type", "lottie_pop"];
 const HYPE_STYLES: StyleId[] = ["hype", "hype_max", "hype_max_sfx", "supreme"];
 // Se toman del modulo compartido para que los dos asistentes no puedan divergir.
-const BROLL_STYLES: StyleId[] = [...BROLL_STYLE_IDS];
+// Los estilos que PUEDEN mostrar material, no solo los que lo traen solos: el
+// composition dibuja B-roll para los cuatro editoriales, y el selector aparecia
+// en uno. En los otros tres la capacidad existia sin forma de encenderla.
+const BROLL_STYLES: StyleId[] = [...BROLL_CAPABLE_STYLE_IDS];
 
 
 // Estilos que LLEVAN música de fondo (los que setean musicTrack en
@@ -1701,6 +1704,19 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-base font-semibold">{s.name}</span>
+                          {BROLL_CAPABLE_STYLE_IDS.includes(
+                            s.id as (typeof BROLL_CAPABLE_STYLE_IDS)[number]
+                          ) && (
+                            // Se dice ANTES de elegir. Antes solo se descubria
+                            // seleccionando el estilo y viendo si aparecia el
+                            // selector de fuentes mas abajo.
+                            <span
+                              title="Acepta videos, fotos o GIFs de apoyo — la fuente se elige mas abajo"
+                              className="rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300"
+                            >
+                              + material
+                            </span>
+                          )}
                           {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
                         </div>
                         <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{s.tagline}</p>

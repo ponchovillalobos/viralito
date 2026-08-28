@@ -595,3 +595,46 @@ aparecer sin decir por qué.
 > Pexels y reportaba "401 en videos, 200 en fotos" — con la misma clave, un
 > resultado imposible. Delataba el fallo en la prueba, no en la API. Se anota
 > porque una prueba que miente hace perder más tiempo que no tenerla.
+
+### Qué estilos aceptan material de apoyo
+
+Las tarjetas de estilo llevan un distintivo **`+ material`** cuando el estilo
+puede mostrar videos, fotos o GIFs de apoyo. Se dice **antes** de elegir: antes
+sólo se descubría seleccionando el estilo y viendo si más abajo aparecía el
+selector de fuentes.
+
+Hay dos grados, y no son lo mismo:
+
+- **Lo traen solos** (`broll_full`, `broll_pip`, `editorial_broll`): buscar
+  material es su rasgo definitorio. Elegir `editorial_broll` es pedir
+  "editorial + videos que ilustren lo que digo".
+- **Pueden mostrarlo** (además: `editorial`, `editorial_full`, `paper_cut`): el
+  composition sabe dibujarlo, pero sólo aparece si elegís una fuente a propósito.
+  Con "Automático" siguen sin material, igual que siempre.
+
+#### Cuatro listas de lo mismo, separadas
+
+Lo reportó el usuario: *«el estilo editorial no tiene la posibilidad de elegir
+inserción de videos... el wizard no permite al usuario saber ni desde la elección
+del estilo»*. Tenía razón, y la causa era que lo mismo estaba escrito cuatro
+veces:
+
+| | dónde | cuántos estilos |
+|---|---|---|
+| 1 | `BROLL_STYLE_IDS` — el selector del wizard | 3 |
+| 2 | una copia a mano en `auto-build/route.ts` — decide si se **busca** | los mismos 3 |
+| 3 | `editorialLayout && bRoll.map()` en el composition — lo **dibuja** | **4** |
+| 4 | `fullscreenBRoll` / PIP — los otros dos caminos del composition | — |
+
+El composition dibujaba B-roll para los cuatro editoriales y el selector aparecía
+en uno. En `editorial`, `editorial_full` y `paper_cut` la capacidad existía y
+**no había forma de encenderla**: el video salía sin material y nada explicaba
+por qué.
+
+La copia (2) era la más traicionera: sin tocarla, mostrar el selector en
+`editorial` habría dejado elegir una fuente para que después no pasara nada —
+peor que no ofrecerlo.
+
+`broll-estilos-alcanzables.test.ts` compara lo que el composition sabe dibujar
+contra lo que el wizard ofrece, y falla nombrando los estilos que se queden
+fuera.
