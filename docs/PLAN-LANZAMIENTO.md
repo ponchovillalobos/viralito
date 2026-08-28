@@ -2,7 +2,7 @@
 
 ## 1. ¿Está lista la app? — VEREDICTO HONESTO
 
-**El motor: SÍ.** Edita cortos y largos, transcribe, 14 estilos, director
+**El motor: SÍ.** Edita cortos y largos, transcribe, 25 estilos, director
 emocional, ilustraciones animadas, muletillas, copys por red, timeline, previews.
 Probado end-to-end con renders reales.
 

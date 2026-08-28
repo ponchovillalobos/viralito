@@ -181,14 +181,18 @@ Documentado en `README.md`. Resumen:
 - ✅ Dashboard funcional con 8 rutas
 - ✅ 25 estilos visuales implementados y **los 25 elegibles** desde los asistentes. `supreme` aparece en las dos listas Y además el pipeline de largos se lo asigna solo a cada clip (la doc decía antes que era sólo automático: era falso). `editorial_full` = editorial a pantalla completa en horizontal; los estilos editoriales usan panel (video + texto/ilustraciones al costado) en V y H
   - Nuevos: `cine_clasico` (cine antiguo: voz a radio vieja + B&W + máquina de escribir/proyector en los picos del director emocional), `editorial_broll` (Editorial + B-roll Pexels en cortinillas), `kinetic_type`, `lottie_pop`, `paper_cut`
-  - El estilo `editorial` tiene **20** temas editoriales (nuevos: `art_deco`, `blueprint`,
-    `noir`). Fuente de verdad: `frontend/src/lib/editorial-themes.ts` — estaban escritos
+  - El estilo `editorial` tiene **23** temas editoriales (los ultimos: `revista`,
+    `dossier`, `cartel`). Fuente de verdad: `frontend/src/lib/editorial-themes.ts` — estaban escritos
     dos veces, uno por wizard, y la copia de largos ya había perdido el campo `hint`
 - ✅ Pipeline shorts: transcribe + cuts + render
 - ✅ Pipeline long form: transcribe + cuts + analyze + extract + render
-- ✅ 16 SFX CC0 curados (incluye `typewriter.wav` y `film_reel.wav` para `cine_clasico`)
+- ✅ SFX CC0 curados en `assets/sfx/curated-viral/` (incluye `typewriter.wav` y
+  `film_reel.wav` para `cine_clasico`). La cuenta depende de tu disco, no del
+  repo: mirala con `ls`. Decia "16" y habia 4 en `curated/` y 20 en
+  `curated-viral/` — ningun numero escrito a mano sobrevive a un `download_more_sfx.py`
 - ✅ Pexels integrado
-- ✅ 17 videos renderizados (D01-D12 + clips de D13)
+- ✅ Videos renderizados: los que tengas en `renders/`. Esta linea decia "17" y
+  es un dato de la maquina de quien escribio, no del proyecto
 - ✅ **Render 100% offline**: fuentes editoriales horneadas a TTF locales (lazy load, sin red en render) — ver pitfall de fuentes arriba
 - ✅ **Cola reanudable**: los jobs que quedaron SOLO en cola (nunca arrancaron) sobreviven un reinicio de la app — el panel de tareas los re-encola vía `POST /api/jobs/resume` (cada store persiste su `request` y marca `resumable`). Un render a medias NO se reanuda (se relanza a mano)
 - ✅ **"Mis videos" (Producción)** muestra SOLO videos con render reproducible (>100 KB; los renders rotos/truncados quedan ocultos y reaparecen al re-generar — filtro en `frontend/src/lib/orphan-sweep.ts` → `/api/projects`). Las variantes de estilo del MISMO clip (ej. `..._editorial` + `..._supreme`) se AGRUPAN en una sola tarjeta con chips (`production-list.tsx`, agrupa por base-id quitando el sufijo `_{styleId}`)

@@ -22,7 +22,7 @@ proposito: memoria entre loops. Cada loop del /loop LEE este índice ANTES de ac
 | Doc | Dominio | Objetivos scorecard | Código principal | Estado |
 |---|---|---|---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Arquitectura general, pipelines largos/shorts | a,b,c,d | `python/long_form_pipeline.py`, `frontend/src/app/api/editor/auto-build/*`, `remotion/*` | vigente |
-| [CAPACIDADES.md](CAPACIDADES.md) | Inventario de features | todos | (transversal) | **desactualizado** (revisar "22 estilos" → 23; objetivo p) |
+| [CAPACIDADES.md](CAPACIDADES.md) | Inventario de features | todos | (transversal) | vigente (25 estilos, verificado por `check-docs-coherentes.mjs`) |
 | [STYLES.md](STYLES.md) | Estilos + temas editoriales + SFX | h,h2,i | `frontend/src/lib/style-registry.data.json`, `style-templates.ts`, `remotion/style-templates.mjs` | **revisar** (¿incluye editorial_full?) |
 | [EFFECTS.md](EFFECTS.md) | FX del motor Remotion | b,h2 | `remotion/src/scene-fx.tsx`, `remotion/src/layers/*` | vigente |
 | [CINEMATIC_MODE.md](CINEMATIC_MODE.md) / [CINEMATIC_TIMELINE.md](CINEMATIC_TIMELINE.md) | Modo cine | h2 | `frontend/src/app/api/editor/auto-build/lib/cine-clasico.ts`, `ViralVideo.tsx` (bwWindows) | vigente |
@@ -35,8 +35,8 @@ proposito: memoria entre loops. Cada loop del /loop LEE este índice ANTES de ac
 | [SETUP.md](SETUP.md) / [PREREQUISITES.md](../PREREQUISITES.md) / [INSTALADOR.md](INSTALADOR.md) / [AUTOSTART.md](AUTOSTART.md) | Onboarding/instalación | n | `python/setup_all.py`, `desktop/*` | vigente |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Fallas conocidas | a,b | (transversal) | vigente (incluye fix fuentes lazy + reframe) |
 | [REPOS.md](REPOS.md) | Repos/estructura | — | — | vigente |
-| [README.md](../README.md) | Visión general | todos | — | **desactualizado** ("22 estilos" → 23; objetivo p) |
-| [CLAUDE.md](../CLAUDE.md) | Instrucciones internas / pitfalls | a (fuentes), k | (transversal) | **desactualizado** ("22 estilos" → 23) |
+| [README.md](../README.md) | Visión general | todos | — | vigente (25 estilos, 23 temas editoriales) |
+| [CLAUDE.md](../CLAUDE.md) | Instrucciones internas / pitfalls | a (fuentes), k | (transversal) | vigente (no lista estilos: remite al registro) |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Gates de ingeniería | k,l | tsc, `npm test`, `check-style-parity.mjs` | vigente |
 
 ## Auditorías / planes (histórico — NO fuente de verdad viva, sí contexto)
@@ -56,5 +56,9 @@ proposito: memoria entre loops. Cada loop del /loop LEE este índice ANTES de ac
 
 ## Deuda de documentación detectada (objetivo p)
 
-- **"22 estilos" → 23**: corregir en `README.md`, `CLAUDE.md`, `CAPACIDADES.md`, `STYLES.md` (registry tiene 23; `editorial_full` agregado en sesión 2026-06-25).
+- ~~**"22 estilos"**~~ — RESUELTO el 2026-08-28. Hoy son **25** y ya no se cuentan a
+  mano en ningun documento: `remotion/check-docs-coherentes.mjs` compara cada
+  cuenta afirmada contra `style-registry.data.json` y `editorial-themes.ts`, y
+  corre dentro de `npm test`. Esta deuda se repitio tres veces (22, 23, 25)
+  porque se arreglaba a mano; ahora falla el build en vez de envejecer.
 - `STYLES.md` / `UI.md` / editorial docs: revisar que mencionen `editorial_full` (pantalla completa) y los cambios de wizard de la sesión (nav fija, "Crear" 1 clic, reframe 16:9 estable).

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run && node ../remotion/check-style-parity.mjs && node ../remotion/check-lucide-names.mjs && node ../remotion/check-icon-coverage.mjs && node ../remotion/check-font-loading.mjs && node ../remotion/check-hook-parity.mjs && node ../remotion/check-campos-alcanzables.mjs",
+    "test": "vitest run && node ../remotion/check-style-parity.mjs && node ../remotion/check-lucide-names.mjs && node ../remotion/check-icon-coverage.mjs && node ../remotion/check-font-loading.mjs && node ../remotion/check-hook-parity.mjs && node ../remotion/check-campos-alcanzables.mjs && node ../remotion/check-docs-coherentes.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

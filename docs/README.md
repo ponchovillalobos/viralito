@@ -33,7 +33,7 @@ Seguí este orden y arrancás sin trabarte:
 | Doc | De qué trata |
 |---|---|
 | **[USAGE.md](./USAGE.md)** | Tutorial: shorts (chat/CLI) + pipeline de videos largos → clips. |
-| **[STYLES.md](./STYLES.md)** | Los 16 estilos visuales y cuándo usar cada uno. |
+| **[STYLES.md](./STYLES.md)** | Los 25 estilos visuales y cuándo usar cada uno. |
 | **[EFFECTS.md](./EFFECTS.md)** | Sistema de efectos: LUTs, transiciones, tipografía cinética, beat-sync, tracking. |
 | **[CAPACIDADES.md](./CAPACIDADES.md)** | Catálogo completo de lo que la app sabe hacer. |
 | **[CINEMATIC_MODE.md](./CINEMATIC_MODE.md)** | Modo cinematográfico (imágenes full, grano, color). |
