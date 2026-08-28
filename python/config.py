@@ -89,7 +89,7 @@ DATA_ROOT = _pick_data_root()
 #
 # No se usa `setdefault`: esa sólo actúa cuando la clave NO EXISTE, y una cadena
 # vacía existe. Con `VIRAL_DATA_ROOT=""` el hijo heredaba el vacío y caía al
-# default de `C:iral-data` mientras Python usaba la ruta correcta — la misma
+# default de `C:\viral-data` mientras Python usaba la ruta correcta — la misma
 # división que este bloque viene a cerrar, sobreviviendo dentro del arreglo. Lo
 # encontró el test, que es justamente para lo que sirve.
 if not os.environ.get("VIRAL_DATA_ROOT"):

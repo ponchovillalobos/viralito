@@ -43,7 +43,7 @@ for (const archivo of informe.testResults ?? []) {
       // sola linea, asi que se aplana.
       mensaje: (t.failureMessages ?? [])
         .join(" | ")
-        .replace(/\[[0-9;]*m/g, "")
+        .replace(/\x1b\[[0-9;]*m/g, "")
         .replace(/\s+/g, " ")
         .slice(0, 700),
     });

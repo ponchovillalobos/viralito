@@ -77,7 +77,7 @@ for (const c of campos) {
   // SIN expresiones regulares, a proposito.
   //
   // La primera version de este guardian las usaba y TODAS estaban corruptas:
-  // los escapes perdieron un nivel al escribir el archivo, asi que `` quedo
+  // los escapes perdieron un nivel al escribir el archivo, asi que `\b` quedo
   // como un caracter de retroceso y `["campo"]` como una CLASE DE CARACTERES
   // que coincide con casi cualquier linea. El guardian pasaba siempre, por la
   // razon equivocada — que es exactamente la clase de defecto que vino a
