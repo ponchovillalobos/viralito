@@ -30,12 +30,21 @@ const REDES: { id: RedKey; nombre: string; corto: string; color: string }[] = [
   { id: "facebook", nombre: "Facebook", corto: "FB", color: "border-blue-500/40 bg-blue-500/15 text-blue-200" },
 ];
 
+/**
+ * Fecha ABSOLUTA, no "hace 3 días".
+ *
+ * Lo relativo obliga a leer el reloj en cada render, y el compilador de React
+ * lo marca con razón: `Date.now()` durante el render da resultados que cambian
+ * solos cuando el componente se vuelve a pintar. Una fecha fija no se mueve, y
+ * para "¿cuándo subí esto?" es más útil de todas formas.
+ *
+ * `PROVISIONAL` es la marca recién puesta que todavía no confirmó el disco.
+ */
+const PROVISIONAL = -1;
+
 function cuando(ts: number): string {
-  const dias = Math.floor((Date.now() - ts) / 86_400_000);
-  if (dias <= 0) return "hoy";
-  if (dias === 1) return "ayer";
-  if (dias < 30) return `hace ${dias} días`;
-  return new Date(ts).toLocaleDateString();
+  if (ts === PROVISIONAL) return "guardando…";
+  return new Date(ts).toLocaleString();
 }
 
 export function MarcadorDeRedes({
@@ -55,7 +64,9 @@ export function MarcadorDeRedes({
     const previo = marcas;
     // Optimista: la marca se pinta antes de tocar el disco.
     const optimista: MarcasDeVideo = { ...marcas };
-    if (marcado) optimista[red] = Date.now();
+    // Sin reloj: el servidor pone la marca de tiempo real y la devuelve. Acá
+    // sólo hace falta un valor que se vea encendido mientras tanto.
+    if (marcado) optimista[red] = PROVISIONAL;
     else delete optimista[red];
     onCambio(projectId, optimista);
     setGuardando(red);
@@ -100,7 +111,7 @@ export function MarcadorDeRedes({
             aria-pressed={activo}
             title={
               activo
-                ? `Subido a ${r.nombre} ${cuando(ts as number)} — clic para desmarcar`
+                ? `Subido a ${r.nombre} · ${cuando(ts as number)} — clic para desmarcar`
                 : `Marcar como subido a ${r.nombre}`
             }
             className={cn(
