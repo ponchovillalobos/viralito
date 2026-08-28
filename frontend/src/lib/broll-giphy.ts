@@ -61,7 +61,10 @@ export async function buscarMuestraGiphy(query: string): Promise<string | null> 
     const params = new URLSearchParams({
       api_key: key,
       q: query,
-      limit: "1",
+      // La miniatura solo tiene que dar idea del estilo del material, pero con
+      // un unico candidato cualquier resultado raro se volvia LA muestra.
+      limit: "8",
+      lang: "es",
       rating: "g",
     });
     const res = await conTimeout(`${GIPHY_API}?${params}`);
@@ -70,11 +73,16 @@ export async function buscarMuestraGiphy(query: string): Promise<string | null> 
       return null;
     }
     const data = (await res.json()) as { data?: GiphyItem[] };
-    const im = data.data?.[0]?.images as Record<string, { url?: string }> | undefined;
-    // De mas chica a mas grande: alcanza con que se vea el estilo del material.
-    for (const k of ["fixed_width_still", "480w_still", "original_still", "downsized_still"]) {
-      const u = im?.[k]?.url;
-      if (u) return u;
+    // Recorre los candidatos hasta encontrar uno con imagen fija. Antes miraba
+    // SOLO el primero, asi que si ese no traia ninguna de las cuatro variantes
+    // la tarjeta se quedaba sin miniatura teniendo siete mas detras.
+    for (const item of data.data ?? []) {
+      const im = item.images as Record<string, { url?: string }> | undefined;
+      // De mas chica a mas grande: alcanza con que se vea el estilo del material.
+      for (const k of ["fixed_width_still", "480w_still", "original_still", "downsized_still"]) {
+        const u = im?.[k]?.url;
+        if (u) return u;
+      }
     }
     return null;
   } catch {
@@ -92,9 +100,18 @@ export async function buscarGifMp4(
   const params = new URLSearchParams({
     api_key: key,
     q: query,
-    limit: "5",
+    // 25 en vez de 5. La busqueda descarta los resultados que no traen MP4 —el
+    // render necesita video, no imagen— asi que con 5 candidatos bastaba con que
+    // los primeros fueran solo-GIF para volver con las manos vacias y dejar el
+    // momento sin material. Pedir mas no cuesta nada: es la misma llamada.
+    limit: "25",
+    // El contenido es en espanol, asi que la busqueda tambien. Estaba fijo en
+    // "en", asi que Giphy interpretaba consultas espanolas con su indice ingles
+    // y devolvia material peor o ninguno.
+    lang: "es",
+    // `rating` NO es una restriccion heredada: es que este material sale
+    // sobreimpreso en un video que se publica. Se queda.
     rating: "pg-13",
-    lang: "en",
     bundle: "clips_grid_picker",
   });
 

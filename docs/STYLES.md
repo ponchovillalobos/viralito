@@ -546,3 +546,52 @@ cableado, sin nadie que lo dispare— y ninguna daba error:
 De ahí el barrido que ahora corre sobre los 56 campos del composition
 distinguiendo quién **produce** un valor de quién sólo lo **reenvía**: los
 builders reenvían todo, así que mirarlos a ellos no delata nada.
+
+## De dónde salen las imágenes de apoyo (B-roll)
+
+Cinco fuentes, elegibles **varias a la vez** en los dos asistentes; se van
+alternando momento a momento a lo largo del video. Cada tarjeta muestra una
+miniatura real de esa fuente antes de elegir.
+
+| Fuente | Qué trae | Clave |
+|---|---|---|
+| **Automático** | lo decide el estilo | — |
+| **Videos** | clips reales de Pexels, con movimiento | `PEXELS_API_KEY` |
+| **Fotos** | imágenes fijas de Pexels, más sobrio | `PEXELS_API_KEY` |
+| **GIFs** | Giphy en MP4: divertido, muy corto | `GIPHY_API_KEY` |
+| **Mi biblioteca** | sólo lo que ya está descargado | — |
+
+**Giphy busca en español.** Estaba fijo en `lang: "en"`, así que Giphy
+interpretaba consultas españolas con su índice inglés y devolvía material peor o
+ninguno. Y miraba sólo **5 candidatos**: como se descartan los resultados sin
+MP4 —el render necesita video, no imagen—, bastaba con que los primeros fueran
+sólo-GIF para volver con las manos vacías. Ahora son 25.
+
+Medido contra la API real con consultas en español (`scripts/minipruebas.mjs`):
+
+```
+"ventas"              25 resultados, 25 con MP4
+"dinero"              25 resultados, 25 con MP4
+"reunion de trabajo"  25 resultados, 25 con MP4
+"exito"               25 resultados, 25 con MP4
+```
+
+`rating: pg-13` se queda: no es una restricción heredada, es que este material
+sale sobreimpreso en un video que se publica.
+
+### Comprobar que todo responde antes de una tanda
+
+```bash
+node scripts/minipruebas.mjs .
+```
+
+Golpea las APIs **de verdad** —Giphy, Pexels y los endpoints locales—, sin
+mocks. Lo que hay que saber antes de producir en volumen es si las claves valen
+y si las búsquedas devuelven material, y eso un mock no lo contesta nunca.
+También informa la cuota de Pexels restante: si se agota, el B-roll deja de
+aparecer sin decir por qué.
+
+> La primera versión de esta prueba no mandaba la cabecera `Authorization` de
+> Pexels y reportaba "401 en videos, 200 en fotos" — con la misma clave, un
+> resultado imposible. Delataba el fallo en la prueba, no en la API. Se anota
+> porque una prueba que miente hace perder más tiempo que no tenerla.
