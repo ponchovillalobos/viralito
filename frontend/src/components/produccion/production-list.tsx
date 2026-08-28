@@ -18,6 +18,7 @@ import { ScheduleDialog } from "@/components/produccion/schedule-dialog";
 import { ThumbnailButton } from "@/components/produccion/thumbnail-button";
 import { InstagramHelperDialog } from "@/components/produccion/instagram-helper-dialog";
 import { ScheduleStatusBadge } from "@/components/produccion/schedule-status-badge";
+import { MarcadorDeRedes, type MarcasDeVideo } from "@/components/produccion/marcador-de-redes";
 import { FilterChip } from "@/components/produccion/filter-chip";
 import { ProjectPreviewDialog } from "@/components/produccion/project-preview-dialog";
 import * as publishActions from "@/lib/produccion/publish-actions";
@@ -53,6 +54,8 @@ export function ProductionList() {
   const [scheduledByProjectId, setScheduledByProjectId] = useState<
     Record<string, Partial<Record<"tiktok" | "linkedin" | "instagram_bridge", { status: string; scheduledAt: number }>>>
   >({});
+  // "Ya lo subí a…" — marcas puestas a mano, una lectura para toda la lista.
+  const [publicadoPorId, setPublicadoPorId] = useState<Record<string, MarcasDeVideo>>({});
   const [transcriptByVideoId, setTranscriptByVideoId] = useState<Record<string, string>>({});
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [transcriptCopied, setTranscriptCopied] = useState(false);
@@ -250,6 +253,12 @@ export function ProductionList() {
   useEffect(() => {
     load();
     loadSchedule();
+    // Las marcas manuales no bloquean nada: si el archivo no existe todavia,
+    // la lista se pinta igual y cada interruptor arranca apagado.
+    fetch("/api/publicado")
+      .then((r) => r.json())
+      .then((d) => setPublicadoPorId(d.videos ?? {}))
+      .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
       .then((d) => {
@@ -728,6 +737,17 @@ export function ProductionList() {
                     </button>
                   </div>
                   )}
+
+                  {/* Registro manual. Va FUERA del `PUBLISHING_ENABLED` a
+                      proposito: quien sube a mano lo necesita justamente cuando
+                      la publicacion automatica no esta disponible. */}
+                  <MarcadorDeRedes
+                    projectId={p.id}
+                    marcas={publicadoPorId[p.id] ?? {}}
+                    onCambio={(id, marcas) =>
+                      setPublicadoPorId((prev) => ({ ...prev, [id]: marcas }))
+                    }
+                  />
                 </div>
               </div>
             </div>

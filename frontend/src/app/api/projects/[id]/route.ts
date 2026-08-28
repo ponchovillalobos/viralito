@@ -4,6 +4,7 @@ import path from "node:path";
 import { PROJECTS_DIR, RENDERS_DIR, LF_ROOT, LF_RENDERS, DATA_ROOT } from "@/lib/paths";
 import { isSafeId } from "@/lib/safe-id";
 import { writeJsonFileAtomic } from "@/lib/atomic-write";
+import { olvidar } from "@/lib/publicado-store";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,11 @@ export async function DELETE(
     return NextResponse.json({ error: "id inválido" }, { status: 400 });
   }
   let removed = false;
+
+  // 0) Marcas de "ya lo subí a…". Si el video se va, sus marcas son basura que
+  // crece para siempre en publicado.json. Best-effort: que el borrado del
+  // video no dependa de esto.
+  await olvidar(id).catch(() => {});
 
   // 1) JSON del proyecto (short o largo).
   for (const dir of [PROJECTS_DIR, LF_PROJECTS_DIR]) {
