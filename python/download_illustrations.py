@@ -110,7 +110,10 @@ OPEN_PEEPS_LICENSE = (
 
 # --- Croodles: doodles a mano alzada vía DiceBear (sin key, sin login) ---------
 # Estilo "croodles" de DiceBear: caras/personajes dibujados a mano, look sketch.
-# Arte CC0 (vbenjs/croodles), embebido en los metadatos de cada SVG. Multicolor.
+# OJO: este set NO es CC0. Aca decia "Arte CC0 (vbenjs/croodles)" y era falso por
+# partida doble: el autor es vijay verma y la licencia es CC BY 4.0, como dice el
+# <metadata> de cada SVG que este mismo script bajo. Pide credito y el video se
+# publica sin creditos, asi que ya no se descarga ni se usa en renders.
 CROODLES_URL = "https://api.dicebear.com/9.x/croodles/svg?seed={seed}"
 CROODLES_SEEDS = [
     "Felix", "Aneka", "Mateo", "Sofia", "Liam", "Valentina", "Diego", "Camila",
@@ -121,13 +124,16 @@ CROODLES_SEEDS = [
     "Alejandro", "Carolina",
 ]
 CROODLES_LICENSE = (
-    "Croodles — CC0 1.0 Universal (Public Domain Dedication).\n"
-    "Source style: https://www.dicebear.com/styles/croodles/  (vbenjs/croodles).\n"
-    "These SVGs are deterministic doodles generated via DiceBear (keyless, no\n"
-    "login): https://www.dicebear.com/styles/croodles/ — each file embeds its\n"
-    'license in <metadata> (CC0 1.0). The DiceBear library code is MIT; the\n'
-    "underlying artwork is CC0. Multicolor (no currentColor).\n"
-    "License text: https://creativecommons.org/publicdomain/zero/1.0/\n"
+    "Croodles - CC BY 4.0 (Attribution 4.0 International). NO es CC0.\n"
+    "Autor del arte: vijay verma.\n"
+    "Source: https://www.dicebear.com/styles/croodles/\n"
+    "Original: https://www.figma.com/community/file/966199982810283152\n"
+    "\n"
+    "EXIGE credito visible. Lo dice el <metadata> de cada SVG que este mismo\n"
+    "script bajo; el texto anterior decia CC0 y era falso por partida doble (el\n"
+    "autor no es vbenjs). Viralito publica sin creditos en pantalla, asi que este\n"
+    "set NO entra en renders.\n"
+    "License text: https://creativecommons.org/licenses/by/4.0/\n"
 )
 
 # --- Notionists: personas estilo "Notion" vía DiceBear (sin key, sin login) ----
@@ -376,7 +382,7 @@ def main(argv: list[str]) -> int:
     for fn, name, expect in (
         (download_open_doodles, "open-doodles", len(OPEN_DOODLES_NAMES)),
         (download_open_peeps, "open-peeps", len(OPEN_PEEPS_SEEDS)),
-        (download_croodles, "croodles", len(CROODLES_SEEDS)),
+        # (download_croodles, ...) — retirado: CC BY 4.0, ver arriba.
         (download_notionists, "notionists", len(NOTIONISTS_SEEDS)),
     ):
         try:

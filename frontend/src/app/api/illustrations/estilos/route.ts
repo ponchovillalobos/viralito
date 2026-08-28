@@ -34,7 +34,6 @@ const FAMILIA_HEREDADA: Record<string, string> = {
   "open-doodles": "trazo",
   "open-peeps": "personas",
   notionists: "personas",
-  croodles: "personas",
 };
 
 export async function GET() {

@@ -236,13 +236,16 @@ def concept_icons(words: list[dict], duration: float, target: int) -> list[dict]
 
 # ─── ILUSTRACIONES CC0 (personas + escenas) por concepto ──────────────────────
 # A diferencia de los íconos line-art (currentColor), estas ilustraciones son
-# MULTICOLOR y viven en assets/illustrations/<set>/*.svg (open-peeps, croodles,
+# MULTICOLOR y viven en assets/illustrations/<set>/*.svg (open-peeps,
 # notionists = personas; open-doodles = escenas de acción con nombres literales:
 # reading.svg, coffee.svg, running.svg…). Las baja download_illustrations.py.
 
 _ILLUSTRATIONS_DIR = Path(DATA_ROOT) / "assets" / "illustrations"
 # Sets de PERSONAS (figura humana) → para conceptos de gente/equipo/comunidad.
-_PERSON_SETS = ("open-peeps", "croodles", "notionists")
+# `croodles` estaba aca y se saco: su arte es CC BY 4.0 (vijay verma), no CC0.
+# Lo dice el propio <metadata> de cada SVG. Pide credito, y el video se
+# publica sin creditos en pantalla. Ver `probar_licencias_ilustraciones.py`.
+_PERSON_SETS = ("open-peeps", "notionists", "lorelei", "notionists-neutral")
 # Set de ESCENAS de acción (open-doodles, filenames literales en inglés).
 _SCENE_SET = "open-doodles"
 
@@ -279,7 +282,7 @@ def _illustration_url(set_name: str, file_name: str) -> str:
 def _illustration_for_concept(icon: str, rotation_idx: int) -> tuple[str, str] | None:
     """Resuelve un concepto a (set, file) de una ilustración en disco.
 
-    - conceptos de PERSONA → rota entre los sets de personas (peeps/croodles/notionists);
+    - conceptos de PERSONA → rota entre los sets de personas (todos CC0);
     - conceptos de ACCIÓN → escena literal de open-doodles (reading.svg, running.svg…);
     - si no hay match temático, fallback determinista por rotation_idx sobre todo
       lo que exista en disco (people sets + scenes). Usa el mismo estilo de chequeo
@@ -1585,17 +1588,34 @@ B) VARIAR EL REGISTRO. Alterná los tres, y NO uses el mismo dos veces seguidas.
    1. TAL CUAL — su frase, limpia. Cuando lo que dijo ya pega, no lo toques.
 
    2. MÁS APRETADO — la misma idea con menos palabras o mejor ordenada. En
-      pantalla entra menos que en el oído. Es SU idea, dicha más corto. Este es
-      el registro que más se olvida: si dudás entre copiar y apretar, apretá.
+      pantalla entra menos que en el oído. Es SU idea, dicha más corto.
 
    3. LA VUELTA DE TUERCA — una frase DIRECTAMENTE RELACIONADA con lo que acaba
       de decir: la consecuencia que se desprende, la tensión que plantea, o el
       NOMBRE de lo que está describiendo. Sale de SU idea, no de tu conocimiento
       general.
 
+      DE CADA 5 TARJETAS, AL MENOS UNA TIENE QUE SER DE ESTE TIPO. Devolver
+      cinco tarjetas sin ninguna es un trabajo fallado, igual que devolver una
+      frase rota. Es el registro que se pierde primero, porque copiar es más
+      seguro — y un video entero copiando es justo lo que se ve plano.
+
+      Así se hace, sobre lo que él ya dijo:
+        dice "me comparaba con los demás y siempre perdía"
+           -> "El espejo equivocado."           (NOMBRA lo que describió)
+        dice "practiqué la misma escena cien veces hasta que salió"
+           -> "Lo que parece talento es horario."   (la TENSIÓN que plantea)
+        dice "si no lo entiende tu mamá, no lo entendió nadie"
+           -> "Explicalo o no existe."          (la CONSECUENCIA que se desprende)
+
+      Fijate que ninguna trae un dato de fuera: las tres salen de su frase.
+
 Dónde está el límite del (3), que es lo único difícil: si él habla de compararse
 con otros, "El espejo equivocado." es una vuelta de tuerca — nombra lo que dijo.
 "El 80% de la gente se compara." es un invento — trae un dato de la nada.
+
+Y ojo con el otro extremo: si TODAS tus tarjetas se parecen a lo que él dijo
+palabra por palabra, tampoco hiciste el trabajo. Los tres registros, mezclados.
 
 PROHIBIDO, sin excepciones:
 - Cifras, porcentajes, estudios o fechas que él no haya dicho. Si no dijo un

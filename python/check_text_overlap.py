@@ -18,11 +18,22 @@ Uso:
 from __future__ import annotations
 import argparse, json, glob, os, re, sys
 
+# De donde se leen los clips. Esto era un `try/except Exception` mudo que caia a
+# `C:/viral-data/...` — la raiz del proyecto HERMANO — sin decir una palabra. Ahi
+# no hay clips de este proyecto, asi que el chequeo no encontraba nada y
+# reportaba "0 repeticiones = Perfecto". Un medidor que no mide nada tiene que
+# gritarlo, no aprobar.
 try:
     import config
-    LF = str(getattr(config, "LF_ROOT", r"C:/viral-data/videos/long_form"))
-except Exception:
-    LF = r"C:/viral-data/videos/long_form"
+    LF = str(config.LF_ROOT)
+except Exception as e:  # pragma: no cover - solo si el entorno esta roto
+    print(f"[check_text_overlap] ERROR: no se pudo importar config ({e}).",
+          file=sys.stderr)
+    print("[check_text_overlap] Sin config no se sabe donde estan los clips, y "
+          "medir en la carpeta equivocada da un 'Perfecto' falso.", file=sys.stderr)
+    print("[check_text_overlap] Corre `. .\\entorno.ps1` o usa el venv de "
+          "python/.", file=sys.stderr)
+    sys.exit(2)
 
 _STOP = set("que como para pero esto esta este los las una con por sin del sus mas muy "
             "de la el en lo le su al un si no me ya o y a se es son ser dos tres".split())
@@ -117,10 +128,28 @@ def main() -> int:
     ap.add_argument("--sim", type=float, default=0.6, help="umbral Jaccard de similitud (0..1)")
     args = ap.parse_args()
 
+    print(f"[check_text_overlap] leyendo clips de {os.path.join(LF, 'graphics')}")
     files = sorted(glob.glob(os.path.join(LF, "graphics", "*.json")), key=os.path.getmtime, reverse=True)
+    encontrados = len(files)
     if args.video:
         files = [f for f in files if os.path.basename(f).startswith(args.video)]
     files = files[: args.limit]
+
+    # CERO CLIPS NO ES CERO REPETICIONES. Antes, con la carpeta vacia o un
+    # --video mal escrito, esto imprimia "0 clips - 0 repeticiones - Perfecto" y
+    # salia con exito: la nota maxima por no haber mirado nada.
+    if not files:
+        print("[check_text_overlap] ERROR: no se examino un solo clip.",
+              file=sys.stderr)
+        if encontrados == 0:
+            print(f"[check_text_overlap] No hay graficos en {LF}. Genera clips "
+                  "antes de medir, o revisa VIRAL_DATA_ROOT.", file=sys.stderr)
+        else:
+            print(f"[check_text_overlap] Hay {encontrados} graficos, pero "
+                  f"ninguno empieza con --video {args.video!r}.", file=sys.stderr)
+        print("[check_text_overlap] NO se reporta 'Perfecto': no se midio nada.",
+              file=sys.stderr)
+        return 2
 
     total_clips = 0
     total_issues = 0
