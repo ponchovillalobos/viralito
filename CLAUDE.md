@@ -9,7 +9,7 @@ Este archivo se carga automáticamente al inicio de cada sesión. Contiene conte
 | Pantalla | Para qué |
 |---|---|
 | `/editor/wizard` | un video corto, paso a paso |
-| `/largos` | un video largo, del que salen varios clips virales |
+| `/largos` | un video largo, del que salen varios clips virales. Acepta **varios enlaces de YouTube pegados de una vez** y los baja de a uno, por la cola compartida — se puede cerrar la pantalla |
 | `/produccion` | los videos ya hechos: descripción lista para publicar, y marcar en qué redes los subiste |
 | `/metricas` | cómo rindieron |
 

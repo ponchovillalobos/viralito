@@ -174,6 +174,19 @@ def main() -> int:
             "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b"
         ),
         "--merge-output-format", "mp4",
+        # Fragmentos en paralelo. YouTube limita la velocidad POR CONEXION, no
+        # por descarga: pidiendo varios trozos a la vez se esquiva ese tope sin
+        # pedirle mas al servidor de lo que ya da.
+        #
+        # Medido bajando el mismo video dos veces, 45 s cada una:
+        #   sin -N   arranca fuerte y cae a 6-7 MiB/s
+        #   con -N 8 se sostiene en 15-16 MiB/s
+        #
+        # Se noto bajando once videos seguidos: el tercero se arrastraba a
+        # 104 KiB/s, con tres horas y media de espera calculada. No fallaba —
+        # simplemente no iba a terminar nunca, que es la version lenta de
+        # fallar en silencio.
+        "-N", "8",
         # yt-dlp necesita ffmpeg para UNIR el video y el audio, que YouTube
         # sirve por separado. Desde una consola con ffmpeg en el PATH funciona;
         # lanzado por el servidor de Next, no — y fallaba con "no pudo bajar el
