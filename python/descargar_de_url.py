@@ -161,6 +161,14 @@ def main() -> int:
     cmd = [
         sys.executable, "-m", "yt_dlp",
         "-f", (
+            # Video H.264 + audio AAC (m4a), que es lo que graban las camaras y
+            # lo que trae todo lo demas que entra al pipeline. YouTube sirve el
+            # audio en Opus por omision, y aunque Opus dentro de un MP4 se lee
+            # bien —comprobado extrayendo audio y cortando el video—, dejaria
+            # dos formatos distintos entrando al mismo sitio segun de donde
+            # vino el archivo. Esa clase de diferencia no rompe nada hoy y
+            # aparece semanas despues en el unico paso que asumia AAC.
+            "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/"
             "bv*[vcodec^=avc1][height<=1080]+ba/"
             "b[vcodec^=avc1][height<=1080]/"
             "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b"

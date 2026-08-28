@@ -267,6 +267,13 @@ AV1     4436 ms
 H.264   1975 ms      2.2x más rápido
 ```
 
+El audio se pide en **AAC (m4a)**, no en Opus. YouTube sirve Opus por omisión, y
+aunque Opus dentro de un MP4 se lee bien —comprobado extrayendo audio y cortando
+el video—, dejaría dos formatos distintos entrando al mismo pipeline según de
+dónde vino el archivo: AAC si lo grabaste vos, Opus si vino de YouTube. Esa clase
+de diferencia no rompe nada hoy y aparece semanas después, en el único paso que
+asumía AAC.
+
 La RTX 3060 sí decodifica AV1 por hardware —Ampere lo trae; lo que no tiene es
 *codificarlo*— así que no es que AV1 no funcione. Es que el pipeline decodifica
 el mismo video muchas veces (transcribir, detectar silencios, extraer clips,
