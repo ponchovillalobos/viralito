@@ -163,7 +163,9 @@ Documentado en `README.md`. Resumen:
 - ✅ Dashboard funcional con 8 rutas
 - ✅ 25 estilos visuales implementados y **los 25 elegibles** desde los asistentes. `supreme` aparece en las dos listas Y además el pipeline de largos se lo asigna solo a cada clip (la doc decía antes que era sólo automático: era falso). `editorial_full` = editorial a pantalla completa en horizontal; los estilos editoriales usan panel (video + texto/ilustraciones al costado) en V y H
   - Nuevos: `cine_clasico` (cine antiguo: voz a radio vieja + B&W + máquina de escribir/proyector en los picos del director emocional), `editorial_broll` (Editorial + B-roll Pexels en cortinillas), `kinetic_type`, `lottie_pop`, `paper_cut`
-  - El estilo `editorial` tiene 17 temas editoriales (nuevos: `art_deco`, `blueprint`, `noir`)
+  - El estilo `editorial` tiene **20** temas editoriales (nuevos: `art_deco`, `blueprint`,
+    `noir`). Fuente de verdad: `frontend/src/lib/editorial-themes.ts` — estaban escritos
+    dos veces, uno por wizard, y la copia de largos ya había perdido el campo `hint`
 - ✅ Pipeline shorts: transcribe + cuts + render
 - ✅ Pipeline long form: transcribe + cuts + analyze + extract + render
 - ✅ 16 SFX CC0 curados (incluye `typewriter.wav` y `film_reel.wav` para `cine_clasico`)

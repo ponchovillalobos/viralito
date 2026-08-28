@@ -77,8 +77,15 @@ def _render(props_json: Path, salida: Path, con_gpu: bool) -> float:
     r = subprocess.run(cmd, cwd=str(REMOTION_DIR), env=entorno,
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600)
     if r.returncode != 0 or not salida.exists():
-        cola = (r.stderr or "").strip().splitlines()[-8:]
-        raise RuntimeError(f"el render {'con GPU' if con_gpu else 'por software'} falló:\n"
+        # La CAUSA va primero y el stack despues, asi que quedarse con las
+        # ultimas lineas guarda el stack y tira justo el motivo. Ya paso dos
+        # veces: el error decia "at new WaitTask (...DOMWorld.js)" sin decir
+        # nunca en que fotograma ni con que tope. Una herramienta de
+        # diagnostico que se come el diagnostico no sirve para lo que hace.
+        _lineas = [l.rstrip() for l in (r.stderr or "").splitlines() if l.strip()]
+        _motivo = [l for l in _lineas if not l.lstrip().startswith("at ")]
+        cola = _motivo[:6] if _motivo else _lineas[-8:]
+        raise RuntimeError(f"el render {'con GPU' if con_gpu else 'por software'} fallo:\n"
                            + "\n".join(cola))
     return time.time() - t0
 
