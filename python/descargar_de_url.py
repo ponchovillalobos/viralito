@@ -187,6 +187,20 @@ def main() -> int:
         # simplemente no iba a terminar nunca, que es la version lenta de
         # fallar en silencio.
         "-N", "8",
+        # Y de que CLIENTE se pide. YouTube estrangula al cliente `web` cuando
+        # ve varias descargas seguidas desde el mismo sitio, y ahi `-N` ya no
+        # alcanza: el tope no es por conexion sino por cliente.
+        #
+        # Medido sobre el mismo video, 30 s por cliente, con el `web` ya
+        # estrangulado:
+        #   web       nada (no llega a arrancar)
+        #   android   4.58 MiB/s
+        #   tv, ios   nada
+        #
+        # Se piden los dos: `android` primero, y `web` detras por si algun dia
+        # android deja de servir formatos. Con esto la tanda de once videos paso
+        # de tres horas y media POR VIDEO a un par de minutos.
+        "--extractor-args", "youtube:player_client=android,web",
         # yt-dlp necesita ffmpeg para UNIR el video y el audio, que YouTube
         # sirve por separado. Desde una consola con ffmpeg en el PATH funciona;
         # lanzado por el servidor de Next, no — y fallaba con "no pudo bajar el
