@@ -679,3 +679,32 @@ fracasos no es neutra: parece que quiere decir algo.
 Resultado sobre las mismas frases: `lightbulb`, `users`, `target`, `compass`,
 `scale`. `test_iconos_de_tarjetas.py` (6 casos) las vigila con los textos
 exactos del render que lo destapó.
+
+### Los textos en pantalla: tres registros, todos anclados
+
+El texto que acompaña al video **no se transcribe literal ni se inventa**. Se
+alternan tres registros, y ninguno sale de fuera de lo que el orador dijo:
+
+| registro | qué es | ejemplo |
+|---|---|---|
+| **Tal cual** | su frase, sin muletillas | *«Dale un mexa a un mexicano.»* |
+| **Más apretado** | la misma idea, más corta | *«Compararte te hace perder el rumbo.»* |
+| **La vuelta de tuerca** | la consecuencia o el nombre de lo que describe | *«El espejo equivocado.»* |
+
+La diferencia entre el tercero e inventar, que es lo único difícil: si él habla
+de compararse con otros, *«el espejo equivocado»* nombra lo que dijo; *«el 80 %
+de la gente se compara»* trae un dato de la nada.
+
+Las citas textuales van **una cada cuatro tarjetas**. Antes era una por video, y
+con seis u ocho tarjetas por clip eso dejaba todo lo demás en manos de la
+reescritura: el registro «tal cual» casi no aparecía.
+
+#### La garantía que hay debajo del prompt
+
+Un prompt es una sugerencia. `_inventa_numeros()` compara las cifras del texto
+propuesto contra lo que el orador dijo de verdad; si aparece una que no está, se
+descarta la reescritura y queda el texto heurístico, que sí salió del audio. Sin
+transcript no pasa **ninguna** cifra: no hay con qué respaldarla.
+
+Un texto sin datos es flojo. Un dato falso, con la cara y el nombre de quien
+habla encima, es otra cosa.

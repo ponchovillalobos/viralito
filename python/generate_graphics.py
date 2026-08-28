@@ -1409,11 +1409,23 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
     cards: list[dict] = []
     pool = _icon_pool(seed)
     chapter = 0
-    used_quote = False  # máx 1 pull-quote por video (el momento "en sus palabras")
+    # Citas TEXTUALES: una cada cuatro tarjetas, no una por video.
+    #
+    # El tope era 1, y con seis u ocho tarjetas por clip eso dejaba TODO lo
+    # demás en manos de la reescritura. El pedido concreto fue mezclar
+    # registros: "en algunas oraciones podemos poner la misma frase que se dice
+    # en el video, en otras frases directamente relacionadas, en otras sí podría
+    # ser lo mismo — eso le da dinamismo".
+    #
+    # Una cada cuatro da esa alternancia sin volverlo monótono: la cita textual
+    # pesa porque aparece de a ratos, no porque esté siempre.
+    quotes_usadas = 0
+    max_quotes = 1
     total_chapters = sum(
         1 for s in picked
         if _clean_word(s["text"].split()[0]).lower() in {"primero", "segundo", "tercero", "cuarto", "primera", "segunda", "tercera"}
     )
+    max_quotes = max(1, len(picked) // 4)
     for i, s in enumerate(picked):
         # Limpieza ANTES de armar la tarjeta: sin muletillas, sin conectores
         # colgando, sin duplicados de dictado. Si la frase no sobrevive, se
@@ -1452,14 +1464,14 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
             card["statUnit"] = " ".join(toks[num_idx + 1 : num_idx + 3]).strip(" ,.")[:18]
             card["subtitle"] = clean_screen_text(" ".join(toks[:num_idx]), max_chars=60)
         elif (
-            not used_quote
+            quotes_usadas < max_quotes
             and s.get("words")
             and 6 <= len(toks) <= 16
             and {_clean_word(t).lower() for t in toks} & _QUOTE_MARKERS
         ):
             # PULL-QUOTE: frase en primera persona → cita serif que aparece
             # palabra por palabra EXACTAMENTE al ritmo de la voz (timestamps).
-            used_quote = True
+            quotes_usadas += 1
             card["kicker"] = "EN SUS PALABRAS"
             qw = [
                 {"w": (w.get("word") or "").strip(), "at": round(float(w.get("start", s["start"])), 2)}
@@ -1472,7 +1484,7 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
                 card["quote"] = True
                 card["quoteWords"] = qw
             else:
-                used_quote = False  # quedó muy corta tras limpiar → titular normal
+                quotes_usadas -= 1  # quedó muy corta tras limpiar → titular normal
             if not card.get("quote"):
                 title_txt = clean_screen_text(" ".join(toks[:7]), max_chars=52) or " ".join(toks[:5]).strip(" ,.")
                 card["title"] = title_txt + ("." if title_txt and title_txt[-1] not in ".?!…" else "")
@@ -1539,37 +1551,51 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
 _EDITORIAL_LLM_PROMPT = """Sos el editor de texto en pantalla de un video hablado en español.
 
 Te paso TARJETAS sacadas del transcript de lo que dice el orador. Tu trabajo es
-LIMPIARLAS para que se lean bien en pantalla, conservando SUS palabras y SU idea.
+dejarlas listas para leerse en pantalla, ANCLADAS a lo que él dice.
 
-LA REGLA QUE MANDA SOBRE TODAS: el texto en pantalla y la voz tienen que decir LO
-MISMO. Quien mira escucha una frase y lee otra cosa: si no coinciden, el video se
-vuelve dos videos a la vez y no se entiende ninguno.
+LA REGLA QUE MANDA: el texto en pantalla y la voz tienen que hablar de LO MISMO.
+Quien mira escucha una frase y lee otra: si no coinciden, son dos videos a la vez
+y no se entiende ninguno.
+
+Pero eso NO significa transcribir todo literal. Alterná TRES registros, y que no
+se repita el mismo dos veces seguidas — la variedad es lo que da ritmo:
+
+  1. TAL CUAL — su frase, limpia de muletillas. Cuando lo que dijo ya es potente,
+     no hay nada que mejorar: se pone y listo.
+
+  2. MÁS APRETADO — la misma idea con menos palabras, o mejor ordenada. En
+     pantalla entra menos que en el oído. Es su idea, dicha más corto.
+
+  3. LA VUELTA DE TUERCA — una frase DIRECTAMENTE RELACIONADA con lo que acaba
+     de decir: la consecuencia que se desprende, la tensión que plantea, el
+     nombre de lo que está describiendo. Sale de SU idea, no de tu conocimiento
+     general.
+
+La diferencia entre (3) y inventar: si él habla de compararse con otros, "el
+espejo equivocado" es una vuelta de tuerca; "el 80% de la gente se compara" es
+un invento. Uno nombra lo que él dijo, el otro trae un dato de la nada.
 
 PROHIBIDO, sin excepciones:
-- Inventar datos, cifras, porcentajes o estudios. Si el orador no dijo un número,
-  NO PUEDE APARECER UN NÚMERO. Nada de "el 80% de los fracasos" ni "más del 70%
-  de los emprendedores": eso es poner una mentira debajo de su cara.
-- Cambiar el tema, agregar contexto que él no dio, o sacar una conclusión propia.
-- Escribir frases motivacionales genéricas que servirían para cualquier video.
+- Cifras, porcentajes, estudios o fechas que él no haya dicho. Si no dijo un
+  número, NO PUEDE APARECER UN NÚMERO. Nada de "el 80% de los fracasos" ni "más
+  del 70% de los emprendedores": es poner una mentira debajo de su cara.
+- Cambiar de tema, o escribir frases motivacionales genéricas que servirían
+  igual para cualquier otro video.
 
-TU TRABAJO, que es acotado y concreto:
-- Arreglar lo que la transcripción automática reconoció mal, deduciéndolo del
-  contexto.
-- Sacar muletillas (este, eh, o sea, bueno, ¿no?) y arranques en falso.
-- Cerrar frases cortadas para que se lean completas.
-- Acortar sin cambiar el sentido: en pantalla entra menos que en el oído.
+También te toca arreglar lo que la transcripción automática reconoció mal
+(deducilo del contexto), sacar muletillas —este, eh, o sea, bueno, ¿no?— y
+cerrar frases cortadas.
 
 Reglas por tarjeta:
-- "title": máx 7 palabras, la idea que el orador está diciendo en ese momento,
-  con SUS palabras siempre que se pueda. Termina en punto.
+- "title": máx 7 palabras, en uno de los tres registros. Termina en punto.
 - "accent": UNA palabra del título, la más fuerte — va resaltada en color.
-- "subtitle": máx 12 palabras que COMPLETAN la idea del título con lo que él
-  mismo dijo alrededor. Si no hay nada más que decir, dejalo VACÍO. Un subtítulo
-  vacío es mejor que uno inventado.
+- "subtitle": máx 12 palabras que COMPLETAN la idea con lo que él mismo dijo
+  alrededor. Si no hay nada más que agregar, dejalo VACÍO. Un subtítulo vacío es
+  mejor que uno relleno.
 - "kicker": 2-4 palabras en mayúsculas tipo sección de revista (EL PUNTO CLAVE,
   LO QUE NADIE DICE, EL DETALLE...). Variá entre tarjetas.
 - Tarjetas con "title" VACÍO son visuales: dejá "title" vacío y poné en
-  "subtitle" la frase del orador limpia (máx 8 palabras), o vacío.
+  "subtitle" su frase limpia (máx 8 palabras), o vacío.
 - NO toques: at, duration, icon, number, statValue, statUnit (devolvelos igual).
 - Mantené el MISMO orden y la MISMA cantidad de tarjetas.
 

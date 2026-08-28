@@ -109,3 +109,41 @@ def test_el_filtro_esta_conectado_al_merge():
         "el filtro existe pero no se aplica al mezclar la respuesta del LLM: "
         "sería otra capacidad implementada y sin puerta de entrada"
     )
+
+
+def test_el_prompt_define_los_tres_registros():
+    """Ni todo literal ni inventado: tres registros que se alternan.
+
+    El pedido, textual: «no es repetir literalmente pero tampoco es inventar
+    cosas — en algunas oraciones podemos poner la misma frase que se dice en el
+    video, en otras frases directamente relacionadas, en otras sí podría ser lo
+    mismo; eso le da dinamismo».
+
+    La primera corrección se fue al otro extremo: pedía fidelidad y nada más, y
+    eso da textos correctos y planos. La variedad ES el requisito, siempre que
+    los tres registros salgan de lo que él dijo.
+    """
+    fuente = (AQUI / "generate_graphics.py").read_text(encoding="utf-8")
+    i = fuente.index("_EDITORIAL_LLM_PROMPT")
+    prompt = fuente[i : fuente.index('"""', fuente.index("TARJETAS:", i))]
+
+    for registro in ("TAL CUAL", "MÁS APRETADO", "LA VUELTA DE TUERCA"):
+        assert registro in prompt, f"el prompt ya no ofrece el registro {registro!r}"
+
+    # Y tiene que explicar dónde está el límite, que es lo único difícil:
+    # una vuelta de tuerca nombra lo que él dijo; un invento trae un dato de la nada.
+    assert "La diferencia entre (3) y inventar" in prompt
+
+
+def test_las_citas_textuales_escalan_con_la_cantidad_de_tarjetas():
+    """Una cada cuatro, no una por video.
+
+    El tope era 1 fijo: con seis u ocho tarjetas por clip, TODO lo demás caía en
+    la reescritura y el registro "tal cual" casi no aparecía.
+    """
+    fuente = (AQUI / "generate_graphics.py").read_text(encoding="utf-8")
+    assert "max_quotes = max(1, len(picked) // 4)" in fuente, (
+        "el tope de citas textuales volvió a ser fijo: con muchas tarjetas, "
+        "la frase del orador tal cual casi nunca aparece"
+    )
+    assert "quotes_usadas < max_quotes" in fuente
