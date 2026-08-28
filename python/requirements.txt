@@ -54,3 +54,26 @@ psutil>=5.9.0
 # pero NUNCA estuvo en este archivo: la seccion de investigacion no podia bajar
 # nada, y fallaba con "No module named yt_dlp".
 yt-dlp>=2026.8.19
+
+# pandas FIJADO en 2.2.x, y no por gusto tecnico.
+#
+# Nadie lo importa directamente: entra como dependencia de pyannote-audio, que
+# entra por whisperx. Pero el 28 ago 2026, a mitad de una corrida real, la
+# transcripcion empezo a fallar con
+#
+#     ImportError: DLL load failed while importing testing:
+#     Una directiva de Control de aplicaciones bloqueo este archivo.
+#
+# Smart App Control (activo, estado 1) bloquea `pandas/_libs/testing.*.pyd` de
+# pandas 3.0.5. Es UN solo DLL —una utilidad de PRUEBAS que el pipeline no usa—
+# y los otros ocho cargan bien, pero el `__init__` de pandas lo importa igual al
+# arrancar, asi que se lleva puesto todo `import pandas` y con el whisperx.
+#
+# Reinstalar el mismo 3.0.5 no sirve: el bloqueo es por reputacion del binario,
+# no por marca de descarga. Apagar Smart App Control es irreversible sin
+# reinstalar Windows (ver adr-001). El DLL de 2.2.3 SI esta permitido.
+#
+# Sintoma si esto se rompe: los clips salen con transcript VACIO y las tarjetas
+# de texto se inventan el contenido. Lo vigila test_pandas_importa.py.
+pandas>=2.2,<3
+pytz>=2024.1

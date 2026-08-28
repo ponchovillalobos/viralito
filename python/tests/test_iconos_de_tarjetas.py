@@ -61,7 +61,12 @@ def test_el_icono_se_recalcula_tras_reescribir_el_texto():
     """Si el LLM reescribe el subtítulo, el icono se vuelve a elegir."""
     fuente = (AQUI / "generate_graphics.py").read_text(encoding="utf-8")
     i = fuente.index("def _enrich_cards_llm")
-    bloque = fuente[i : i + 4000]
+    # Hasta la SIGUIENTE definición, no una ventana de N caracteres: la primera
+    # versión cortaba a 4000 y empezó a fallar cuando la función creció por un
+    # cambio que no tenía nada que ver. Un test que se rompe porque el archivo
+    # engordó no está midiendo lo que dice medir.
+    j = fuente.find(chr(10) + "def ", i + 1)
+    bloque = fuente[i : j if j > 0 else len(fuente)]
     assert "_icon_for_text(" in bloque, (
         "el enriquecimiento con LLM reescribe el texto y NO recalcula el icono: "
         "queda describiendo palabras que ya no están en pantalla"

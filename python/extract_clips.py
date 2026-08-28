@@ -798,7 +798,35 @@ def main() -> int:
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             if tr.returncode != 0:
-                print(f"[extract] batch de transcripción falló: {tr.stderr[-400:]}", file=sys.stderr)
+                # RUIDOSO a propósito. Antes era una línea de aviso entre
+                # cientos, y el pipeline seguía: los clips quedaban con
+                # transcript VACÍO, y las tarjetas de texto —que se construyen
+                # sobre esas palabras— terminaban INVENTANDO el contenido.
+                #
+                # Pasó de verdad: 13 de 13 clips de una conferencia salieron con
+                # textos que no usaban ni una palabra de lo que se dijo, con
+                # estadísticas falsas incluidas. El render se veía perfecto.
+                _sep = "=" * 70
+                for _linea in (
+                    "",
+                    _sep,
+                    "[extract] ATENCIÓN: la transcripción de los clips FALLÓ.",
+                    "",
+                    "  Los clips quedan SIN palabras, y todo lo que se apoya en",
+                    "  ellas —subtítulos y tarjetas de texto— sale vacío o",
+                    "  inventado. El video se verá bien y dirá otra cosa.",
+                    "",
+                    "  Comprobalo con:  python transcribe.py <un-clip.mp4>",
+                    "",
+                    "  Causa más frecuente en esta máquina: Smart App Control",
+                    "  bloqueando un DLL de pandas (ver requirements.txt).",
+                    "",
+                    "  Error real:",
+                    (tr.stderr or "")[-900:],
+                    _sep,
+                ):
+                    print(_linea, file=sys.stderr)
+                sys.stderr.flush()
         finally:
             batch_file.unlink(missing_ok=True)
         # Completar words[] por clip; los que fallaron quedan con transcript vacío

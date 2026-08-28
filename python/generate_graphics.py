@@ -1536,39 +1536,81 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
     return _fill_card_gaps(cards, duration, seed, palabras=words)
 
 
-_EDITORIAL_LLM_PROMPT = """Sos el director de arte de un documental viral en español.
-Te paso las TARJETAS de texto que acompañan a un video hablado (generadas por
-heurística desde el transcript). Tu trabajo: REESCRIBIRLAS para que sean claras,
-impactantes y APORTEN — no repitas literal lo que se dice en el video.
-Las tarjetas van EN VIVO con la voz: cada una refuerza lo que se está diciendo
-EN ESE MOMENTO (su "at" en segundos) o suma un dato que capte la atención justo
-ahí. No hagas resúmenes globales — acompañá el momento.
-OJO: el texto viene de una TRANSCRIPCIÓN AUTOMÁTICA del habla. Puede traer
-palabras mal reconocidas, muletillas (este, eh, o sea, bueno) y frases cortadas.
-Corregí los errores evidentes según el contexto, eliminá toda muletilla y
-entregá frases COMPLETAS y bien redactadas en español neutro — nunca copies
-un fragmento roto tal cual.
-Si una frase NO tiene sentido (transcripción rota o palabras mal reconocidas),
-REESCRIBILA con sentido manteniendo la intención de lo que el orador quiso decir.
-VARIÁ el fraseo: no repitas literal lo que se dice en el video — parafraseá con
-punch, sumá ángulo o dato. Dos tarjetas nunca deben sonar iguales entre sí.
+_EDITORIAL_LLM_PROMPT = """Sos el editor de texto en pantalla de un video hablado en español.
+
+Te paso TARJETAS sacadas del transcript de lo que dice el orador. Tu trabajo es
+LIMPIARLAS para que se lean bien en pantalla, conservando SUS palabras y SU idea.
+
+LA REGLA QUE MANDA SOBRE TODAS: el texto en pantalla y la voz tienen que decir LO
+MISMO. Quien mira escucha una frase y lee otra cosa: si no coinciden, el video se
+vuelve dos videos a la vez y no se entiende ninguno.
+
+PROHIBIDO, sin excepciones:
+- Inventar datos, cifras, porcentajes o estudios. Si el orador no dijo un número,
+  NO PUEDE APARECER UN NÚMERO. Nada de "el 80% de los fracasos" ni "más del 70%
+  de los emprendedores": eso es poner una mentira debajo de su cara.
+- Cambiar el tema, agregar contexto que él no dio, o sacar una conclusión propia.
+- Escribir frases motivacionales genéricas que servirían para cualquier video.
+
+TU TRABAJO, que es acotado y concreto:
+- Arreglar lo que la transcripción automática reconoció mal, deduciéndolo del
+  contexto.
+- Sacar muletillas (este, eh, o sea, bueno, ¿no?) y arranques en falso.
+- Cerrar frases cortadas para que se lean completas.
+- Acortar sin cambiar el sentido: en pantalla entra menos que en el oído.
 
 Reglas por tarjeta:
-- "title": máx 7 palabras, potente, estilo titular de revista. Termina en punto.
-- "accent": UNA palabra del título (la más fuerte) — va resaltada en color.
-- "subtitle": máx 12 palabras que AGREGAN VALOR: un dato interesante, contexto o
-  consecuencia relacionada al tema (no parafrasees el título).
-- "kicker": 2-4 palabras en mayúsculas tipo sección de revista (EL DATO, LA TRAMPA,
-  LO QUE NADIE DICE...). Variá entre tarjetas.
-- Tarjetas con "title" VACÍO son visuales (solo ilustración): dejá "title" vacío y
-  poné en "subtitle" un dato corto e interesante del tema (máx 8 palabras).
+- "title": máx 7 palabras, la idea que el orador está diciendo en ese momento,
+  con SUS palabras siempre que se pueda. Termina en punto.
+- "accent": UNA palabra del título, la más fuerte — va resaltada en color.
+- "subtitle": máx 12 palabras que COMPLETAN la idea del título con lo que él
+  mismo dijo alrededor. Si no hay nada más que decir, dejalo VACÍO. Un subtítulo
+  vacío es mejor que uno inventado.
+- "kicker": 2-4 palabras en mayúsculas tipo sección de revista (EL PUNTO CLAVE,
+  LO QUE NADIE DICE, EL DETALLE...). Variá entre tarjetas.
+- Tarjetas con "title" VACÍO son visuales: dejá "title" vacío y poné en
+  "subtitle" la frase del orador limpia (máx 8 palabras), o vacío.
 - NO toques: at, duration, icon, number, statValue, statUnit (devolvelos igual).
 - Mantené el MISMO orden y la MISMA cantidad de tarjetas.
+
+Si una tarjeta ya está bien, devolvela igual. No hace falta cambiar todas.
 
 Responde SOLO el JSON: {"cards": [ ... ]}
 
 TARJETAS:
 """
+
+
+# ─── Guardia contra cifras inventadas ────────────────────────────────────────
+# El texto en pantalla lleva el nombre y la cara de quien habla. Una cifra que
+# él no dijo no es un adorno flojo: es una afirmación falsa atribuida a él.
+_NUM_RE = re.compile(r"\d[\d.,]*\s*%?")
+
+
+def _numeros_de(texto: str) -> set[str]:
+    """Cifras de un texto, normalizadas (sin puntos ni comas de miles)."""
+    out: set[str] = set()
+    for m in _NUM_RE.finditer(texto or ""):
+        crudo = m.group(0).strip()
+        limpio = crudo.replace(".", "").replace(",", "").replace(" ", "")
+        if limpio:
+            out.add(limpio)
+    return out
+
+
+def _inventa_numeros(propuesto: str, fuente: str) -> bool:
+    """¿El texto propuesto trae alguna cifra que la fuente no tenía?
+
+    `fuente` es lo que el orador dijo de verdad (el transcript del clip). Si el
+    modelo agrega un número que no está ahí, se lo inventó.
+
+    Sin fuente —transcript vacío, que es justo el caso que destapó esto— se
+    rechaza CUALQUIER cifra: no hay con qué respaldarla.
+    """
+    nums = _numeros_de(propuesto)
+    if not nums:
+        return False
+    return not nums.issubset(_numeros_de(fuente))
 
 
 def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
@@ -1598,6 +1640,16 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
             return cards
         # Contexto corto del video para que el modelo entienda el tema.
         full_text = " ".join(str(w.get("word", "")) for w in words)[:1500]
+
+        # Lo que el orador dijo DE VERDAD, entero y sin recortar a 1500: es
+        # contra esto que se comprueba que no aparezcan cifras inventadas. Se
+        # le suma el texto heurístico de las propias tarjetas, que también sale
+        # del audio (una cifra puede vivir ahí y no en las primeras palabras).
+        _fuente_de_verdad = " ".join(
+            [" ".join(str(w.get("word", "")) for w in words)]
+            + [f"{c.get('title', '')} {c.get('subtitle', '')} {c.get('number', '')}"
+               f" {c.get('statValue', '')}" for c in cards]
+        )
         payload = [
             {k: cards[i][k] for k in ("at", "duration", "kicker", "title", "accent",
                                       "subtitle", "number", "statValue", "statUnit", "icon")}
@@ -1622,8 +1674,21 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
             is_visual = not orig.get("title") and not orig.get("statValue") and not orig.get("number")
             for k in ("kicker", "title", "accent", "subtitle"):
                 v = str(new.get(k, "") or "").strip()
-                if v:
-                    c[k] = v[:80] if k != "title" else v[:60]
+                if not v:
+                    continue
+                # NINGUNA CIFRA QUE EL ORADOR NO HAYA DICHO.
+                #
+                # El prompt lo pide, pero un prompt es una sugerencia y esto
+                # tiene que ser una garantía. Con el transcript vacío —que pasó,
+                # 13 clips seguidos— el modelo escribió "El 80% de los fracasos
+                # se debe a la falta de disciplina" y "Más del 70% de los
+                # emprendedores...". Cifras inventadas, debajo de la cara de
+                # quien habla, con su nombre encima.
+                #
+                # Un texto sin datos es flojo; un dato falso es otra cosa.
+                if k in ("title", "subtitle") and _inventa_numeros(v, _fuente_de_verdad):
+                    continue  # se queda el texto heurístico, que sí salió del audio
+                c[k] = v[:80] if k != "title" else v[:60]
             if is_visual:
                 # Las tarjetas VISUALES siguen siendo visuales: ilustración protagonista
                 # (el LLM solo puede aportarles kicker + subtítulo con dato).
