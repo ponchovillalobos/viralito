@@ -63,6 +63,7 @@ import {
   applyIllustrations,
   applyEditorialCutout,
   applyEmotionDirector,
+  applyBrollWipes,
 } from "./lib/fx-enrichments";
 import { styleHasIllustrations } from "@/lib/style-registry";
 import { applyCineClasico } from "./lib/cine-clasico";
@@ -462,6 +463,10 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       await applyEditorialCutout(project, videoId);
       // F1 — Director emocional: ducking de música + zooms en picos + SFX por arousal.
       await applyEmotionDirector(project, videoId, accentColor);
+      // Barridos de color en los cortes a B-roll a pantalla completa. Va
+      // DESPUES del director emocional para no competir con sus zooms: si un
+      // pico y un corte caen juntos, el corte ya trae su propio enfasis.
+      applyBrollWipes(project, accentColor);
 
       // CINE CLÁSICO — drama por-pico (B&W de la imagen + SFX de cine antiguo +
       // voz "a radio vieja" gateada). Best-effort: si no hay picos, el estilo

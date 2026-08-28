@@ -109,6 +109,12 @@ export interface ResolvedProject {
   lut?: string | null;
   zoomMarks?: unknown[];
   proTransitions?: unknown[];
+  /** Barridos de color de @remotion/transitions en los cortes a B-roll.
+   *  Lo llena `applyBrollWipes`; ver el porque del limite de tres alli. */
+  proTransitionSeries?: unknown[];
+  /** `fullscreen` (default) reemplaza el plano; `pip` lo deja de fondo. Decide
+   *  si un corte a B-roll es un corte de verdad — y por tanto si lleva barrido. */
+  bRollMode?: "fullscreen" | "pip";
   reactionZooms?: unknown[];
   brandKit?: { handle?: string; logoUrl?: string; position?: string; opacity?: number; color?: string };
   bRoll?: unknown[];

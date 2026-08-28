@@ -56,6 +56,10 @@ const Panel: React.FC<{ color: string }> = ({ color }) => (
   <AbsoluteFill style={{ backgroundColor: color }} />
 );
 
+/** Panel VACIO: deja ver el video debajo. Es lo que convierte esta capa en un
+ *  barrido y no en una tapa — ver el comentario de la estructura mas abajo. */
+const Vacio: React.FC = () => <AbsoluteFill style={{ backgroundColor: "transparent" }} />;
+
 export const ProTransitionSeriesLayer: React.FC<{
   transitions: ProTransitionSeries[];
   currentTime: number;
@@ -63,8 +67,10 @@ export const ProTransitionSeriesLayer: React.FC<{
   const { fps, width, height } = useVideoConfig();
   const active = transitions.filter((tr) => {
     const dur = Math.max(2, tr.durationFrames) / fps;
-    // El overlay vive [at, at+dur+pad]; fuera de eso, no monta nada (barato).
-    return currentTime >= tr.at - 0.02 && currentTime <= tr.at + dur + 0.4;
+    // El barrido se CENTRA en `at` (entra en la primera mitad, sale en la
+    // segunda), asi que la ventana tiene que abrir ANTES de `at`. Con el filtro
+    // viejo, que abria en `at - 0.02`, la mitad de entrada no se montaba nunca.
+    return currentTime >= tr.at - dur && currentTime <= tr.at + dur + 0.4;
   });
   if (active.length === 0) return null;
 
@@ -72,13 +78,47 @@ export const ProTransitionSeriesLayer: React.FC<{
     <>
       {active.map((tr, i) => {
         const dur = Math.max(2, tr.durationFrames);
-        // El primer panel ocupa hasta `at`, luego transiciona al segundo durante `dur`.
-        const fromFrame = Math.round(tr.at * fps);
-        // Margen pequeño a cada lado para que el TransitionSeries tenga sequences válidas.
-        const pad = Math.max(2, Math.round(dur * 0.4));
 
-        // Tipo común para que el switch no narrowee a la primera rama (cada
-        // presentación tiene su propio Props; aquí solo nos importa el contrato común).
+        // ESTRUCTURA: vacio -> COLOR -> vacio, con dos transiciones.
+        //
+        // Antes eran DOS paneles opacos (color -> colorTo) y eso no barre nada:
+        // tapa el cuadro entero de punta a punta de la ventana. Con un panel
+        // vacio a cada lado, el color entra barriendo sobre el video, cubre un
+        // instante, y sale barriendo — que es el efecto que el nombre promete.
+        //
+        // Las tres secuencias duran `dur` porque Remotion EXIGE que ninguna
+        // secuencia sea mas corta que la transicion que tiene al lado. El
+        // codigo anterior usaba `pad = round(dur * 0.4)`, siempre menor que
+        // `dur`, asi que la capa ABORTABA EL RENDER cada vez que se activaba:
+        //
+        //   "The duration of a <TransitionSeries.Sequence /> must not be
+        //    shorter than the duration of the next <TransitionSeries.Transition />.
+        //    The transition is 14 frames long, but the sequence is only 6"
+        //
+        // Por eso el array llegaba siempre vacio: no es que nadie lo usara, es
+        // que no PODIA usarse. Nada lo delataba porque nadie lo lleno nunca.
+        //
+        // El panel de COLOR dura el DOBLE que los vacios, y eso no es estetico:
+        // cada transicion se come `dur` frames de la secuencia que tiene al
+        // lado. Si el panel de color durara `dur`, las DOS transiciones se lo
+        // comerian entero, se solaparian una sobre otra y se anularian — que es
+        // exactamente lo que pasaba al probarlo: el barrido no aparecia en
+        // ningun fotograma. Con `2*dur`, la primera se come la mitad de entrada
+        // y la segunda la de salida, sin pisarse.
+        //
+        //   vacio(dur) --trans(dur)--> COLOR(2*dur) --trans(dur)--> vacio(dur)
+        //
+        // Total real = (dur + 2*dur + dur) - (dur + dur) = 2*dur frames. El
+        // color cubre el cuadro entero UN instante, en el centro exacto.
+        const seqVacio = dur;
+        const seqColor = dur * 2;
+
+        // Centrado en `at`: la primera mitad entra, la segunda sale. Asi el
+        // instante de cobertura total cae SOBRE el corte, que es donde sirve.
+        const fromFrame = Math.round(tr.at * fps) - dur;
+
+        // Tipo comun para que el switch no narrowee a la primera rama (cada
+        // presentacion tiene su propio Props; aqui solo importa el contrato comun).
         type AnyPresentation = TransitionPresentation<Record<string, unknown>>;
         const presentation = ((): AnyPresentation => {
           switch (tr.kind) {
@@ -107,21 +147,29 @@ export const ProTransitionSeriesLayer: React.FC<{
                 durationRestThreshold: 0.001,
               });
 
+
         return (
           <AbsoluteFill
             key={`pts-${i}-${tr.at}`}
             style={{ pointerEvents: "none" }}
           >
             <TransitionSeries from={fromFrame}>
-              <TransitionSeries.Sequence durationInFrames={pad}>
+              <TransitionSeries.Sequence durationInFrames={seqVacio}>
+                <Vacio />
+              </TransitionSeries.Sequence>
+              <TransitionSeries.Transition
+                presentation={presentation}
+                timing={timing}
+              />
+              <TransitionSeries.Sequence durationInFrames={seqColor}>
                 <Panel color={tr.color} />
               </TransitionSeries.Sequence>
               <TransitionSeries.Transition
                 presentation={presentation}
                 timing={timing}
               />
-              <TransitionSeries.Sequence durationInFrames={pad}>
-                <Panel color={tr.colorTo} />
+              <TransitionSeries.Sequence durationInFrames={seqVacio}>
+                <Vacio />
               </TransitionSeries.Sequence>
             </TransitionSeries>
           </AbsoluteFill>

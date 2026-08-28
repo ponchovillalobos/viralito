@@ -428,6 +428,18 @@ El `inf` de la banda central es la comprobación que importa: el video se detien
 de verdad. La diferencia que queda en el cuadro completo son los overlays, que
 siguen su curso — que es exactamente el efecto buscado.
 
+**Ese `inf` vale cuando nada más se mueve sobre esa banda.** Repetida la medición
+en un pico con un destello (`sceneFx`) y un micro punch-in encima, da 24.55 dB
+contra 18.85 dB sin la marca: el congelado sigue funcionando —la diferencia cae a
+la mitad— pero no llega a `inf` porque el destello y el zoom no se detienen.
+
+Y no se detienen **a propósito**. `<Freeze>` congela el tiempo de lo que envuelve,
+que es el nodo del video; los overlays y el encuadre son hermanos suyos y siguen
+corriendo. Un congelado con un push-in suave encima es un recurso clásico, no un
+defecto: la imagen se detiene, la cámara sigue entrando. Por construcción se dan
+juntos —el congelado va al pico ≥0.7 y el reaction-zoom a los ≥0.55, así que el
+pico máximo recibe los dos— y se deja así queriendo.
+
 ### Escala medida (`escala_medida`)
 
 Transición de entrada/salida para inserts: la imagen entra al 50 % y crece a
@@ -456,3 +468,47 @@ Ninguna de las dos habría fallado un render. Por eso hay ahora dos tests que
 recorren la cadena entera: `transiciones-alcanzables.test.ts` (las tres copias
 de la lista de transiciones dicen lo mismo) y `congelado-cableado.test.ts` (los
 cinco eslabones del congelado). Los dos se comprobaron rompiéndolos a propósito.
+
+### Barridos de color en los cortes a B-roll (`proTransitionSeries`)
+
+Un panel del acento cruza el cuadro con las transiciones **oficiales** de
+Remotion (`@remotion/transitions`: `slide`, `wipe`, `flip`, `clockWipe`). Es el
+complemento de `proTransitions`, que son las caseras y ponen destellos en los
+beats: aquéllas parpadean, éstas barren.
+
+**Dónde.** Sólo donde el video corta de imagen de verdad: la entrada del B-roll
+a pantalla completa. Un barrido a mitad de un plano continuo no lee como
+transición, lee como error. En modo `pip` el B-roll es una ventanita y el plano
+no corta, así que ahí no va ninguno.
+
+**Cuántos.** Tres como máximo, sobre segmentos de 1.2 s o más, con la dirección
+alternada. Quince barridos no se ven editados, se ven nerviosos; y barrer para
+tapar medio segundo de archivo no compensa.
+
+**De qué color.** El acento, uno solo — la misma regla mono-color de siempre.
+
+#### La capa abortaba el render y nadie lo sabía
+
+`ProTransitionSeriesLayer` estaba montada en el composition y cableada en los
+**dos** builders de props desde antes. Su array llegaba siempre vacío, y la
+lectura fácil era "nadie la usa todavía". La real era otra:
+
+```
+The duration of a <TransitionSeries.Sequence /> must not be shorter than
+the duration of the next <TransitionSeries.Transition />.
+The transition is 14 frames long, but the sequence is only 6 frames long
+```
+
+`pad = round(dur * 0.4)` es **siempre** menor que `dur`. La capa tiraba el render
+entero cada vez que se activaba: nunca pudo funcionar. No lo delataba nada porque
+nadie había llenado el array jamás — el defecto y su encubrimiento eran la misma
+cosa.
+
+Al arreglarlo apareció un segundo problema debajo: con los dos paneles opacos que
+tenía (`color` → `colorTo`), la capa no barría nada, **tapaba** el cuadro de punta
+a punta. Ahora la estructura es `vacío → COLOR → vacío`, y el panel de color dura
+`2*dur` porque con `dur` las dos transiciones se lo comen entero, se solapan y el
+barrido no aparece en ningún fotograma — comprobado renderizando, no razonando.
+
+Verificado de punta a punta en un render completo de 44 s: la luminancia media
+salta de 98 a 150 exactamente en el segundo del barrido y vuelve 0.3 s después.

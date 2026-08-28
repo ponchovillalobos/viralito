@@ -841,6 +841,7 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
             return
         proj = json.loads(project_path.read_text(encoding="utf-8"))
         proj["bRoll"] = broll
+        _barridos_de_broll(proj)
         project_path.write_text(json.dumps(proj, indent=2), encoding="utf-8")
         print(
             f"[broll] {len(broll)} clips ({data.get('source')}/{data.get('orientation')}) "
@@ -849,6 +850,51 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
         )
     except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
         print(f"[broll] skipped: {e}", file=sys.stderr)
+
+
+def _barridos_de_broll(proj: dict) -> None:
+    """Barridos de color en la entrada del B-roll a pantalla completa.
+
+    Paridad con `applyBrollWipes` de fx-enrichments.ts — mismas reglas y mismos
+    numeros, que es lo que verifica `barridos-de-broll.test.ts`:
+
+      - solo en `fullscreen`: en `pip` el B-roll es una ventanita y el plano no
+        corta, asi que no hay nada que barrer.
+      - tres como maximo, sobre segmentos de 1.2s o mas. Quince barridos no se
+        ven editados, se ven nerviosos.
+      - un solo color, el acento del clip.
+      - direccion alternada: tres barridos identicos se leen como un tic.
+    """
+    if proj.get("bRollMode") == "pip":
+        return
+    broll = proj.get("bRoll") or []
+    if not broll:
+        return
+    CRUCE = 9
+    DIRECCIONES = ["from-left", "from-right", "from-top", "from-bottom"]
+    cortes = sorted(
+        (
+            b for b in broll
+            if isinstance(b.get("start"), (int, float))
+            and isinstance(b.get("end"), (int, float))
+            and b["end"] - b["start"] >= 1.2
+        ),
+        key=lambda b: b["start"],
+    )[:3]
+    if not cortes:
+        return
+    acento = proj.get("accentColor") or "#0a0a0a"
+    proj["proTransitionSeries"] = (proj.get("proTransitionSeries") or []) + [
+        {
+            "at": round(float(b["start"]), 2),
+            "durationFrames": CRUCE,
+            "kind": "wipe",
+            "direction": DIRECCIONES[i % len(DIRECCIONES)],
+            "color": acento,
+            "colorTo": acento,
+        }
+        for i, b in enumerate(cortes)
+    ]
 
 
 def _blaze_trackpath(clip_video: Path) -> list[dict]:

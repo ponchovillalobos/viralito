@@ -647,3 +647,62 @@ export async function applyTranslate(project: ResolvedProject): Promise<void> {
     console.warn("[auto-build] traducción falló:", err);
   }
 }
+
+/**
+ * Barridos de color en la entrada del B-roll a pantalla completa.
+ *
+ * `proTransitionSeries` monta las transiciones OFICIALES de Remotion
+ * (@remotion/transitions): un panel del acento cruza el cuadro con `slide`,
+ * `wipe`, `flip` o `clockWipe`. Es el complemento de `proTransitions`, que son
+ * las caseras y ponen destellos en los beats: aquellas parpadean, estas barren.
+ *
+ * DONDE. Solo donde el video CORTA DE IMAGEN de verdad — el momento en que el
+ * B-roll a pantalla completa reemplaza el plano. Un barrido a mitad de un plano
+ * continuo no lee como transicion, lee como error. En modo `pip` el B-roll es
+ * una ventanita y el plano no corta, asi que ahi no va ninguno.
+ *
+ * CUANTOS. Tres como maximo, y solo sobre segmentos de B-roll de 1.2s o mas.
+ * Un video con quince barridos deja de verse editado y empieza a verse
+ * nervioso; y barrer para tapar medio segundo de archivo no compensa.
+ *
+ * DE QUE COLOR. El acento del video, uno solo — la misma regla mono-color que
+ * gobierna stickers, highlights y particulas.
+ *
+ * Esta capa estaba MONTADA y con el cableado completo en los dos builders desde
+ * antes, y su array llegaba siempre vacio. No era falta de uso: la capa abortaba
+ * el render con "The duration of a <TransitionSeries.Sequence /> must not be
+ * shorter than the duration of the next <TransitionSeries.Transition />" cada
+ * vez que se activaba. Nunca pudo funcionar, y nada lo delataba porque nadie la
+ * habia llenado nunca.
+ */
+export function applyBrollWipes(project: ResolvedProject, accentColor?: string): void {
+  // En `pip` el plano no corta: el B-roll es una ventana sobre el mismo video.
+  if (project.bRollMode === "pip") return;
+
+  const broll = (project.bRoll ?? []) as { start?: number; end?: number }[];
+  if (broll.length === 0) return;
+
+  const CRUCE = 9; // frames del barrido; el efecto completo dura 2x (~0.6s a 30fps)
+  const DIRECCIONES = ["from-left", "from-right", "from-top", "from-bottom"] as const;
+
+  const cortes = broll
+    .filter((b) => typeof b.start === "number" && typeof b.end === "number")
+    .filter((b) => (b.end as number) - (b.start as number) >= 1.2)
+    .sort((a, b) => (a.start as number) - (b.start as number))
+    .slice(0, 3);
+
+  if (cortes.length === 0) return;
+
+  project.proTransitionSeries = [
+    ...((project.proTransitionSeries ?? []) as unknown[]),
+    ...cortes.map((b, i) => ({
+      at: +(b.start as number).toFixed(2),
+      durationFrames: CRUCE,
+      kind: "wipe" as const,
+      // Alterna la direccion: tres barridos identicos se leen como un tic.
+      direction: DIRECCIONES[i % DIRECCIONES.length],
+      color: accentColor || "#0a0a0a",
+      colorTo: accentColor || "#0a0a0a",
+    })),
+  ] as typeof project.proTransitionSeries;
+}
