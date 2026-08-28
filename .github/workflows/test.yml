@@ -37,18 +37,34 @@ jobs:
         run: npm ci
         working-directory: remotion
 
+      # Python tambien va ANTES de `npm test`, por la misma razon que remotion.
+      #
+      # `callouts.test.ts` no es un test de logica: EJECUTA `word_callouts.py`,
+      # porque el defecto que cuida no era de logica sino de conexion — el script
+      # existia entero y nadie lo invocaba. Sin interprete, la funcion devolvia
+      # lista vacia y el test fallaba con "expected [] to deeply equal
+      # [ '8', '50%', '3x' ]", sin una palabra sobre Python. Estuvo asi doce
+      # corridas.
+      #
+      # `word_callouts.py` usa solo la biblioteca estandar (argparse, json, re,
+      # sys): no hace falta el venv ni instalar nada. Solo un interprete, y se le
+      # dice cual con VIRAL_PYTHON_EXE, porque por omision se busca el venv de
+      # Windows (python/venv/Scripts/python.exe) que aqui no existe.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Tipos (tsc)
         run: npx tsc --noEmit
         working-directory: frontend
       - name: Tests + paridad de estilos
         run: npm test
         working-directory: frontend
+        env:
+          VIRAL_PYTHON_EXE: python
       - name: Tipos remotion (tsc)
         run: npx tsc --noEmit
         working-directory: remotion
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
       - name: Sintaxis Python (py_compile)
         run: python -m compileall -q -x "venv|__pycache__" python

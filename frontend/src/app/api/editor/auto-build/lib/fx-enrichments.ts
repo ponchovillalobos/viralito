@@ -9,7 +9,7 @@
 //   - applyTextBehind    → foregroundVideoId con texto detrás del sujeto (A3).
 //   - applyTranslate     → captionTranslated en otro idioma (C3).
 
-import { promises as fs, readFileSync } from "node:fs";
+import { promises as fs, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import {
   PYTHON_DIR,
@@ -750,7 +750,24 @@ export async function applyCallouts(
 
     const run = await runProcess(PYTHON_EXE, args, PYTHON_DIR, undefined, 60_000);
     await fs.unlink(wordsPath).catch(() => {});
-    if (!run.ok) return;
+
+    // Esto era `if (!run.ok) return;` — mudo. Sin Python, las cifras en pantalla
+    // no aparecian NUNCA y no habia forma de saberlo: el video salia entero,
+    // sin una cifra y sin un error. Costo encontrarlo un fallo de CI que llegaba
+    // como "expected [] to deeply equal [ '8', '50%', '3x' ]", sin mencionar que
+    // el interprete no existia.
+    if (!run.ok) {
+      const falta = !existsSync(PYTHON_EXE);
+      console.error(
+        `[auto-build] callouts: no se pudieron sacar las cifras del audio. ` +
+          (falta
+            ? `No existe el interprete de Python en ${PYTHON_EXE}. Crea el venv ` +
+              `(python/bootstrap.ps1) o apunta VIRAL_PYTHON_EXE a uno que exista.`
+            : `${PYTHON_EXE} salio con error: ${(run.stderr || "").slice(-300)}`) +
+          ` El video se genera igual, pero SIN cifras ni banda de nombre.`
+      );
+      return;
+    }
 
     const datos = parseLastJsonLine<{ statPops?: unknown[]; lowerThirds?: unknown[] }>(
       run.stdout || ""
