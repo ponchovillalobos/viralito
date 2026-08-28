@@ -273,13 +273,30 @@ histórica con render, lo no medido —gráficos, render, LUT, mastering, re-enc
 normalización— fue el **69.8 % del tiempo total** (1744 de 2499 s). Ya están
 instrumentadas las seis etapas; las corridas nuevas sí reflejan el total.
 
-**Sobre la concurrencia del render.** Esta sección afirmaba que subirla no
-ayudaría, deduciéndolo de ver el procesador al 100 %. Medido después sobre un
-clip real: `--concurrency 3` (el valor que calcula `hw_profile` hoy) tarda
-131.7 s y `--concurrency 6` tarda **107.8 s, un 18 % menos**. La deducción era
-incorrecta. Antes de cambiar la fórmula falta repetir el barrido con el *pool*
-de `render-server.mjs`, que es el camino real de producción — la medición se hizo
-con el CLI directo, que re-empaqueta en cada corrida.
+**Sobre la concurrencia del render: 3 → 8, medido.** Esta sección afirmaba que
+subirla no ayudaría, deduciéndolo de ver el procesador al 100 %. El procesador al
+100 % dice que hay trabajo, no que esté bien repartido.
+
+Barrido completo (28 ago 2026) a través de **`render-server.mjs`**, que es el
+camino real de producción — arma el bundle una vez, mientras que el CLI
+re-empaqueta en cada corrida y diluía la diferencia. Clip real de 47 s, dos
+corridas por valor, se toma la mejor:
+
+| concurrency | tiempo |
+|---|---|
+| 3 (lo que daba `hw_profile`) | 146.3 s |
+| 6 | 123.8 s |
+| **8** | **118.4 s** |
+| 10 | 126.0 s |
+| 12 | 149.2 s |
+
+Curva en U: por debajo sobra procesador, por encima los trabajadores se pelean
+por él. **De 3 a 8 son 19.1 % menos tiempo con el mismo resultado.** El óptimo
+cae entre los núcleos físicos (6) y los lógicos (12), cerca de dos tercios de los
+lógicos, y ésa es la fórmula de `hw_profile.py` ahora.
+
+Está calibrada en UNA máquina. En otra, corré `node remotion/medir-concurrencia.mjs`
+antes de dar el número por bueno — el guion quedó en el repo justamente para eso.
 
 **Lo que sí está medido sobre correr cosas en paralelo:** un render de Remotion
 tardó **20.6× más** (266 s → 5492 s) al competir con una generación de Ollama.

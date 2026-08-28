@@ -150,7 +150,17 @@ def test_rtx4090(monkeypatch):
     assert rec["ollama_model"] == "qwen3:14b"
     assert rec["whisper_compute_type"] == "float16"
     assert rec["video_decoder_hwaccel"] == "cuda"
-    assert rec["remotion_workers"] == min(4, 16 // 2)
+    # remotion_workers: MEDIDO, no deducido. Este assert decia min(4, 16//2) = 4,
+    # que salia de `cores_physical // 2`. Un barrido a traves de render-server.mjs
+    # (el camino de produccion) sobre un clip real mostro una curva en U con el
+    # optimo en 8 para 6 fisicos / 12 logicos: 3 -> 146.3 s, 6 -> 123.8 s,
+    # 8 -> 118.4 s, 10 -> 126.0 s, 12 -> 149.2 s. Dos tercios de los LOGICOS.
+    #
+    # Aca (16/32) dos tercios darian 21, pero se topa en 12: no hay medicion por
+    # encima de 12 hilos y extrapolar una curva en U mas alla de donde se midio es
+    # justo la clase de deduccion que este cambio vino a corregir. Si algun dia se
+    # mide en una maquina asi, subir el tope CON los numeros al lado.
+    assert rec["remotion_workers"] == 12
     # con GPU el x264 (intermedio que se re-encodea) es ultrafast; crf fijo 24
     assert rec["x264_preset"] == "ultrafast"
     assert rec["x264_crf"] == 24

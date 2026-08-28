@@ -429,11 +429,36 @@ def _recommend(prof: dict) -> dict:
     else:
         ollama_model = "qwen3:1.7b"
 
-    # remotion_workers
+    # remotion_workers — MEDIDO, no deducido.
+    #
+    # La formula era `min(4, cores_physical // 2)`, que en esta maquina (6
+    # fisicos / 12 logicos) daba 3. La justificacion escrita era que subirlo no
+    # ayudaria porque el procesador ya se veia al 100 %. Eso es una deduccion, y
+    # estaba mal: el procesador al 100 % dice que hay trabajo, no que este bien
+    # repartido.
+    #
+    # Barrido sobre un clip real de 47 s, a traves de `render-server.mjs` — el
+    # camino de produccion, que arma el bundle UNA vez (la medicion anterior usaba
+    # el CLI, que re-empaqueta en cada corrida y diluia la diferencia):
+    #
+    #     concurrency  3 -> 146.3 s
+    #     concurrency  6 -> 123.8 s
+    #     concurrency  8 -> 118.4 s   <- optimo
+    #     concurrency 10 -> 126.0 s
+    #     concurrency 12 -> 149.2 s
+    #
+    # Curva en U: por debajo sobra procesador, por encima los trabajadores se
+    # pelean por el. De 3 a 8 son 19.1 % menos tiempo con el MISMO resultado.
+    #
+    # El optimo cae entre los nucleos fisicos (6) y los logicos (12), cerca de
+    # dos tercios de los logicos. Esa es la formula ahora. Ojo: esta calibrada en
+    # UNA maquina; en otra, volve a correr `node remotion/medir-concurrencia.mjs`
+    # antes de dar el numero por bueno.
+    cores_logical_ = int(prof.get("cores_logical") or cores_physical * 2 or 2)
     if nvenc_usable:
-        remotion_workers = max(1, min(4, cores_physical // 2))
+        remotion_workers = max(2, min(12, round(cores_logical_ * 2 / 3)))
     else:
-        remotion_workers = max(1, min(2, cores_physical // 3))
+        remotion_workers = max(1, min(4, cores_physical // 2))
 
     # ------------------------------------------------------------------
     # VELOCIDAD del render (libx264 de Remotion / post-encode). Exponemos
