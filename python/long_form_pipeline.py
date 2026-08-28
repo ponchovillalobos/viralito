@@ -852,6 +852,28 @@ def _apply_broll(clip_id: str, style_id: str, aspect_ratio: str,
         print(f"[broll] skipped: {e}", file=sys.stderr)
 
 
+def _posicion_del_broll(clip_id: str, style_id: str, posicion: str) -> None:
+    """Guarda DONDE aparece el material de apoyo en el project del clip.
+
+    El render ya decidia solo por la forma del material, y acertaba casi
+    siempre. El problema es cuando se equivoca: un clip vertical de archivo SI
+    encaja en un 9:16, asi que tapa el cuadro entero — y con el la cara de quien
+    habla. No habia forma de decirle que no.
+
+    Best-effort: si falla, el clip renderiza con el comportamiento de siempre.
+    """
+    try:
+        project_path = LF_PROJECTS / f"{clip_id}_{style_id}.json"
+        if not project_path.exists():
+            return
+        proj = json.loads(project_path.read_text(encoding="utf-8"))
+        proj["bRollPosition"] = posicion
+        project_path.write_text(json.dumps(proj, indent=2), encoding="utf-8")
+        print(f"[broll] {clip_id}: material {posicion}", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
+        print(f"[broll] posicion skipped: {e}", file=sys.stderr)
+
+
 def _barridos_de_broll(proj: dict) -> None:
     """Barridos de color en la entrada del B-roll a pantalla completa.
 
@@ -1362,6 +1384,7 @@ def step_render_clip(
     render_pool=None,
     reframe: bool = True,
     broll_source: str | None = None,
+    broll_position: str | None = None,
 ) -> Path:
     """Genera proyecto + props + render con Remotion para un (clip, style) específico.
 
@@ -1405,6 +1428,10 @@ def step_render_clip(
     # 1.55) B-ROLL de archivo (editorial_broll/broll_full/broll_pip): busca clips en
     #       Pexels (landscape para 16:9) y parchea project.bRoll. Best-effort.
     _apply_broll(clip_id, style_id, aspect_ratio, fuente=broll_source)
+    # Donde aparece ese material. Va DESPUES de _apply_broll porque escribe en
+    # el mismo project.json: al reves, _apply_broll lo pisaria al releerlo.
+    if broll_position and broll_position != "auto":
+        _posicion_del_broll(clip_id, style_id, broll_position)
     # 1.6) F1 — director emocional: ducking de música + zooms en picos. Best-effort.
     _apply_emotion(clip_id, style_id)
     _apply_callouts(clip_id, style_id)
@@ -1625,6 +1652,18 @@ def main() -> int:
             "momento a momento — agrupadas se verian como dos videos pegados. "
             "Validas: auto, pexels_video, pexels_photo, giphy, cc0. Sin esto se "
             "decide como siempre, que es lo mismo que 'auto'."
+        ),
+    )
+    parser.add_argument(
+        "--broll-position",
+        default=None,
+        choices=["auto", "arriba", "abajo", "completa"],
+        help=(
+            "DONDE aparece ese material. 'auto' (default) lo decide la forma: "
+            "si encaja en el lienzo lo tapa, si no se va a la banda de abajo. "
+            "'abajo' NUNCA tapa la cara de quien habla, pase lo que pase. "
+            "'arriba' para cuando la persona esta en la parte baja del cuadro. "
+            "'completa' tapa siempre, aunque recorte."
         ),
     )
     parser.add_argument(
@@ -2259,6 +2298,7 @@ def main() -> int:
                 music_volume=args.music_volume,
                 render_pool=render_pool,
                 broll_source=args.broll_source,
+                broll_position=args.broll_position,
             )
             return (c["index"], style_id, out, False)
 

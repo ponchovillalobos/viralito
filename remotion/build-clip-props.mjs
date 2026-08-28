@@ -136,6 +136,8 @@ const props = {
   animations: project.animations || [],
   emphasisCards: project.emphasisCards || [],
   bRollMode: project.bRollMode ?? "pip",
+  // Donde aparece el material de apoyo. `auto` = comportamiento historico.
+  bRollPosition: project.bRollPosition || "auto",
   zoomMarks: project.zoomMarks || [],
   wordStickers: project.wordStickers || [],
   floatingEmojis: project.floatingEmojis || [],

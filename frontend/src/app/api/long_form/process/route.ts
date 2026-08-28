@@ -68,6 +68,8 @@ interface ProcessBody {
    * elegirlo; el de largos fijaba Pexels, asi que pedir GIFs o fotos no era
    * posible aunque el buscador supiera hacerlo.
    */
+  /** Donde aparece el material de apoyo. "auto" no viaja. */
+  brollPosition?: "auto" | "arriba" | "abajo" | "completa";
   brollSource?:
     | "auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0"
     | Array<"auto" | "pexels_video" | "pexels_photo" | "giphy" | "cc0">;
@@ -153,6 +155,11 @@ export async function processJob(
   const fuentesBroll = [body.brollSource ?? []].flat().filter((f) => f && f !== "auto");
   if (fuentesBroll.length) {
     args.push("--broll-source", fuentesBroll.join(","));
+  }
+  // Donde aparece ese material. "auto" no viaja: sin el argumento, el render
+  // decide por la forma de cada clip, que es el comportamiento de siempre.
+  if (body.brollPosition && body.brollPosition !== "auto") {
+    args.push("--broll-position", body.brollPosition);
   }
   if (body.subtitleFont && body.subtitleFont !== "auto") {
     args.push("--subtitle-font", body.subtitleFont);

@@ -467,6 +467,12 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       // Barridos de color en los cortes a B-roll a pantalla completa. Va
       // DESPUES del director emocional para no competir con sus zooms: si un
       // pico y un corte caen juntos, el corte ya trae su propio enfasis.
+      // Donde aparece el material de apoyo. Lo elige quien edita en el wizard;
+      // sin eleccion, el render sigue decidiendo por la forma del material.
+      if (body.brollPosition && body.brollPosition !== "auto") {
+        project.bRollPosition = body.brollPosition;
+      }
+
       applyBrollWipes(project, accentColor);
 
       // Cifras que el hablante menciona, apareciendo cuando las dice, y la

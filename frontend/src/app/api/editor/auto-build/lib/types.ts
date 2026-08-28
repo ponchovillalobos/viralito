@@ -66,6 +66,9 @@ export interface AutoBuildRequest {
    */
   /** Una fuente, o varias que se alternan momento a momento. */
   brollSource?: BrollSource | BrollSource[];
+  /** Donde aparece el material de apoyo: auto | arriba | abajo | completa.
+   *  Sin el, el render decide por la forma del material (comportamiento historico). */
+  brollPosition?: "auto" | "arriba" | "abajo" | "completa";
   /** Modo cinematográfico opt-in. Si undefined, render sale idéntico a antes. */
   cinematic?: CinematicConfig;
   /**
@@ -125,6 +128,7 @@ export interface ResolvedProject {
   /** `fullscreen` (default) reemplaza el plano; `pip` lo deja de fondo. Decide
    *  si un corte a B-roll es un corte de verdad — y por tanto si lleva barrido. */
   bRollMode?: "fullscreen" | "pip";
+  bRollPosition?: "auto" | "arriba" | "abajo" | "completa";
   reactionZooms?: unknown[];
   brandKit?: { handle?: string; logoUrl?: string; position?: string; opacity?: number; color?: string };
   bRoll?: unknown[];

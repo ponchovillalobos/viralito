@@ -280,6 +280,25 @@ export const viralVideoSchema = z.object({
   animations: z.array(animationSchema).default([]),
   emphasisCards: z.array(emphasisCardSchema).default([]),
   bRollMode: z.enum(["fullscreen", "pip"]).default("fullscreen"),
+  /**
+   * DONDE aparece el material de apoyo (B-roll, GIFs, fotos) cuando va a
+   * pantalla completa.
+   *
+   *   auto      lo decide la forma del material: si encaja en el lienzo lo
+   *             tapa; si no (un GIF cuadrado en un 9:16), se va a la banda de
+   *             abajo para no recortar media imagen. Es el comportamiento
+   *             historico y sigue siendo el default.
+   *   abajo     SIEMPRE en la banda inferior. Es la eleccion de quien no quiere
+   *             que nada le tape la cara, pase lo que pase.
+   *   arriba    SIEMPRE en la banda superior. Util cuando quien habla esta en
+   *             la parte baja del cuadro.
+   *   completa  SIEMPRE a pantalla completa, aunque recorte. Maximo impacto.
+   *
+   * `auto` existe porque acertaba la mayoria de las veces; las otras tres
+   * existen porque cuando se equivoca, tapa la cara de quien habla y no habia
+   * forma de decirle que no.
+   */
+  bRollPosition: z.enum(["auto", "arriba", "abajo", "completa"]).default("auto"),
   zoomMarks: z.array(zoomMarkSchema).default([]),
   wordStickers: z.array(wordStickerSchema).default([]),
   floatingEmojis: z.array(floatingEmojiSchema).default([]),
@@ -397,6 +416,7 @@ export const defaultProps: ViralVideoProps = {
   animations: [],
   emphasisCards: [],
   bRollMode: "fullscreen",
+  bRollPosition: "auto",
   zoomMarks: [],
   wordStickers: [],
   floatingEmojis: [],
@@ -467,6 +487,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   animations,
   emphasisCards,
   bRollMode,
+  bRollPosition,
   zoomMarks,
   wordStickers,
   floatingEmojis,
@@ -1069,7 +1090,22 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
           const propLienzo = compWidth / compHeight;
           // Umbral: si el origen es más de un 25% más ancho (en proporción) que
           // el lienzo, taparlo entero costaría demasiada imagen.
-          const convive = propOrigen !== null && propOrigen > propLienzo * 1.25;
+          const noEncaja = propOrigen !== null && propOrigen > propLienzo * 1.25;
+
+          // La ELECCIÓN de quien edita gana sobre la forma del material. `auto`
+          // sigue decidiendo por la forma, que es lo que se hacía siempre; las
+          // otras tres existen porque cuando `auto` se equivoca, tapa la cara
+          // de quien habla y no había forma de decirle que no.
+          const convive = bRollPosition === "completa" ? false
+            : bRollPosition === "abajo" || bRollPosition === "arriba" ? true
+            : noEncaja;
+          const arriba = bRollPosition === "arriba";
+          // Sin dimensiones declaradas no se puede calcular la altura por
+          // proporción, así que la banda toma el 45% del alto: suficiente para
+          // que se lea, y deja la cara libre.
+          const altoBanda = propOrigen !== null
+            ? Math.min(Math.round(compWidth / propOrigen), Math.round(compHeight * 0.55))
+            : Math.round(compHeight * 0.45);
 
           return (
             <Sequence
@@ -1081,16 +1117,18 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
                 // Mitad inferior: el material a su proporción, centrado. El
                 // video original queda visible arriba porque esta capa no lo
                 // tapa — solo ocupa la banda de abajo.
-                <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center" }}>
+                <AbsoluteFill
+                  style={{
+                    justifyContent: arriba ? "flex-start" : "flex-end",
+                    alignItems: "center",
+                  }}
+                >
                   <div
                     style={{
                       width: "100%",
                       // Alto que le corresponde a su proporción real, con tope
-                      // al 55% del lienzo para no comerse la cara de arriba.
-                      height: Math.min(
-                        Math.round(compWidth / (propOrigen as number)),
-                        Math.round(compHeight * 0.55)
-                      ),
+                      // al 55% del lienzo para no comerse la cara.
+                      height: altoBanda,
                       overflow: "hidden",
                       background: "#000",
                       display: "flex",

@@ -121,6 +121,7 @@ import type { BrollSource } from "@/lib/pexels";
 import { BROLL_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
+import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {
@@ -392,6 +393,8 @@ export function LongFormWizard() {
   // Tema del estilo Editorial (fuente serif + fondo). Solo aplica si eliges 📰.
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   const [brollSources, setBrollSources] = useState<BrollSource[]>(["auto"]);
+  // Donde aparece el material. `auto` = lo decide la forma, como siempre.
+  const [brollPosition, setBrollPosition] = useState<BrollPosition>("auto");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto (paridad shorts).
   const [showAllThemes, setShowAllThemes] = useState(false);
   // "Ver ejemplo": estilo cuya expansión de escenas (miniaturas reales) está abierta.
@@ -714,6 +717,13 @@ export function LongFormWizard() {
       ) {
         body.brollSource = brollSources;
       }
+      // Donde aparece el material. "auto" no viaja: es el default de siempre.
+      // Va en LOS DOS caminos de envio (modo completo y modo analisis): dejarlo
+      // en uno solo haria que el mismo wizard diera resultados distintos segun
+      // por que boton se salio.
+      if (brollPosition !== "auto") {
+        body.brollPosition = brollPosition;
+      }
 
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -791,6 +801,13 @@ export function LongFormWizard() {
         selectedStyles.some((x) => BROLL_STYLES.includes(x))
       ) {
         body.brollSource = brollSources;
+      }
+      // Donde aparece el material. "auto" no viaja: es el default de siempre.
+      // Va en LOS DOS caminos de envio (modo completo y modo analisis): dejarlo
+      // en uno solo haria que el mismo wizard diera resultados distintos segun
+      // por que boton se salio.
+      if (brollPosition !== "auto") {
+        body.brollPosition = brollPosition;
       }
       const r = await fetch("/api/long_form/process", {
         method: "POST",
@@ -1410,7 +1427,10 @@ export function LongFormWizard() {
             })}
           </div>
           {selectedStyles.some((x) => BROLL_STYLES.includes(x)) && (
-            <BrollSourcePicker valor={brollSources} onChange={setBrollSources} />
+            <>
+              <BrollSourcePicker valor={brollSources} onChange={setBrollSources} />
+              <BrollPositionPicker valor={brollPosition} onChange={setBrollPosition} />
+            </>
           )}
           {/* Tema editorial: aparece solo si elegiste 📰 Editorial (paridad con shorts). */}
           {hasEditorial && (

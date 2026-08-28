@@ -30,6 +30,7 @@ import { CinematicStep } from "@/components/editor/wizard/cinematic-step";
 import { BrandKitPicker } from "@/components/editor/wizard/brand-kit-picker";
 import { Confetti } from "@/components/ui/confetti";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
+import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
 import {
   Montserrat, Poppins, Oswald, Bangers, Luckiest_Guy, Archivo_Black, Teko, Righteous,
   Bebas_Neue, Anton,
@@ -346,6 +347,8 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
   const [subtitleColor, setSubtitleColor] = useState<string>("auto");
   const [editorialTheme, setEditorialTheme] = useState<string>("clasico");
   const [brollSources, setBrollSources] = useState<BrollSource[]>(["auto"]);
+  // Donde aparece el material. `auto` = lo decide la forma, como siempre.
+  const [brollPosition, setBrollPosition] = useState<BrollPosition>("auto");
   // 17 temas abruman: se muestran 8 y "Ver todos" despliega el resto.
   const [showAllThemes, setShowAllThemes] = useState(false);
   // 👁️ Estilo cuyo ejemplo GRANDE se está viendo en el modal (null = cerrado).
@@ -767,6 +770,8 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
       ...(brollSources.length && !brollSources.includes("auto")
         ? { brollSource: brollSources }
         : {}),
+      // Misma regla: "auto" es el comportamiento historico, asi que no viaja.
+      ...(brollPosition !== "auto" ? { brollPosition } : {}),
       platforms: selectedPlatforms,
       aspectRatio,
       caption: caption || undefined,
@@ -1652,7 +1657,10 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
               Acá abajo aparecen justo despues de la eleccion, en el orden en que
               se leen: primero de dónde salen las imágenes, después el aspecto. */}
           {selectedStyles.some((s) => BROLL_STYLES.includes(s)) && (
-            <BrollSourcePicker valor={brollSources} onChange={setBrollSources} />
+            <>
+              <BrollSourcePicker valor={brollSources} onChange={setBrollSources} />
+              <BrollPositionPicker valor={brollPosition} onChange={setBrollPosition} />
+            </>
           )}
           {selectedStyles.some((s) => EDITORIAL_LAYOUT_STYLES.includes(s)) && editorialThemePanel}
           {selectedStyles.some((s) => MOTION_STYLES.includes(s)) && motionBackgroundPanel}

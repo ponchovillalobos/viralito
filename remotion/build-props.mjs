@@ -219,6 +219,8 @@ const props = {
   animations: animationsRemapped,
   emphasisCards: emphasisCardsRemapped,
   bRollMode: project.bRollMode ?? "fullscreen",
+  // Donde aparece el material de apoyo. `auto` = comportamiento historico.
+  bRollPosition: project.bRollPosition || "auto",
   zoomMarks: zoomMarksRemapped,
   wordStickers: wordStickersRemapped,
   floatingEmojis: floatingEmojisRemapped,
