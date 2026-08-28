@@ -58,11 +58,38 @@ jobs:
       - name: Tipos (tsc)
         run: npx tsc --noEmit
         working-directory: frontend
-      - name: Tests + paridad de estilos
-        run: npm test
+      # Los tests y los verificadores van en pasos SEPARADOS.
+      #
+      # No es cosmético: los logs de Actions exigen permisos de administrador del
+      # repositorio, así que quien no los tiene sólo ve "el paso falló". Con un
+      # único paso gigante, un CI rojo es adivinanza — y así estuvo doce
+      # corridas. Separados, el nombre del paso ya dice dónde mirar.
+      #
+      # No se duplica la lista: `npm test` = `test:unit` + `check`, los mismos
+      # dos comandos que corren acá. Toda lista escrita dos veces se separa
+      # (ya pasó con los estilos, los temas y las miniaturas).
+      - name: Tests (vitest)
+        id: vitest
+        run: npm run test:unit
         working-directory: frontend
         env:
           VIRAL_PYTHON_EXE: python
+
+      # Las anotaciones SÍ se leen sin permisos de admin. Si vitest cae, se
+      # vuelve a correr pidiendo el informe en JSON y se emite una anotación por
+      # test caído, con archivo y mensaje.
+      - name: Qué test cayó exactamente
+        if: failure() && steps.vitest.outcome == 'failure'
+        working-directory: frontend
+        env:
+          VIRAL_PYTHON_EXE: python
+        run: |
+          npx vitest run --reporter=json --outputFile=vitest-informe.json || true
+          node ../remotion/anotar-fallos-de-vitest.mjs vitest-informe.json
+
+      - name: Verificadores (catalogo, iconos, fuentes, documentacion)
+        run: npm run check
+        working-directory: frontend
       - name: Tipos remotion (tsc)
         run: npx tsc --noEmit
         working-directory: remotion
