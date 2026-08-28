@@ -275,7 +275,11 @@ Es el archivo más delicado del proyecto. Reglas:
 3. NO sacar el `objectFit: cover` del rawVideo (sin él, videos horizontales quedan letterbox feo)
 4. NO cambiar `wordStickerSchema` sin update de `build-props.mjs` y `build-clip-supreme.mjs`
 5. Si agregás props nuevos: defaultProps + schema + build-props update + documentar en STYLES.md
-6. **Un prop nuevo son CINCO eslabones, no dos.** Quien lo escribe, el tipo que
+6. **Un prop nuevo son CINCO eslabones, no dos.** Lo vigila
+   `check-campos-alcanzables.mjs`, dentro de `npm test`: recorre los 56 campos
+   del composition y exige que alguien los **escriba**, no que alguien los
+   reenvíe. Los `build-*.mjs` reenvían todo, así que mirarlos a ellos no delata
+   nada — es lo que dejó pasar cuatro efectos inalcanzables en un día. Quien lo escribe, el tipo que
    lo declara, `build-props.mjs` (shorts), `build-clip-props.mjs` (largos) y el
    composition que lo aplica. Saltarse un builder no rompe nada: el composition
    recibe el default vacío y el efecto no existe, sin un solo error. Pasó con
