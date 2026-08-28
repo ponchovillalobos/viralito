@@ -682,7 +682,7 @@ def step_explain_virality(
 
 
 def step_graphics(clip_id: str, use_llm: bool = True, illustrations: bool = False,
-                  density: float = 1.0) -> None:
+                  density: float = 1.0, accent: str | None = None) -> None:
     """Modo Gráficos: genera charts + titulares (+ ilustraciones CC0 opt-in) para un
     clip (best-effort, no rompe el job). illustrations=True cuando algún estilo pedido
     tiene illustrations:true (editorial*/lottie_pop) → emite illustrationStickers.
@@ -694,6 +694,10 @@ def step_graphics(clip_id: str, use_llm: bool = True, illustrations: bool = Fals
         cmd.append("--illustrations")
     if density and density != 1.0:
         cmd += ["--density", str(density)]
+    # El acento del video. Sin esto, generate_graphics usa su paleta rotatoria y
+    # mete seis colores en pantalla contra la regla mono-color.
+    if accent:
+        cmd += ["--accent", accent]
     try:
         run(cmd)
     except subprocess.CalledProcessError as e:
@@ -1563,6 +1567,7 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
             highlights_clip_id,
             use_llm=not args.use_heuristic,
             illustrations=bool(set(styles) & ILLUSTRATION_STYLES),
+            accent=args.accent_color,
             # Reel de Mejores Momentos: densidad ALTA de gráficos/ilustraciones para que
             # se vea cargado (más tarjetas + más ilustraciones + charts).
             density=1.8,
@@ -2159,6 +2164,7 @@ def main() -> int:
                     c["clip_id"],
                     use_llm=not args.use_heuristic,
                     illustrations=wants_illustrations,
+                    accent=args.accent_color,
                 )
             _e.metrica("clips_con_graficos", len(clips_info))
 

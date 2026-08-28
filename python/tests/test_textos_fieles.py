@@ -130,9 +130,22 @@ def test_el_prompt_define_los_tres_registros():
     for registro in ("TAL CUAL", "MÁS APRETADO", "LA VUELTA DE TUERCA"):
         assert registro in prompt, f"el prompt ya no ofrece el registro {registro!r}"
 
-    # Y tiene que explicar dónde está el límite, que es lo único difícil:
-    # una vuelta de tuerca nombra lo que él dijo; un invento trae un dato de la nada.
-    assert "La diferencia entre (3) y inventar" in prompt
+    # Y tiene que explicar dónde está el límite con el EJEMPLO concreto, que es
+    # lo único difícil de acertar. Se comprueba el ejemplo y no la frase que lo
+    # introduce: la redacción se puede afinar, la explicación no puede faltar.
+    assert "espejo equivocado" in prompt, (
+        "el prompt ya no explica dónde termina la vuelta de tuerca y empieza el "
+        "invento — es la única distinción que el modelo no puede deducir solo"
+    )
+
+    # La proporción explícita: sin un objetivo numérico el modelo juega a lo
+    # seguro y devuelve casi todo literal. Medido: 78% "tal cual" de 72 tarjetas.
+    assert "2 del tipo 1, 2 del tipo 2, 1 del tipo 3" in prompt
+
+    # Y la limpieza es obligatoria, no un extra. Sobrevivían frases rotas como
+    # "Sea, nos hemos entrenado" (era "O sea") y dos ideas pegadas sin relación.
+    assert "LIMPIAR" in prompt
+    assert "Si devolvés una tarjeta con una frase rota, fallaste." in prompt
 
 
 def test_las_citas_textuales_escalan_con_la_cantidad_de_tarjetas():

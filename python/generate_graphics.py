@@ -41,6 +41,21 @@ from lib import ollama_opts as _ollama_opts
 EFFECTS = ["split_letters", "glitch", "shimmer", "draw_on", "gradient_sweep", "tracking_in"]
 ACCENTS = ["#34d399", "#fbbf24", "#60a5fa", "#f472b6", "#a78bfa", "#fb7185"]
 
+# El acento REAL del video, el que eligio quien edita. Cuando esta puesto,
+# manda sobre la paleta rotatoria de arriba.
+#
+# Antes no llegaba hasta aca: este modulo tenia sus seis colores y los iba
+# rotando, asi que un video con acento lima (#a3e635) salia con 40 iconos de
+# fondo verde, azul y violeta, y graficos ambar y rosa. Seis colores en pantalla
+# contra la regla mono-color del proyecto, y en editorial —que vive de ser
+# sobrio— rompiendo el estilo entero.
+_ACENTO_PROYECTO: str | None = None
+
+
+def _acento(i: int = 0) -> str:
+    """El acento del video; si no llego, la paleta rotatoria de siempre."""
+    return _ACENTO_PROYECTO or ACCENTS[i % len(ACCENTS)]
+
 # Palabras vacías para no usarlas como título de un chart.
 STOP = {
     "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "y", "o",
@@ -208,7 +223,7 @@ def concept_icons(words: list[dict], duration: float, target: int) -> list[dict]
             "icon": icon,
             "position": "center" if is_fs else positions[i % len(positions)],
             "color": "#0a0a0a",
-            "bg": ACCENTS[(i * 2) % len(ACCENTS)],
+            "bg": _acento(i * 2),
             "size": 120,
             "fullscreen": is_fs,
             "label": ICON_LABELS.get(icon, "") if is_fs else "",
@@ -522,7 +537,7 @@ def heuristic_charts(words: list[dict], duration: float, max_charts: int = 4) ->
             if len(ctx) >= 3:
                 break
         title = " ".join(ctx).strip().capitalize()[:34]
-        accent = ACCENTS[len(charts) % len(ACCENTS)]
+        accent = _acento(len(charts))
         base = {"at": round(max(0.2, at - 0.3), 2), "accent": accent, "fullscreen": True}
         k = len(charts)  # para rotar tipos y dar variedad visual
 
@@ -590,7 +605,7 @@ def detect_steps(words: list[dict], duration: float) -> list[dict]:
         "type": "steps",
         "title": "",
         "data": [{"label": lbl, "value": idx + 1} for idx, (_, lbl) in enumerate(found[:5])],
-        "accent": ACCENTS[2],
+        "accent": _acento(2),
         "fullscreen": True,
     }]
 
@@ -1550,56 +1565,55 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
 
 _EDITORIAL_LLM_PROMPT = """Sos el editor de texto en pantalla de un video hablado en español.
 
-Te paso TARJETAS sacadas del transcript de lo que dice el orador. Tu trabajo es
-dejarlas listas para leerse en pantalla, ANCLADAS a lo que él dice.
+Te paso TARJETAS sacadas del transcript. Vienen CRUDAS: son recortes del habla,
+con muletillas, frases cortadas por la mitad y palabras que el reconocedor
+entendió mal. Tu trabajo es dejarlas listas para leerse.
 
-LA REGLA QUE MANDA: el texto en pantalla y la voz tienen que hablar de LO MISMO.
-Quien mira escucha una frase y lee otra: si no coinciden, son dos videos a la vez
-y no se entiende ninguno.
+DOS COSAS, LAS DOS OBLIGATORIAS:
 
-Pero eso NO significa transcribir todo literal. Alterná TRES registros, y que no
-se repita el mismo dos veces seguidas — la variedad es lo que da ritmo:
+A) LIMPIAR. Esto no es opcional y es la mitad del trabajo:
+   - "Sea, nos hemos entrenado" era "O sea, nos hemos entrenado" → arreglalo.
+   - Si una tarjeta pega dos frases sin relación ("35% del planeta Este trabajo
+     tiene características"), quedate con UNA sola idea.
+   - Fuera muletillas: este, eh, o sea, bueno, ¿no?, a ver, digamos.
+   - Frases completas. Nada de cortes a la mitad.
+   Si devolvés una tarjeta con una frase rota, fallaste.
 
-  1. TAL CUAL — su frase, limpia de muletillas. Cuando lo que dijo ya es potente,
-     no hay nada que mejorar: se pone y listo.
+B) VARIAR EL REGISTRO. Alterná los tres, y NO uses el mismo dos veces seguidas.
+   De cada 5 tarjetas, apuntá a: 2 del tipo 1, 2 del tipo 2, 1 del tipo 3.
 
-  2. MÁS APRETADO — la misma idea con menos palabras, o mejor ordenada. En
-     pantalla entra menos que en el oído. Es su idea, dicha más corto.
+   1. TAL CUAL — su frase, limpia. Cuando lo que dijo ya pega, no lo toques.
 
-  3. LA VUELTA DE TUERCA — una frase DIRECTAMENTE RELACIONADA con lo que acaba
-     de decir: la consecuencia que se desprende, la tensión que plantea, el
-     nombre de lo que está describiendo. Sale de SU idea, no de tu conocimiento
-     general.
+   2. MÁS APRETADO — la misma idea con menos palabras o mejor ordenada. En
+      pantalla entra menos que en el oído. Es SU idea, dicha más corto. Este es
+      el registro que más se olvida: si dudás entre copiar y apretar, apretá.
 
-La diferencia entre (3) y inventar: si él habla de compararse con otros, "el
-espejo equivocado" es una vuelta de tuerca; "el 80% de la gente se compara" es
-un invento. Uno nombra lo que él dijo, el otro trae un dato de la nada.
+   3. LA VUELTA DE TUERCA — una frase DIRECTAMENTE RELACIONADA con lo que acaba
+      de decir: la consecuencia que se desprende, la tensión que plantea, o el
+      NOMBRE de lo que está describiendo. Sale de SU idea, no de tu conocimiento
+      general.
+
+Dónde está el límite del (3), que es lo único difícil: si él habla de compararse
+con otros, "El espejo equivocado." es una vuelta de tuerca — nombra lo que dijo.
+"El 80% de la gente se compara." es un invento — trae un dato de la nada.
 
 PROHIBIDO, sin excepciones:
 - Cifras, porcentajes, estudios o fechas que él no haya dicho. Si no dijo un
-  número, NO PUEDE APARECER UN NÚMERO. Nada de "el 80% de los fracasos" ni "más
-  del 70% de los emprendedores": es poner una mentira debajo de su cara.
-- Cambiar de tema, o escribir frases motivacionales genéricas que servirían
-  igual para cualquier otro video.
-
-También te toca arreglar lo que la transcripción automática reconoció mal
-(deducilo del contexto), sacar muletillas —este, eh, o sea, bueno, ¿no?— y
-cerrar frases cortadas.
+  número, NO PUEDE APARECER UN NÚMERO.
+- Cambiar de tema, o frases motivacionales genéricas que servirían para
+  cualquier otro video.
 
 Reglas por tarjeta:
 - "title": máx 7 palabras, en uno de los tres registros. Termina en punto.
 - "accent": UNA palabra del título, la más fuerte — va resaltada en color.
-- "subtitle": máx 12 palabras que COMPLETAN la idea con lo que él mismo dijo
-  alrededor. Si no hay nada más que agregar, dejalo VACÍO. Un subtítulo vacío es
-  mejor que uno relleno.
+- "subtitle": máx 12 palabras que COMPLETAN la idea con lo que él dijo alrededor.
+  Si no hay nada más que agregar, dejalo VACÍO. Vacío es mejor que relleno.
 - "kicker": 2-4 palabras en mayúsculas tipo sección de revista (EL PUNTO CLAVE,
   LO QUE NADIE DICE, EL DETALLE...). Variá entre tarjetas.
 - Tarjetas con "title" VACÍO son visuales: dejá "title" vacío y poné en
   "subtitle" su frase limpia (máx 8 palabras), o vacío.
 - NO toques: at, duration, icon, number, statValue, statUnit (devolvelos igual).
 - Mantené el MISMO orden y la MISMA cantidad de tarjetas.
-
-Si una tarjeta ya está bien, devolvela igual. No hace falta cambiar todas.
 
 Responde SOLO el JSON: {"cards": [ ... ]}
 
@@ -1745,7 +1759,10 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
 
 
 def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = False,
-             density: float = 1.0) -> dict:
+             density: float = 1.0, accent: str | None = None) -> dict:
+    global _ACENTO_PROYECTO
+    if accent:
+        _ACENTO_PROYECTO = accent
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     words = transcript.get("words", [])
     duration = float(transcript.get("duration", 0) or 0)
@@ -1774,7 +1791,7 @@ def generate(transcript_path: Path, use_llm: bool = True, illustrations: bool = 
 
     # Variedad de charts: rota color y posición.
     for i, c in enumerate(charts):
-        c["accent"] = ACCENTS[(i * 2 + 1) % len(ACCENTS)]
+        c["accent"] = _acento(i * 2 + 1)
         c["position"] = ["top", "bottom", "center"][i % 3]
 
     # Corrector ortográfico determinista sobre TODO texto visible de dataViz y
@@ -1895,6 +1912,9 @@ def main() -> int:
     parser.add_argument("--no-llm", action="store_true", help="Solo heurística (sin Ollama)")
     parser.add_argument("--illustrations", action="store_true",
                         help="Agrega illustrationStickers (personas/escenas CC0) — opt-in, default off")
+    parser.add_argument("--accent", default=None,
+                        help="Color de acento del video (#rrggbb). Sin esto se usa "
+                             "la paleta rotatoria y salen varios colores en pantalla.")
     parser.add_argument("--density", type=float, default=1.0,
                         help="Multiplicador de densidad de gráficos/ilustraciones (1.0 base; >1 = más cargado, para reels)")
     parser.add_argument("--selftest", action="store_true", help="Corre los tests del corrector ES y sale")
@@ -1919,7 +1939,8 @@ def main() -> int:
         return 1
 
     t0 = time.time()
-    result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations, density=args.density)
+    result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations,
+                      density=args.density, accent=args.accent)
     out = Path(args.out) if args.out else LF_GRAPHICS / f"{clip_id}.json"
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({
