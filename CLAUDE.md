@@ -2,20 +2,28 @@
 
 Este archivo se carga automáticamente al inicio de cada sesión. Contiene contexto crítico para retomar el proyecto sin que tengas que re-explorar.
 
-## 🤖 Skills disponibles (dialogo conversacional)
+## Cómo se usa Viralito
 
-El usuario prefiere trabajar **conversacionalmente con Claude**. Hay 4 skills en `.claude/skills/`:
+**Por la interfaz**, que es el camino real y completo:
 
-| Skill | Cuándo invocar |
+| Pantalla | Para qué |
 |---|---|
-| **start-dev** | "arrancá", "encendé el dashboard", inicio de sesión, antes de renderizar |
-| **edit-video** | "editá este video", "hacé un short de X", "generá un clip viral con estilo Y", "comparame 2 estilos del mismo video" |
-| **process-long-form** | "procesá este curso", "extraé clips del video largo", videos de 30+ min |
-| **view-renders** | "qué tengo listo", "abrí el D04", "mostrá los renders" |
+| `/editor/wizard` | un video corto, paso a paso |
+| `/largos` | un video largo, del que salen varios clips virales |
+| `/produccion` | los videos ya hechos: descripción lista para publicar, y marcar en qué redes los subiste |
+| `/metricas` | cómo rindieron |
 
-**Cuando el user describe una intención, mapeá a la skill y seguila al pie de la letra**. Cada skill tiene instrucciones detalladas, comandos exactos y manejo de errores.
+**Por consola**, para lo que la interfaz no cubre — ver la sección de comandos
+más abajo.
 
-Hay TAMBIÉN un wizard del portal en `/editor/wizard` para usuarios que prefieren UI clickeable. Pero el flujo principal es por chat con vos.
+> Acá había una tabla de **4 skills en `.claude/skills/`** (`start-dev`,
+> `edit-video`, `process-long-form`, `view-renders`) descritas como "el flujo
+> principal", con la interfaz relegada a "para quien prefiere UI clickeable".
+> Esa carpeta **no existe** y nunca existió en este repo. Un archivo de
+> instrucciones que describe un mecanismo inexistente es peor que uno
+> incompleto: manda a buscar algo que no está, y hace desconfiar del resto de lo
+> que dice. Si algún día se escriben esas skills, esta sección vuelve — con los
+> archivos.
 
 ## Propósito del proyecto
 
@@ -31,16 +39,21 @@ Hay TAMBIÉN un wizard del portal en `/editor/wizard` para usuarios que prefiere
 El dashboard **arranca automáticamente al iniciar sesión de Windows** (autostart registrado en Task Scheduler). Si necesitás arrancarlo manualmente o no funciona:
 
 ```powershell
-# Opción A: con el script (más limpio, abre browser solo)
-cd "C:\Users\Poncho Robles\OneDrive\Documentos\Estrategia_Viral_Poncho"
+# Opción A: con el script (más limpio, abre el browser solo).
+# Es portable: resuelve su propia ubicación, así que corre desde donde esté el clon.
 .\start-dashboard.ps1
 
-# Opción B: manual
-cd "C:\Users\Poncho Robles\OneDrive\Documentos\Estrategia_Viral_Poncho\frontend"
+# Opción B: manual, desde la raíz del repo
+cd frontend
 $env:PATH = "C:\Program Files\nodejs;$env:PATH"
 npm run dev
 # → http://localhost:3000
 ```
+
+> Estos comandos llevaban una ruta absoluta a
+> `C:\Users\Poncho Robles\OneDrive\Documentos\Estrategia_Viral_Poncho`, que es
+> otra máquina y otro proyecto. El script en sí siempre fue portable (resuelve
+> su propia ubicación); lo que no funcionaba era el `cd` de la documentación.
 
 Ver `docs/AUTOSTART.md` para configuración del autostart.
 
