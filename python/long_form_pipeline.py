@@ -1970,9 +1970,15 @@ def main() -> int:
         proposals_data = json.loads(proposals_path.read_text(encoding="utf-8"))
         clip_count = len(proposals_data.get("clips", []))
         if clip_count == 0:
-            model_used = proposals_data.get("model", args.model or "default")
+            # Se nombra el PROVEEDOR, que es lo que explica el resultado. `model`
+            # ahora viene en null cuando analizó la CLI de claude/codex, y
+            # `.get("model", default)` devolvería None igual —la clave existe—,
+            # así que el mensaje habría dicho "El modelo 'None'".
+            _prov = proposals_data.get("provider") or "el analizador"
+            _modelo = proposals_data.get("model")
+            model_used = f"{_prov} ({_modelo})" if _modelo else _prov
             print(
-                f"\n[ERROR ANALYZE] El modelo '{model_used}' no propuso ningún clip.\n"
+                f"\n[ERROR ANALYZE] {model_used} no propuso ningún clip.\n"
                 f"  Causa típica: el modelo es demasiado chico para razonar sobre transcripts largos.\n"
                 f"  Solución: re-ejecutar con un modelo más grande, p.ej.:\n"
                 f"    python long_form_pipeline.py \"{args.video_id}\" --model qwen3:8b --skip-transcribe\n"

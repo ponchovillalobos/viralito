@@ -954,10 +954,22 @@ def main() -> int:
         valid_clips = [c for c in valid_clips if c]
         used_fallback = True
 
+    # `model` guardaba SIEMPRE `args.model` —el modelo de Ollama que recomienda
+    # hw_profile— aunque el analisis lo hubiera hecho la CLI de claude o codex,
+    # que no usan ese modelo para nada. Un proposal decia
+    #
+    #     "provider": "claude",  "model": "qwen3:8b"
+    #
+    # y cualquiera que lo leyera despues —o la bitacora— concluiria que los
+    # clips los eligio el modelo local. El campo mentia sobre lo unico que
+    # explica por que un analisis salio como salio.
+    #
+    # Ahora solo se anota cuando el proveedor de verdad lo usa.
+    proveedor_final = "heuristic" if used_fallback else provider
     proposal = {
         "video_id": video_id,
-        "provider": "heuristic" if used_fallback else provider,
-        "model": args.model,
+        "provider": proveedor_final,
+        "model": args.model if proveedor_final == "ollama" else None,
         "transcript_duration": duration,
         "fallback_heuristic": used_fallback,
         "clips": valid_clips,
