@@ -644,3 +644,38 @@ peor que no ofrecerlo.
 `broll-estilos-alcanzables.test.ts` compara lo que el composition sabe dibujar
 contra lo que el wizard ofrece, y falla nombrando los estilos que se queden
 fuera.
+
+### El icono de una tarjeta habla del texto que la acompaña
+
+Se reportó dos veces mirando videos reales. La primera: *«dice ojo y salen unas
+tijeras»*. La segunda, sobre una conferencia recién renderizada:
+
+| lo que decía la tarjeta | el icono que salía |
+|---|---|
+| «La mayoría de las personas no se atreve a dejar lo que no les apasiona» | 🎵 nota musical |
+| «El 80% de los fracasos se debe a la falta de constancia» | 🪷 flor de loto |
+| «Compararte con otros te hace perder el rumbo» | 🌊 olas |
+| «La verdadera libertad nace cuando decides vivir tu propósito» | # almohadilla |
+
+Eran **dos causas encadenadas**, y arreglar una sola no alcanzaba:
+
+1. **El respaldo era el pool grande barajado.** Cuando ninguna palabra del texto
+   coincidía con el vocabulario, se tomaba uno de ~450 iconos **concretos**
+   repartidos al azar por video. La variedad era el objetivo declarado —«dos
+   videos distintos usan ilustraciones distintas»— y que el icono dijera algo
+   cierto nunca entró en la cuenta. Ahora el respaldo son los dieciséis
+   **abstractos** (bombilla, diana, brújula, escudo): quedan bien con cualquier
+   idea sin afirmar nada falso.
+
+2. **El icono se elegía antes de que el LLM reescribiera el texto.** El
+   comentario del código decía «icon SIEMPRE de la heurística», y era cierto —
+   ése era el problema: el icono describía la frase original y en pantalla
+   aparecía otra. Ahora se recalcula sobre el texto final.
+
+**Un icono concreto y equivocado es peor que uno genérico**, porque el ojo lo lee
+como una afirmación sobre el texto. Una flor de loto junto a una estadística de
+fracasos no es neutra: parece que quiere decir algo.
+
+Resultado sobre las mismas frases: `lightbulb`, `users`, `target`, `compass`,
+`scale`. `test_iconos_de_tarjetas.py` (6 casos) las vigila con los textos
+exactos del render que lo destapó.

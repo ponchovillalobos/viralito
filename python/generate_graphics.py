@@ -1495,9 +1495,18 @@ def editorial_cards(words: list[dict], duration: float, seed: int = 0, density: 
             if len(toks) > 7:
                 sub = clean_screen_text(" ".join(toks[7:16]), max_chars=70)
                 card["subtitle"] = (sub + ".") if sub else ""
-        # NUNCA sin ilustración: fallback del pool grande barajado por video.
+        # NUNCA sin ilustración. Pero el respaldo NO puede ser el pool grande
+        # barajado: son ~450 iconos concretos (nota musical, flor de loto,
+        # olas, almohadilla) y salía uno al azar sobre una frase que no tenía
+        # nada que ver. Visto en un render real: "El 80% de los fracasos se
+        # debe a la falta de constancia" con una FLOR DE LOTO al lado.
+        #
+        # Un icono concreto y equivocado es peor que uno genérico: el ojo lo
+        # lee como una afirmación sobre el texto. `_FALLBACK_ICONS` son los
+        # dieciséis abstractos —bombilla, diana, brújula, escudo— que quedan
+        # bien con cualquier idea sin decir nada falso.
         if not card["icon"]:
-            card["icon"] = pool[i % len(pool)]
+            card["icon"] = _FALLBACK_ICONS[i % len(_FALLBACK_ICONS)]
         # Nunca la MISMA ilustración en dos tarjetas seguidas (el vocabulario
         # puede matchear "users" dos veces al hilo y se veía repetido).
         if cards and card["icon"] == cards[-1]["icon"]:
@@ -1620,6 +1629,16 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
                 # (el LLM solo puede aportarles kicker + subtítulo con dato).
                 c["title"] = ""
                 c["accent"] = ""
+            # EL ICONO SE RECALCULA sobre el texto FINAL.
+            #
+            # El icono se elegía de la frase heurística y el LLM reescribía el
+            # subtítulo DESPUÉS, así que quedaba describiendo palabras que ya no
+            # están en pantalla. El comentario de arriba dice "icon SIEMPRE de la
+            # heurística", y era cierto — ese era justamente el problema.
+            nuevo_icono = _icon_for_text(f"{c.get('title', '')} {c.get('subtitle', '')}")
+            if nuevo_icono:
+                c["icon"] = nuevo_icono
+
             # Corrector determinista también sobre lo que devuelve el LLM
             # (a veces copia confusiones del transcript tal cual).
             c["title"], c["subtitle"], c["kicker"] = review_screen_texts(
