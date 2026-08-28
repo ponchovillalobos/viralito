@@ -27,8 +27,13 @@ import {
   unregisterLongFormPid,
 } from "@/lib/long-form-job-store";
 import { updateResearch } from "@/lib/research-store";
+import { actualizarDescarga } from "@/lib/descargas-store";
 
-export type JobKind = "editor" | "long_form" | "research";
+// `descarga` = traer un video de YouTube. Va por la MISMA cola que el resto
+// a proposito: si bajara en paralelo con un render, se pelearian por el disco
+// y la red, y ya esta medido que dos cosas pesadas a la vez tardan mas que
+// una detras de otra.
+export type JobKind = "editor" | "long_form" | "research" | "descarga";
 
 interface QueueEntry {
   kind: JobKind;
@@ -87,6 +92,8 @@ function markQueued(kind: JobKind, jobId: string, position: number) {
     // Research store es async (persiste a JSON). Fire-and-forget — el próximo update
     // hace read-modify-write y prevalece el último. OK para markQueued.
     updateResearch(jobId, { status: "queued" }).catch(() => {});
+  } else if (kind === "descarga") {
+    actualizarDescarga(jobId, { estado: "en_cola" }).catch(() => {});
   }
 }
 
@@ -107,6 +114,8 @@ function markRunning(kind: JobKind, jobId: string) {
     // El runner de research va a transitar el status a "downloading" en su primer step;
     // aquí solo dejamos "downloading" como marca de arranque, no "running".
     updateResearch(jobId, { status: "downloading" }).catch(() => {});
+  } else if (kind === "descarga") {
+    actualizarDescarga(jobId, { estado: "bajando" }).catch(() => {});
   }
 }
 

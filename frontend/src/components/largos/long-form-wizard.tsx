@@ -15,6 +15,7 @@ import {
   Anton,
 } from "next/font/google";
 import { Card } from "@/components/ui/card";
+import { ColaDeEnlaces } from "@/components/largos/cola-de-enlaces";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SECTION_COLORS } from "@/lib/section-colors";
@@ -317,8 +318,6 @@ export function LongFormWizard() {
   const [pathInput, setPathInput] = useState("");
   // Traer de YouTube. Mismo destino que subir o importar por ruta, asi que a
   // partir de ahi el pipeline es identico: no hay un "camino de YouTube" aparte.
-  const [urlInput, setUrlInput] = useState("");
-  const [bajandoUrl, setBajandoUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeJob, setActiveJob] = useState<JobState | null>(null);
   const [proposals, setProposals] = useState<ProposalsResponse | null>(null);
@@ -562,51 +561,6 @@ export function LongFormWizard() {
       setImporting(false);
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  // Importa un video grande YA en disco por su ruta (sin subir por HTTP).
-  async function bajarDeUrl() {
-    const u = urlInput.trim();
-    if (!u) {
-      toast.error("Pegá el enlace del video de YouTube.");
-      return;
-    }
-    setBajandoUrl(true);
-    const aviso = toast.loading("Bajando el video… puede tardar unos minutos.");
-    try {
-      const r = await fetch("/api/videos/descargar-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: u, flujo: "largo" }),
-      });
-      const data = (await r.json().catch(() => ({}))) as {
-        error?: string; pista?: string; id?: string; duracion_s?: number; sugerencia?: string;
-      };
-      if (r.ok) {
-        const min = Math.round((data.duracion_s ?? 0) / 60);
-        toast.success(`«${data.id}» listo ✓`, {
-          id: aviso,
-          // Si lo bajado es corto, se DICE — no se cambia de flujo por su
-          // cuenta: quien pidio largo puede querer largo igual.
-          description:
-            data.sugerencia === "corto"
-              ? `Dura ${min} min: para algo tan corto suele ir mejor el flujo de un solo video.`
-              : `${min} min de video.`,
-        });
-        setUrlInput("");
-        await refreshList();
-      } else {
-        toast.error("No se pudo bajar el video", {
-          id: aviso,
-          description: [data.error, data.pista].filter(Boolean).join(" — ") || undefined,
-        });
-      }
-    } catch (err) {
-      toast.dismiss(aviso);
-      toastError(err, "No se pudo bajar el video");
-    } finally {
-      setBajandoUrl(false);
     }
   }
 
@@ -1173,40 +1127,7 @@ export function LongFormWizard() {
             </div>
           )}
 
-          {/* Traer de YouTube. Deja el archivo en el MISMO sitio que subir o
-              importar por ruta, asi que el pipeline desde ahi es identico. */}
-          <div className="mb-4 rounded-md border border-red-500/25 bg-red-500/5 p-3">
-            <p className="mb-2 text-[11px] text-muted-foreground">
-              <span className="font-medium text-red-200">¿Está en YouTube?</span>{" "}
-              Pegá el enlace y se baja directo, sin descargarlo a mano. Se trae en
-              H.264 hasta 1080p, que es lo que el resto del pipeline procesa más
-              rápido.
-            </p>
-            <div className="flex items-center gap-2">
-              <Input
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") bajarDeUrl();
-                }}
-                placeholder="https://www.youtube.com/watch?v=…"
-                className="font-mono-tab text-xs"
-              />
-              <Button
-                size="sm"
-                onClick={bajarDeUrl}
-                disabled={bajandoUrl}
-                className="shrink-0 bg-red-500 text-white hover:bg-red-400"
-              >
-                {bajandoUrl ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-1.5 h-4 w-4" />
-                )}
-                Traer de YouTube
-              </Button>
-            </div>
-          </div>
+          <ColaDeEnlaces onListo={refreshList} />
 
           {/* Importar por ruta — para videos GRANDES (cursos largos de varios GB). El
               navegador no puede subir archivos así por HTTP; aquí se importa directo del
