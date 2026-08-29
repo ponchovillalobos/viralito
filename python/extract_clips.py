@@ -775,7 +775,17 @@ def main() -> int:
             err = e.stderr
             if isinstance(err, bytes):
                 err = err.decode("utf-8", errors="ignore")
-            results.append({"clip_id": clip_id, "index": i, "ok": False, "error": str(err or e)[:300]})
+            # SE GUARDA EL FINAL DEL ERROR, NO EL PRINCIPIO.
+            #
+            # ffmpeg abre su stderr con veinte lineas de banner —version,
+            # compilador, librerias— y pone el error DE VERDAD al final.
+            # Truncar a los primeros 300 caracteres guardaba el banner y tiraba
+            # la causa: "ffmpeg version 8.1.2 ... built with gcc 16.1.0" repetido
+            # quince veces, sin una palabra de que habia fallado.
+            results.append({
+                "clip_id": clip_id, "index": i, "ok": False,
+                "error": str(err or e).strip()[-400:],
+            })
         except Exception as e:
             results.append({"clip_id": clip_id, "index": i, "ok": False, "error": str(e)})
 

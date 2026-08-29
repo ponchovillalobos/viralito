@@ -125,6 +125,45 @@ def resolucion(mp4: Path) -> tuple[int, int]:
         return 0, 0
 
 
+def decodifica_entero(mp4: Path, puntos: int = 6) -> tuple[bool, str]:
+    """¿El video se puede DECODIFICAR, o sólo tiene buena metadata?
+
+    Un archivo puede bajar con la duración correcta, la resolución correcta y
+    abrirse sin problemas, y estar podrido por dentro a partir de cierto minuto.
+    Pasó: un video de 112 minutos llegó sano hasta el 40 y corrupto después.
+    Pasó la comprobación de resolución, pasó la de duración, y reventó quince
+    clips más adelante con "Invalid data found when processing input" — a esas
+    alturas ya nadie lo relacionaba con la descarga.
+
+    Se decodifican dos segundos en varios puntos repartidos, no el archivo
+    entero: decodificar dos horas cuesta minutos y esto cuesta segundos. Un daño
+    de descarga afecta a tramos, no a fotogramas sueltos, así que muestrear lo
+    encuentra.
+    """
+    ffmpeg = str(Path(FFMPEG_PATH))
+    dur = duracion(mp4)
+    if dur <= 0:
+        return False, "no se pudo leer la duración"
+
+    for i in range(puntos):
+        # Repartidos entre el 5 % y el 95 %: los extremos exactos suelen dar
+        # falsos positivos por el arranque y el cierre del contenedor.
+        t = dur * (0.05 + 0.9 * i / max(1, puntos - 1))
+        try:
+            r = subprocess.run(
+                [ffmpeg, "-loglevel", "error", "-ss", f"{t:.2f}", "-i", str(mp4),
+                 "-t", "2", "-f", "null", "-"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=120,
+            )
+        except Exception as e:  # noqa: BLE001
+            return False, f"no se pudo comprobar el minuto {t / 60:.0f}: {e}"
+        salida = (r.stderr or "")
+        if "Invalid data" in salida or "Decoding error" in salida:
+            return False, f"datos corruptos a partir del minuto {t / 60:.0f}"
+    return True, ""
+
+
 def titulo_de(url: str, cookies: list[str]) -> str:
     """Título del video, para armar el slug. Si falla, se usa uno genérico."""
     try:
@@ -259,6 +298,24 @@ def main() -> int:
 
     d = duracion(salida)
     ancho, alto = resolucion(salida)
+
+    # ¿SE PUEDE VER, O SÓLO TIENE BUENA METADATA?
+    sano, motivo = decodifica_entero(salida)
+    if not sano:
+        print(f"[descarga] El archivo bajó con la duración y la resolución "
+              f"correctas, pero {motivo}.", file=sys.stderr, flush=True)
+        print("[descarga] Un video así revienta más adelante, al cortar los "
+              "clips, y para entonces ya nadie lo relaciona con la descarga.",
+              file=sys.stderr, flush=True)
+        if args.exigir_calidad:
+            salida.unlink(missing_ok=True)
+            print(json.dumps({
+                "ok": False,
+                "error": f"el video se descargó dañado: {motivo}",
+                "pista": "se borró para no dejar un archivo que parece bueno. "
+                         "Volvé a bajarlo — suele salir bien al segundo intento.",
+            }, ensure_ascii=False))
+            return 1
 
     # SE DICE QUÉ CALIDAD LLEGÓ. Pedir "hasta 1080p" no garantiza 1080p: cuando
     # YouTube limita a quien descarga, sirve formatos degradados y yt-dlp baja
