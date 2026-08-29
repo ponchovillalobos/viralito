@@ -22,6 +22,7 @@ import json
 import os
 import random
 import re
+import zlib
 import unicodedata
 import sys
 import time
@@ -260,10 +261,23 @@ _CONCEPT_KIND = {
 }
 # Token de concepto → nombre de escena open-doodles (filenames literales en disco).
 _CONCEPT_TO_DOODLE = {
+    # Doce conceptos mapeados de 33 escenas disponibles: el resto caia a una
+    # rotacion por indice y por eso "siempre aparecen los mismos monitos". Se
+    # amplia a casi todas las escenas, cada una con los conceptos que de verdad
+    # evoca.
     "rocket": "levitate", "trending": "jumping", "target": "meditating",
     "money": "unboxing", "brain": "reading", "lightbulb": "reading",
     "fire": "dancing", "music": "moshing", "film": "selfie", "eye": "sitting",
     "star": "groovy", "zap": "sprinting",
+    # Ampliacion
+    "coffee": "coffee", "clock": "chilling", "calendar": "sitting_reading",
+    "book": "reading_side", "chat": "loving", "message": "loving",
+    "people": "strolling", "heart": "petting", "award": "ballet",
+    "crown": "sleek", "search": "float", "warning": "clumsy",
+    "check": "swinging", "growth": "roller_skating", "idea": "plant",
+    "sleep": "laying", "run": "running",
+    "play": "dog_jump", "break": "zombieing", "sweet": "ice_cream",
+    "roll": "rolling", "swim": "bikini",
 }
 
 
@@ -280,7 +294,8 @@ def _illustration_url(set_name: str, file_name: str) -> str:
     return f"{_API_HOST}/api/illustrations/stream?file={set_name}/{file_name}"
 
 
-def _illustration_for_concept(icon: str, rotation_idx: int) -> tuple[str, str] | None:
+def _illustration_for_concept(icon: str, rotation_idx: int,
+                              texto: str = "") -> tuple[str, str] | None:
     """Resuelve un concepto a (set, file) de una ilustración en disco.
 
     - conceptos de PERSONA → rota entre los sets de personas (todos CC0);
@@ -308,15 +323,28 @@ def _illustration_for_concept(icon: str, rotation_idx: int) -> tuple[str, str] |
             if files:
                 return (s, files[rotation_idx % len(files)])
 
-    # FALLBACK determinista: aplana todo lo descargado (personas + escenas) y
-    # elige por rotation_idx. Misma semilla → misma ilustración (reproducible).
+    # FALLBACK: LA ELIGE EL TEXTO, NO EL INDICE.
+    #
+    # Antes se elegia por `rotation_idx`, que empieza en 0 en cada clip. Con
+    # 1.613 ilustraciones en disco, eso significaba usar SIEMPRE las primeras
+    # tres o cuatro, video tras video: "siempre aparecen los mismos monitos".
+    #
+    # Ahora la posicion sale de un hash del texto de la tarjeta. Sigue siendo
+    # determinista —el mismo texto da la misma ilustracion, y el render es
+    # reproducible— pero dos tarjetas distintas dan ilustraciones distintas, que
+    # es justo lo que faltaba.
+    #
+    # No es "relacionada con el contenido" en el sentido de entenderlo: para eso
+    # esta el mapa de conceptos de arriba, que ahora cubre 33 escenas. Esto es
+    # el ultimo recurso, y su unico trabajo es no repetirse.
     pool: list[tuple[str, str]] = []
     for s in (*_PERSON_SETS, _SCENE_SET):
         for f in _illustration_set_files(s):
             pool.append((s, f))
     if not pool:
         return None
-    return pool[rotation_idx % len(pool)]
+    semilla = zlib.crc32((texto or str(rotation_idx)).encode("utf-8"))
+    return pool[semilla % len(pool)]
 
 
 def concept_illustrations(words: list[dict], duration: float, budget: int) -> list[dict]:
@@ -346,22 +374,27 @@ def concept_illustrations(words: list[dict], duration: float, budget: int) -> li
         if not icon or icon in seen:
             continue
         seen.add(icon)
-        hits.append((float(w.get("start", 0)), icon))
+        # Viaja tambien la PALABRA que disparo el icono: es lo que hace que
+        # la ilustracion dependa de lo que se dice y no salga siempre la misma.
+        hits.append((float(w.get("start", 0)), icon, tok))
     hits.sort(key=lambda h: h[0])
 
-    # Rotación determinista por video (mismo transcript → mismas ilustraciones).
+    # `rot` era 0 SIEMPRE, asi que el fallback devolvia literalmente la primera
+    # ilustracion del monton, en todos los clips de todos los videos. Con 1.613
+    # en disco, se usaban tres o cuatro. Se queda como respaldo por si no hay
+    # palabra, pero ahora quien decide es el texto.
     rot = 0
 
     out: list[dict] = []
     min_gap = max(2.5, (duration / max(1, budget)) * 0.6)
     last_t = -99.0
     positions = ["bottom-right", "bottom-left", "right", "left"]
-    for t, icon in hits:
+    for t, icon, palabra in hits:
         if len(out) >= budget:
             break
         if t - last_t < min_gap:
             continue
-        resolved = _illustration_for_concept(icon, rot)
+        resolved = _illustration_for_concept(icon, rot, palabra)
         if not resolved:
             # nada descargado para este concepto: probamos el siguiente hit
             continue

@@ -25,7 +25,9 @@
     "tagline": "Estilo MrBeast viral",
     "emoji": "🔥",
     "shortLabel": "Viral",
-    "families": ["hype"],
+    "families": [
+      "hype"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -35,7 +37,9 @@
     "tagline": "Hype + jump cuts + reaction zooms",
     "emoji": "⚡",
     "shortLabel": "ViralMax",
-    "families": ["hype"],
+    "families": [
+      "hype"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -45,7 +49,9 @@
     "tagline": "Premium con sonidos",
     "emoji": "🎵",
     "shortLabel": "ViralSFX",
-    "families": ["hype"],
+    "families": [
+      "hype"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -55,7 +61,9 @@
     "tagline": "Full stack premium (default largos)",
     "emoji": "👑",
     "shortLabel": "Premium",
-    "families": ["hype"],
+    "families": [
+      "hype"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -65,7 +73,9 @@
     "tagline": "Look de cine: film grain, LUT teal&orange, vignette, camera moves auto + subtítulos cine",
     "emoji": "🎬",
     "shortLabel": "Cine",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": false
   },
@@ -75,7 +85,9 @@
     "tagline": "Videos de Pexels a pantalla completa, auto por transcripción",
     "emoji": "🎞️",
     "shortLabel": "Broll",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": false,
     "hasGraphics": false
   },
@@ -85,7 +97,9 @@
     "tagline": "Videos de Pexels pequeñitos sobre tu video, auto por transcripción",
     "emoji": "🖼️",
     "shortLabel": "BrollPIP",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": false,
     "hasGraphics": false
   },
@@ -125,7 +139,10 @@
     "tagline": "Animación pura y limpia: fondo aurora que pulsa con la música, sin emojis",
     "emoji": "✨",
     "shortLabel": "MotionPro",
-    "families": ["motion", "music"],
+    "families": [
+      "motion",
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -135,7 +152,10 @@
     "tagline": "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat",
     "emoji": "🎧",
     "shortLabel": "MotionBeat",
-    "families": ["motion", "music"],
+    "families": [
+      "motion",
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -145,7 +165,10 @@
     "tagline": "Look retro-tech: cuadrícula en perspectiva + gráficas, limpio y futurista",
     "emoji": "🌐",
     "shortLabel": "MotionGrid",
-    "families": ["motion", "music"],
+    "families": [
+      "motion",
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true
   },
@@ -155,10 +178,12 @@
     "tagline": "Estilo documental: tu video en panel + titulares serif gigantes + ilustraciones doradas",
     "emoji": "📰",
     "shortLabel": "Editorial",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true,
-    "illustrations": true
+    "illustrations": false
   },
   {
     "id": "editorial_full",
@@ -166,10 +191,12 @@
     "tagline": "El video original COMPLETO sin recortar + tipografía editorial superpuesta. Para 16:9 mantiene tu formato horizontal",
     "emoji": "🖥️",
     "shortLabel": "EditorialFull",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true,
-    "illustrations": true
+    "illustrations": false
   },
   {
     "id": "editorial_broll",
@@ -177,10 +204,12 @@
     "tagline": "Editorial documental: panel + titulares serif gigantes + videos de archivo (Pexels) que ilustran lo que dices",
     "emoji": "🎞️",
     "shortLabel": "EditorialBroll",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true,
-    "illustrations": true
+    "illustrations": false
   },
   {
     "id": "graphics_max",
@@ -198,7 +227,10 @@
     "tagline": "Subtítulos gigantes que rebotan + fondo mesh que late con la música, sin emojis",
     "emoji": "⌨️",
     "shortLabel": "Cinetica",
-    "families": ["motion", "music"],
+    "families": [
+      "motion",
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": false
   },
@@ -208,7 +240,10 @@
     "tagline": "Lleno de vida: stickers animados (Lottie) + íconos + fondo aurora + karaoke",
     "emoji": "✨",
     "shortLabel": "LottiePop",
-    "families": ["motion", "music"],
+    "families": [
+      "motion",
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": true,
     "illustrations": true
@@ -230,7 +265,9 @@
     "tagline": "Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro",
     "emoji": "🎞️🎙️",
     "shortLabel": "CineClasico",
-    "families": ["music"],
+    "families": [
+      "music"
+    ],
     "longForm": true,
     "hasGraphics": false
   },
@@ -250,7 +287,9 @@
     "tagline": "Clip de podcast: onda de barras que baila con la voz + branding del show",
     "emoji": "🎙️",
     "shortLabel": "Podcast",
-    "families": ["motion"],
+    "families": [
+      "motion"
+    ],
     "longForm": true,
     "hasGraphics": false
   }
