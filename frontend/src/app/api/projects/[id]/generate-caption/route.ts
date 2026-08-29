@@ -76,5 +76,19 @@ export async function POST(
     // ignore
   }
 
+  // El `ok` sale de que el proyecto TENGA caption después, no de que el script
+  // terminara. Esta ruta al menos re-lee el archivo, pero devolvía `ok: true`
+  // fijo sin mirar lo que había leído: si la escritura falló, el usuario veía
+  // "listo" y el caption seguía siendo el anterior.
+  if (!updatedCaption) {
+    return NextResponse.json(
+      {
+        error:
+          "el caption se generó pero el proyecto quedó sin él: la escritura no llegó a disco",
+        copy: copy ?? captionMeta,
+      },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ ok: true, caption: updatedCaption, copy: copy ?? captionMeta });
 }

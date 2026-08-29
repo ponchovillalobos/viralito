@@ -48,12 +48,45 @@ def test_cero_renders_es_fracaso_y_algunos_no() -> None:
     como fallido por uno solo obligaria a rehacer todo.
     """
     fuente = _fuente()
-    assert "todo_fallo = render_total > 0 and render_done == 0" in fuente, (
-        "falta (o cambio) la condicion de fracaso total"
+    # Se comprueba la INTENCION, no la linea literal: este test exigia la
+    # cadena exacta y se rompio al cubrir el caso hermano de mas abajo, que es
+    # una mejora. Un test que se rompe cuando el codigo mejora entrena a
+    # editarlo sin pensar.
+    assert "render_total > 0 and render_done == 0" in fuente, (
+        "falta la condicion de fracaso total: pedir render y no obtener NINGUNO"
     )
     assert "return 1 if todo_fallo else 0" in fuente, (
         "el codigo de salida tiene que reflejarlo: el lote que llama al "
         "pipeline decide por ahi si el video salio o no"
+    )
+
+
+def test_no_haber_tenido_nada_que_renderizar_tambien_es_fracaso() -> None:
+    """El caso hermano, que el guardian anterior no veia.
+
+    El bloque de render es `if args.render and clips_info:`. Si la extraccion
+    devuelve lista vacia, ese bloque NO CORRE, `render_total` se queda en su 0
+    inicial, y `render_total > 0` es falso. Resultado: `{"ok": true, "clips": 0,
+    "rendered": 0}` y codigo de salida 0 — exito perfecto sin un solo video.
+
+    El guardian original se escribio para "pedi render y no salio ninguno" y
+    cubria solo una de las dos formas de que eso pase. Se arreglo la que se
+    habia visto; esta esperaba al lado.
+    """
+    fuente = _fuente()
+    assert "sin_nada_que_renderizar" in fuente, (
+        "pedir render con cero clips extraidos sigue reportando exito"
+    )
+    i = fuente.index("todo_fallo = ")
+    linea = fuente[i:fuente.index("\n", i)]
+    assert "sin_nada_que_renderizar" in linea, (
+        "la variable existe pero no entra en el veredicto"
+    )
+    # Y no puede disparar cuando NO se pidio render (modo solo analizar).
+    j = fuente.index("sin_nada_que_renderizar =")
+    assert "args" in fuente[j:fuente.index("\n", j)] and "render" in fuente[j:fuente.index("\n", j)], (
+        "no se condiciona a que se haya PEDIDO render: el modo de solo analizar "
+        "empezaria a reportar fracaso siempre"
     )
 
 

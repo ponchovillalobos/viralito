@@ -58,11 +58,32 @@ export async function POST(
     );
   }
 
-  // El script imprime la última línea como JSON: { ok: true, copy: {...} }
+  // El script imprime la última línea como JSON: { ok, copy, escritos, fallidos }
+  //
+  // Este `ok` se escribía a mano en `true` con tal de que el JSON parseara,
+  // ignorando lo que el script dijera. El script puede generar el texto
+  // perfectamente y no guardarlo en ningún proyecto — porque no hay ninguno en
+  // disco, o porque la escritura falló — y desde la interfaz eso era
+  // indistinguible del éxito: decía "listo" y el caption seguía siendo el viejo.
   const lastLine = result.stdout.trim().split("\n").pop() ?? "";
   try {
     const parsed = JSON.parse(lastLine);
-    return NextResponse.json({ ok: true, copy: parsed.copy ?? null });
+    if (parsed.ok === false) {
+      return NextResponse.json(
+        {
+          error:
+            "el caption se generó pero no se guardó en ningún proyecto",
+          fallidos: parsed.fallidos ?? [],
+          copy: parsed.copy ?? null,
+        },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      copy: parsed.copy ?? null,
+      escritos: parsed.escritos ?? [],
+    });
   } catch {
     return NextResponse.json(
       { error: "no se pudo parsear el output", stdout: result.stdout.slice(-500) },

@@ -605,6 +605,13 @@ def main() -> int:
         if not targets:
             print(f"[warn] no encontré proyectos para {args.video_id} en {projects_dir}", file=sys.stderr)
 
+    # Se cuenta lo que de verdad se escribio. Antes el bucle imprimia "[fail]"
+    # por cada fallo y el resumen decia `"ok": True` igual, sin mirar nada: ni
+    # que `targets` estuviera vacio (nadie encontro proyectos), ni que las
+    # escrituras hubieran fallado todas. La interfaz decia "listo" y el caption
+    # se quedaba como estaba.
+    escritos: list[str] = []
+    fallidos: list[str] = []
     for target in targets:
         try:
             data = json.loads(target.read_text(encoding="utf-8"))
@@ -620,12 +627,30 @@ def main() -> int:
             )
             data["captionMeta"] = copy
             target.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            escritos.append(target.name)
             print(f"[ok] actualizado {target.name}", file=sys.stderr)
         except Exception as e:
+            fallidos.append(f"{target.name}: {e}")
             print(f"[fail] {target.name}: {e}", file=sys.stderr)
 
-    print(json.dumps({"ok": True, "copy": copy}, ensure_ascii=False))
-    return 0
+    # EL `ok` DICE SI SE ESCRIBIO ALGO, no si el programa llego hasta aca.
+    #
+    # Generar el texto y no guardarlo en ningun sitio no es un exito parcial:
+    # desde fuera es indistinguible de no haber hecho nada, porque el proyecto
+    # se queda con el caption anterior.
+    ok = bool(escritos) and not fallidos
+    if not escritos:
+        print("[caption] no se escribio en NINGUN proyecto: el texto se genero "
+              "y se perdio. Revisa que el video tenga proyectos en disco.",
+              file=sys.stderr)
+    elif fallidos:
+        print(f"[caption] {len(escritos)} proyecto(s) actualizados y "
+              f"{len(fallidos)} fallidos.", file=sys.stderr)
+    print(json.dumps(
+        {"ok": ok, "copy": copy, "escritos": escritos, "fallidos": fallidos},
+        ensure_ascii=False,
+    ))
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

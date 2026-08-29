@@ -1527,6 +1527,46 @@ def _parece_transitorio(e: BaseException) -> bool:
     return any(x in texto for x in _SENALES_TRANSITORIAS)
 
 
+def _con_reintento_por_recursos(hacer, etiqueta: str):
+    """Ejecuta `hacer()` y reintenta cuando el fallo es de RECURSOS, no de contenido.
+
+    ESTO ESTABA EN UN SOLO CAMINO. El bucle de esperas vivia dentro de
+    `_render_one`, o sea que solo protegia al render por lotes. El modo Mejores
+    Momentos llamaba a `step_render_clip` directo, sin red: el mismo
+    0xC0000142 que en un lote se resuelve solo esperando, ahi dejaba el reel sin
+    renderizar. Un arreglo que vive en una sola rama no es un arreglo del
+    sistema, es un parche con suerte.
+
+    Las esperas son largas a proposito: si en treinta segundos la maquina no se
+    descongestiono, treinta mas no cambian nada. Y como los clips ya
+    renderizados se saltan, esperar de mas cuesta mucho menos que abandonar.
+
+    Un fallo de CONTENIDO se relanza en el acto: esperar no arregla un props mal
+    armado, y repetirlo esconde el error real detras de tres copias del mensaje.
+    """
+    for intento, espera in enumerate((60, 180, 420, 0), start=1):
+        try:
+            r = hacer()
+            if intento > 1:
+                print(
+                    f"[render] {etiqueta}: salio en el intento {intento} "
+                    f"— era falta de recursos, no el video",
+                    file=sys.stderr, flush=True,
+                )
+            return r
+        except Exception as e:  # noqa: BLE001
+            if not _parece_transitorio(e) or espera == 0:
+                raise
+            print(
+                f"[render] {etiqueta}: la maquina no pudo arrancar el proceso "
+                f"(intento {intento}). Esperando {espera}s a que se "
+                f"descongestione y reintentando.",
+                file=sys.stderr, flush=True,
+            )
+            time.sleep(espera)
+    raise RuntimeError("inalcanzable: el ultimo intento relanza")  # pragma: no cover
+
+
 def step_render_clip(
     video_id: str,
     clip_index: int,
@@ -1601,7 +1641,25 @@ def step_render_clip(
         cwd=REMOTION_DIR,
     )
     # 3) render — nombre incluye styleId para no pisar otros estilos del mismo clip
-    out = LF_RENDERS / f"{clip_id}_{style_id}.mp4"
+    # SE RENDERIZA A UN NOMBRE PROVISIONAL Y SE RENOMBRA AL FINAL.
+    #
+    # Antes se escribía directo en la ruta definitiva, y todo lo que viene
+    # después —LUT, re-encode, loudness— seguía escribiendo ahí. Un proceso que
+    # muere en cualquiera de esos pasos deja un MP4 con el nombre del bueno:
+    # pasó, 73 MB sin el átomo `moov`, y el SKIP lo daba por hecho en cada
+    # corrida siguiente. El archivo definitivo sólo debe existir cuando está
+    # entero.
+    #
+    # El sufijo es `.__rendering`, que YA es la convención del proyecto para un
+    # render en curso: `orphan-sweep.ts` lo excluye del panel de producción
+    # desde antes. Inventar un marcador nuevo habría dejado dos convenciones
+    # para lo mismo, y la nueva sin nadie que la filtrara.
+    final = LF_RENDERS / f"{clip_id}_{style_id}.mp4"
+    out = LF_RENDERS / f"{clip_id}_{style_id}.__rendering.mp4"
+    try:
+        out.unlink(missing_ok=True)  # restos de una corrida que murió antes
+    except OSError:
+        pass
     props_path = REMOTION_DIR / props_name
     rendered_via_pool = False
     # 3a) OLA 3 — POOL de render-servers: bundle UNA vez por proceso, reusado para
@@ -1686,7 +1744,20 @@ def step_render_clip(
             print(f"[loudnorm] {out.name}: {ln.get('measured_i')} → -14 LUFS", file=sys.stderr)
     except Exception as e:  # noqa: BLE001 — best-effort, nunca rompe el clip
         print(f"[loudnorm] skipped: {e}", file=sys.stderr)
-    return out
+
+    # AHORA SÍ: el archivo está entero, se le pone su nombre definitivo.
+    # `os.replace` es atómico dentro del mismo volumen — o está el viejo, o está
+    # el nuevo, nunca medio archivo con el nombre bueno.
+    #
+    # Si el renombrado falla, se dice y se devuelve el provisional: es preferible
+    # un nombre raro que un fallo mudo, y quien llama comprueba que exista.
+    try:
+        os.replace(out, final)
+    except OSError as e:
+        print(f"[render] no se pudo renombrar {out.name} -> {final.name}: {e}",
+              file=sys.stderr, flush=True)
+        return out
+    return final
 
 
 def _run_highlights(args, raw_path: Path, t_total: float) -> int:
@@ -1758,20 +1829,27 @@ def _run_highlights(args, raw_path: Path, t_total: float) -> int:
     rendered: list[str] = []
     for style_id in styles:
         try:
-            out = step_render_clip(
-                synth_video, 1, "reel",
-                style_id=style_id,
-                accent_color=args.accent_color,
-                aspect_ratio=args.aspect_ratio,
-                remotion_concurrency=rc,
-                subtitle_font=args.subtitle_font,
-                subtitle_color=args.subtitle_color,
-                editorial_theme=args.editorial_theme,
-                music_volume=args.music_volume,
-                render_pool=None,
-                # El montage ya está ensamblado: NO reencuadrar por cara (rompe el
-                # framing de un video multi-panel → barras negras). cover centrado.
-                reframe=False,
+            # Con la misma red que el render por lotes: este camino no la tenia,
+            # asi que un 0xC0000142 —que alla se resuelve solo esperando— aca
+            # dejaba el reel sin renderizar.
+            out = _con_reintento_por_recursos(
+                lambda sid=style_id: step_render_clip(
+                    synth_video, 1, "reel",
+                    style_id=sid,
+                    accent_color=args.accent_color,
+                    aspect_ratio=args.aspect_ratio,
+                    remotion_concurrency=rc,
+                    subtitle_font=args.subtitle_font,
+                    subtitle_color=args.subtitle_color,
+                    editorial_theme=args.editorial_theme,
+                    music_volume=args.music_volume,
+                    render_pool=None,
+                    # El montage ya está ensamblado: NO reencuadrar por cara (rompe
+                    # el framing de un video multi-panel → barras negras). cover
+                    # centrado.
+                    reframe=False,
+                ),
+                etiqueta=f"reel {style_id}",
             )
             if out and Path(out).exists():
                 rendered.append(str(out))
@@ -2634,46 +2712,29 @@ def main() -> int:
             # maquina no se descongestiono, treinta mas no cambian nada. Y como
             # los clips ya renderizados se saltan, esperar de mas cuesta mucho
             # menos que abandonar un video.
-            ultimo: BaseException | None = None
-            for intento, espera in enumerate((60, 180, 420, 0), start=1):
-                try:
-                    out = step_render_clip(
-                        args.video_id,
-                        c["index"],
-                        c["slug"],
-                        style_id=style_id,
-                        accent_color=args.accent_color,
-                        aspect_ratio=args.aspect_ratio,
-                        remotion_concurrency=rc,
-                        subtitle_font=args.subtitle_font,
-                        subtitle_color=args.subtitle_color,
-                        editorial_theme=args.editorial_theme,
-                        music_volume=args.music_volume,
-                        render_pool=render_pool,
-                        broll_source=args.broll_source,
-                        broll_position=args.broll_position,
-                    )
-                    if intento > 1:
-                        print(
-                            f"[render] {clip_id}: salió en el intento {intento} "
-                            f"— era falta de recursos, no el video",
-                            file=sys.stderr, flush=True,
-                        )
-                    return (c["index"], style_id, out, False)
-                except Exception as e:  # noqa: BLE001
-                    ultimo = e
-                    # Un fallo del CONTENIDO no mejora esperando: reintentarlo
-                    # solo alarga la corrida y esconde el error de verdad.
-                    if not _parece_transitorio(e) or espera == 0:
-                        raise
-                    print(
-                        f"[render] {clip_id}: la máquina no pudo arrancar el "
-                        f"proceso (intento {intento}). Esperando {espera}s a que "
-                        f"se descongestione y reintentando.",
-                        file=sys.stderr, flush=True,
-                    )
-                    time.sleep(espera)
-            raise ultimo  # type: ignore[misc]  # inalcanzable: el último intento relanza
+            # El bucle de esperas vive en `_con_reintento_por_recursos`, que
+            # tambien usa el modo Mejores Momentos. Estaba escrito aqui adentro,
+            # y por eso protegia solo a este camino.
+            out = _con_reintento_por_recursos(
+                lambda: step_render_clip(
+                    args.video_id,
+                    c["index"],
+                    c["slug"],
+                    style_id=style_id,
+                    accent_color=args.accent_color,
+                    aspect_ratio=args.aspect_ratio,
+                    remotion_concurrency=rc,
+                    subtitle_font=args.subtitle_font,
+                    subtitle_color=args.subtitle_color,
+                    editorial_theme=args.editorial_theme,
+                    music_volume=args.music_volume,
+                    render_pool=render_pool,
+                    broll_source=args.broll_source,
+                    broll_position=args.broll_position,
+                ),
+                etiqueta=clip_id,
+            )
+            return (c["index"], style_id, out, False)
 
         # Etapa medida: el render y todo lo que viene pegado (LUT, mastering de
         # audio, re-encode NVENC, normalizacion de volumen) no aparecian en la
@@ -2759,8 +2820,30 @@ def main() -> int:
     #
     # Que falten ALGUNOS es otra cosa: un clip que falla no invalida los otros
     # veintidós. Sólo el cero absoluto es un fracaso del paso.
-    todo_fallo = render_total > 0 and render_done == 0
-    if todo_fallo:
+    # Y EL CASO HERMANO, que este guardián no veía: que no haya llegado a haber
+    # nada que renderizar.
+    #
+    # El bloque de render es `if args.render and clips_info:`. Si la extracción
+    # devuelve lista vacía —los clips fallaron al extraerse, o `--clips` apunta
+    # a índices que ya no existen en un proposals regenerado— ese bloque NO
+    # CORRE, `render_total` se queda en su 0 inicial, y `render_total > 0` es
+    # falso. Resultado: `{"ok": true, "clips": 0, "rendered": 0}` y código de
+    # salida 0. Éxito perfecto sin un solo video.
+    #
+    # El guardián de arriba se escribió para "pedí render y no salió ninguno" y
+    # cubría sólo una de las dos formas de que eso pase. Se arregló la que se
+    # había visto; ésta esperaba al lado.
+    sin_nada_que_renderizar = bool(getattr(args, "render", False)) and not clips_info
+    todo_fallo = (render_total > 0 and render_done == 0) or sin_nada_que_renderizar
+    if sin_nada_que_renderizar:
+        print(
+            "[pipeline] Se pidió renderizar y NO HAY NI UN CLIP que renderizar: "
+            "la extracción no produjo ninguno. Revisá el paso de extracción "
+            "más arriba — si `--clips` apunta a índices de un proposals viejo, "
+            "volvé a correr sin esa opción.",
+            file=sys.stderr, flush=True,
+        )
+    if todo_fallo and render_total:
         print(
             f"[pipeline] NINGUNO de los {render_total} clips se renderizó.",
             file=sys.stderr, flush=True,

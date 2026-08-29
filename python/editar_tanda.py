@@ -110,6 +110,34 @@ def altura(mp4: Path) -> int | None:
             return None
     return None
 
+def _renders_fallidos(vid: str) -> int:
+    """Cuantos clips NO se renderizaron en la ultima corrida de este video.
+
+    Sale de la bitacora que el pipeline ya escribe (`renders_fallidos`), en vez
+    de capturar su salida: capturarla haria perder el progreso en vivo, que es
+    lo unico que vuelve mirable una tanda de horas.
+
+    Devuelve 0 si no se puede saber. Es deliberado y tiene su motivo: aca "no
+    pude comprobar" significa NO degradar un video a PARCIAL sin pruebas. El
+    riesgo simetrico -- que un parcial pase por OK -- ya lo cubre
+    `verificar_tanda.py`, que abre los archivos.
+    """
+    try:
+        from config import LOGS_ROOT  # noqa: PLC0415
+        d = Path(LOGS_ROOT) / "ejecuciones"
+    except Exception:  # noqa: BLE001
+        d = Path(LF_RAW).parent.parent / "logs" / "ejecuciones"
+    try:
+        regs = sorted(d.glob(f"{vid}_*.json"))
+        if not regs:
+            return 0
+        import json  # noqa: PLC0415
+        j = json.loads(regs[-1].read_text(encoding="utf-8"))
+        return int(j.get("renders_fallidos") or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def servidor_vivo(api: str) -> bool:
     try:
         urllib.request.urlopen(f"{api}/api/projects", timeout=10).read(1)
@@ -180,6 +208,8 @@ def main() -> int:
     hechos: list[str] = []
     saltados: list[str] = []
     fallados: list[str] = []
+    # Videos que salieron, pero no enteros.
+    parciales: list[str] = []
     # Los que se editaron sin saber en que calidad: no es un fallo, pero
     # tiene que verse en el resumen y no perderse entre lineas de render.
     sin_medir: list[str] = []
@@ -229,7 +259,23 @@ def main() -> int:
         r = subprocess.run(cmd, cwd=str(AQUI))
         minutos = round((time.time() - t0) / 60, 1)
 
-        if r.returncode == 0:
+        # EXITO TOTAL Y EXITO PARCIAL NO SON LO MISMO.
+        #
+        # El pipeline devuelve 0 a proposito cuando al menos un clip salio: que
+        # falte uno no invalida los otros veintidos. Correcto para una corrida
+        # que alguien mira. Pero esta tanda solo miraba el codigo de salida, asi
+        # que un video donde fallaron 22 de 23 quedaba listado igual que uno
+        # perfecto -- y en una tanda de ocho videos nadie vuelve a mirar.
+        #
+        # No se captura la salida (se perderia el progreso en vivo, que es lo
+        # que hace mirable una tanda de horas): el dato se lee de la bitacora,
+        # que el propio pipeline ya escribe con `renders_ok`/`renders_fallidos`.
+        fallidos_aqui = _renders_fallidos(vid)
+        if r.returncode == 0 and fallidos_aqui:
+            print(f"    PARCIAL {vid} ({tema}) · {minutos} min · "
+                  f"{fallidos_aqui} clip(s) sin renderizar", flush=True)
+            parciales.append(f"{vid}/{tema} ({fallidos_aqui} sin renderizar)")
+        elif r.returncode == 0:
             print(f"    OK {vid} ({tema}) · {minutos} min", flush=True)
             hechos.append(f"{vid}/{tema}")
         else:
@@ -244,6 +290,8 @@ def main() -> int:
         print(f"   SALTADO {x}")
     for x in fallados:
         print(f"   FALLO   {x}")
+    for x in parciales:
+        print(f"   PARCIAL {x}")
     for x in sin_medir:
         print(f"   SIN MEDIR {x} (se edito, sin comprobar la calidad)")
     print("=========================")

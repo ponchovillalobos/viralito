@@ -153,9 +153,13 @@ def main() -> int:
     huerfanos: list[str] = []
 
     for vid, tema, _acento in tanda:
-        # Los `_fxfused.mp4` son intermedios que el pipeline crea y borra solo.
+        # Los `_fxfused.mp4` son intermedios que el pipeline crea y borra solo, y
+        # los `.__rendering.mp4` son renders EN CURSO o muertos a mitad: contarlos
+        # inventa clips que no existen y "resoluciones ilegibles" cada vez que
+        # esto corre mientras algo renderiza.
         renders = sorted(
-            f for f in LF.glob(f"renders/{vid}_c*.mp4") if "_fxfused" not in f.name
+            f for f in LF.glob(f"renders/{vid}_c*.mp4")
+            if "_fxfused" not in f.name and ".__rendering" not in f.name
         )
 
         # LOS QUE SOBRARON DE UN ANALISIS ANTERIOR.

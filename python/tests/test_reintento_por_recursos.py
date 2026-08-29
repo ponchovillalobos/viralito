@@ -69,14 +69,20 @@ def test_un_error_de_contenido_no_se_reintenta() -> None:
 
 
 def _bloque_del_reintento() -> str:
-    """El lazo ENTERO, `except` incluido.
+    """La funcion compartida que hace el reintento.
 
-    Cortar en el primer `return` deja fuera justo la mitad que decide si se
-    reintenta o no -- que es la que estos tests miran.
+    El lazo vivia DENTRO de `_render_one`, y por eso protegia solo al render por
+    lotes: el modo Mejores Momentos llamaba a `step_render_clip` directo y el
+    mismo 0xC0000142 que alla se resuelve esperando, ahi dejaba el reel sin
+    renderizar. Un arreglo que vive en una sola rama no es un arreglo del
+    sistema.
+
+    Ahora esta en `_con_reintento_por_recursos` y lo usan los dos caminos; estos
+    tests miran ahi.
     """
-    i = FUENTE.index("ultimo: BaseException | None = None")
-    j = FUENTE.index("raise ultimo", i)
-    return FUENTE[i:j + len("raise ultimo")]
+    i = FUENTE.index("def _con_reintento_por_recursos(")
+    j = FUENTE.index("\ndef ", i + 10)
+    return FUENTE[i:j]
 
 
 def test_el_render_reintenta_y_espera() -> None:
@@ -108,6 +114,37 @@ def test_el_ultimo_intento_relanza_el_error() -> None:
     assert "espera == 0" in bloque, (
         "no hay condicion de corte: o reintenta para siempre, o el ultimo "
         "intento no relanza"
+    )
+
+
+def test_LOS_DOS_caminos_de_render_usan_la_red() -> None:
+    """Un arreglo que vive en una sola rama no es un arreglo del sistema.
+
+    El bucle de esperas estaba escrito dentro de `_render_one`, o sea que solo
+    protegia al render por lotes. El modo Mejores Momentos llamaba a
+    `step_render_clip` directo: el mismo 0xC0000142 que en un lote se resuelve
+    solo esperando, ahi dejaba el reel sin renderizar.
+
+    Este test cuida que los dos caminos pasen por la misma funcion, y que no
+    vuelva a haber una copia del lazo suelta por ahi para divergir.
+    """
+    # Ninguna llamada directa a step_render_clip fuera de su propia definicion.
+    llamadas = [
+        l.strip() for l in FUENTE.splitlines()
+        if "step_render_clip(" in l and not l.strip().startswith("def ")
+    ]
+    assert llamadas, "no se encontro ninguna llamada al render"
+    for l in llamadas:
+        assert "lambda" in l or "_con_reintento_por_recursos" in l, (
+            f"hay un render sin la red de reintento: {l[:80]!r}. Un "
+            f"0xC0000142 ahi deja el video sin hacer, aunque el otro camino se "
+            f"recupere solo"
+        )
+
+    # Y una sola copia del lazo, para que no puedan divergir.
+    assert FUENTE.count("for intento, espera in enumerate(") == 1, (
+        "hay mas de un bucle de reintento: dos copias del mismo arreglo se "
+        "separan en cuanto alguien toque una"
     )
 
 
