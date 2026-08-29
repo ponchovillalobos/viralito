@@ -31,7 +31,6 @@ import {
   Clock,
   FileVideo,
   FolderOpen,
-  Download,
   Loader2,
   Play,
   Clapperboard,
@@ -120,11 +119,11 @@ const SUBTITLE_COLORS: { id: string; name: string; value: string }[] = [
 // no un descuido. El tipo ahora viene del registro para las dos.
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
-import { AdornosPicker, ADORNOS_POR_OMISION, ADORNOS_EDITORIAL, type Adornos } from "@/components/editor/wizard/adornos-picker";
+import { AdornosPicker, ADORNOS_POR_OMISION, type Adornos } from "@/components/editor/wizard/adornos-picker";
 type PlatformId = "tiktok" | "instagram" | "linkedin" | "facebook";
 
 interface RawVideoEntry {

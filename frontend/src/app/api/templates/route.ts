@@ -78,8 +78,14 @@ export async function POST(req: NextRequest) {
   const list = await readTemplates();
   // Si ya existe una con el mismo nombre, la reemplaza (update). Si no, agrega.
   const idx = list.findIndex((t) => t.name.toLowerCase() === tpl.name.toLowerCase());
-  if (idx >= 0) tpl.id = list[idx].id, (list[idx] = tpl);
-  else list.unshift(tpl);
+  // Iba en una línea con el operador coma (`tpl.id = ..., (list[idx] = tpl)`).
+  // Hacía lo correcto, pero se lee como si la segunda mitad fuera un descuido.
+  if (idx >= 0) {
+    tpl.id = list[idx].id; // conserva el id de la plantilla que reemplaza
+    list[idx] = tpl;
+  } else {
+    list.unshift(tpl);
+  }
   await writeTemplates(list);
   return NextResponse.json({ ok: true, template: tpl }, noStore);
 }

@@ -34,7 +34,7 @@ interface Peak {
 }
 
 /** Lee el emotion JSON cacheado; si no existe, corre emotion_director.py una vez. */
-async function getPeaks(videoId: string, duration: number): Promise<Peak[]> {
+async function getPeaks(videoId: string): Promise<Peak[]> {
   const outPath = path.join(DATA_ROOT, "emotion", `${videoId}.json`);
   // 1) Cache (lo escribe applyEmotionDirector, que corre antes en el loop).
   try {
@@ -141,7 +141,7 @@ export async function applyCineClasico(
   videoId: string,
   duration: number
 ): Promise<{ at: number; duration: number }[]> {
-  const peaks = await getPeaks(videoId, duration);
+  const peaks = await getPeaks(videoId);
   if (peaks.length === 0) return [];
   const windows = peakWindows(peaks, duration);
   if (windows.length === 0) return [];

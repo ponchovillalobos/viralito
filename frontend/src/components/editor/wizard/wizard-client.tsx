@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { StyleId } from "@/lib/style-registry";
 import type { BrollSource } from "@/lib/pexels";
-import { BROLL_STYLE_IDS, BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
+import { BROLL_CAPABLE_STYLE_IDS, ADORNO_STYLE_IDS, EDITORIAL_THEME_STYLE_IDS } from "@/lib/broll-sources";
 import { BrollSourcePicker } from "@/components/editor/wizard/broll-source-picker";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2, ChevronLeft, ChevronRight, FileVideo, Mic, Send } from "lucide-react";
@@ -31,7 +31,7 @@ import { BrandKitPicker } from "@/components/editor/wizard/brand-kit-picker";
 import { Confetti } from "@/components/ui/confetti";
 import { EDITORIAL_THEMES } from "@/lib/editorial-themes";
 import { BrollPositionPicker, type BrollPosition } from "@/components/editor/wizard/broll-position-picker";
-import { AdornosPicker, ADORNOS_POR_OMISION, ADORNOS_EDITORIAL, type Adornos } from "@/components/editor/wizard/adornos-picker";
+import { AdornosPicker, ADORNOS_POR_OMISION, type Adornos } from "@/components/editor/wizard/adornos-picker";
 import {
   Montserrat, Poppins, Oswald, Bangers, Luckiest_Guy, Archivo_Black, Teko, Righteous,
   Bebas_Neue, Anton,

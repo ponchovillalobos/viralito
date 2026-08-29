@@ -80,19 +80,44 @@ export function ColaDeEnlaces({ onListo }: { onListo?: () => void }) {
     }
   }, [onListo]);
 
-  // Sondeo cada 4 s mientras quede algo en marcha. Cuando no queda nada, se
-  // deja de preguntar: una pantalla abierta toda la tarde no debe golpear la
+  // ¿Queda algo en marcha? Se calcula UNA vez por render, no dentro del array
+  // de dependencias: ahí obligaba a silenciar la regla de hooks y escondía el
+  // problema de abajo.
+  const hayActivas = descargas.some(
+    (d) => d.estado === "en_cola" || d.estado === "bajando"
+  );
+
+  // Estos dos efectos eran UNO SOLO, y ese uno se mordía la cola: llamaba a
+  // `refrescar()` —que escribe `descargas`— y a la vez dependía de un cálculo
+  // sobre `descargas`. Cada sondeo podía relanzar el efecto, que sondeaba de
+  // nuevo. Funcionaba de casualidad, porque el booleano casi nunca cambiaba;
+  // el día que cambie seguido, son dos pedidos por vuelta.
+  //
+  // Separados, cada uno hace una cosa: éste carga al abrir.
+  //
+  // El `set-state-in-effect` que se silencia acá es un falso positivo, y vale
+  // la pena decir por qué en vez de dejar un comentario mudo: la regla avisa de
+  // un setState SÍNCRONO dentro del efecto, que dispara un segundo render antes
+  // de pintar. `refrescar` es `async` y su `setDescargas` ocurre después de
+  // `await fetch(...)` — o sea en otro turno del bucle de eventos, cuando el
+  // render ya terminó. La regla no ve a través del `await` y marca la llamada.
+  //
+  // El ciclo que sí existía —el efecto llamaba a `refrescar()` y a la vez
+  // dependía de un cálculo sobre lo que `refrescar` escribe— está arreglado
+  // arriba, partiéndolo en dos. Eso era real; esto no.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refrescar();
+  }, [refrescar]);
+
+  // Y éste sondea cada 4 s mientras quede algo en marcha. Cuando no queda nada
+  // se deja de preguntar: una pantalla abierta toda la tarde no debe golpear la
   // API para siempre.
   useEffect(() => {
-    refrescar();
-    const activas = descargas.some(
-      (d) => d.estado === "en_cola" || d.estado === "bajando"
-    );
-    if (!activas) return;
-    const t = setInterval(refrescar, 4000);
+    if (!hayActivas) return;
+    const t = setInterval(() => void refrescar(), 4000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refrescar, descargas.some((d) => d.estado === "en_cola" || d.estado === "bajando")]);
+  }, [hayActivas, refrescar]);
 
   const cuantos = texto.split(/[\s,;]+/).filter((x) => x.trim().startsWith("http")).length;
 
