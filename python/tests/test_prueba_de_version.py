@@ -57,14 +57,48 @@ def test_renderiza_dos_veces_con_la_version_vieja(fuente: str) -> None:
 
 def test_compara_contra_el_control_y_no_contra_un_numero_fijo(fuente: str) -> None:
     """40 dB es 'mucho' o 'poco' segun el clip; el control no."""
-    i = fuente.index("apto = (")
-    j = fuente.index(")", fuente.index("c_min - 3.0", i))
+    i = fuente.index("if e_min is None")
+    j = fuente.index("apto = veredicto", i)
     criterio = fuente[i:j]
     assert "c_min" in criterio, (
         "el veredicto no mira el control: estaria comparando contra un umbral "
         "fijo, que es justo lo que el ruido del motor vuelve inutil"
     )
     assert "e_min" in criterio, "el veredicto no mira el PSNR entre versiones"
+
+
+def test_un_control_perfecto_no_absuelve_a_la_version_nueva(fuente: str) -> None:
+    """El error que tuvo este criterio, y que es facil de volver a cometer.
+
+    Decia: apto si `e_min == inf or c_min == inf or e_min >= c_min - 3.0`.
+
+    Ese `c_min == inf` esta al reves. Un control infinito significa que las DOS
+    corridas de la MISMA version salieron identicas: el motor no mete ruido
+    ninguno. Si no hay ruido, cualquier diferencia entre versiones es REAL, no
+    menos real. La condicion daba por bueno justo el caso que hay que mirar con
+    mas cuidado.
+
+    Y lo hizo: sobre un clip sin B-roll el control dio infinito, la version
+    nueva difirio en cinco fotogramas, y el veredicto fue "no se distingue del
+    ruido" -- habiendo cero ruido del que no distinguirse.
+    """
+    i = fuente.index("if e_min is None")
+    j = fuente.index("apto = veredicto", i)
+    criterio = fuente[i:j]
+
+    # La rama del control perfecto existe y NO concluye que sea apto.
+    assert "hay_diferencia_real" in criterio, (
+        "no hay rama para 'el control salio identico': ese caso volveria a "
+        "caer en la absolucion automatica"
+    )
+    linea_apto = fuente[fuente.index("apto = veredicto"):][:200]
+    assert "hay_diferencia_real" not in linea_apto, (
+        "un control perfecto sigue absolviendo a la version nueva: es el error "
+        "exacto que este test existe para impedir"
+    )
+    assert "identico" in linea_apto and "dentro_del_ruido" in linea_apto, (
+        "los unicos dos casos aptos son 'identicos' y 'dentro del ruido'"
+    )
 
 
 def test_usa_los_ajustes_de_produccion(fuente: str) -> None:

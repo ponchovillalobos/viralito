@@ -223,16 +223,36 @@ def main() -> int:
     entre = _psnr(a1, b, dest / "psnr_versiones.log")
     reparto = _reparto(dest / "psnr_versiones.log")
 
-    # El criterio. La version nueva es aceptable si la diferencia que introduce
-    # NO se distingue del ruido propio del motor.
+    # EL CRITERIO, y el error que tenia.
+    #
+    # Decia: apto si `e_min == inf or c_min == inf or e_min >= c_min - 3.0`.
+    # Ese `c_min == inf` estaba al reves. Un control infinito significa que las
+    # DOS corridas de la misma version salieron identicas — o sea que el motor
+    # no mete ruido ninguno. Y si no hay ruido, cualquier diferencia entre
+    # versiones es REAL, no menos real. La condicion daba por bueno justo el
+    # caso en que hay que mirar con mas cuidado, y lo hizo: sobre un clip sin
+    # B-roll el control dio infinito, la version nueva difirio en cinco
+    # fotogramas, y el veredicto fue "no se distingue del ruido" habiendo cero
+    # ruido del que no distinguirse.
     c_min = control["minimo"]
     e_min = entre["minimo"]
     inf = float("inf")
-    apto = (
-        e_min is not None
-        and c_min is not None
-        and (e_min == inf or c_min == inf or e_min >= c_min - 3.0)
-    )
+
+    if e_min is None or c_min is None:
+        veredicto = "sin_datos"
+    elif e_min == inf:
+        # Identicos fotograma a fotograma. Lo unico que es apto sin mirar.
+        veredicto = "identico"
+    elif c_min == inf:
+        # El motor es determinista sobre este clip: no hay piso de ruido contra
+        # el que comparar, asi que TODA diferencia es del cambio de version.
+        veredicto = "hay_diferencia_real"
+    elif e_min >= c_min - 3.0:
+        veredicto = "dentro_del_ruido"
+    else:
+        veredicto = "supera_el_ruido"
+
+    apto = veredicto in ("identico", "dentro_del_ruido")
 
     resultado = {
         "version_actual": v_vieja,
@@ -242,6 +262,7 @@ def main() -> int:
         "psnr_control_vieja_vs_vieja": control,
         "psnr_vieja_vs_nueva": entre,
         "reparto": reparto,
+        "veredicto": veredicto,
         "apto": bool(apto),
     }
 
@@ -267,26 +288,44 @@ def main() -> int:
         print(f"    primeros distintos: "
               f"{reparto['primeros_distintos']}")
 
+    def como_mirar() -> None:
+        print("  Extrae uno de los fotogramas de arriba de los DOS mp4 y")
+        print("  comparalos. Si el texto, los colores y las cajas estan en el")
+        print("  mismo sitio y solo cambio el video de adentro, es que la")
+        print("  version nueva elige otro cuadro del video fuente — no dibuja")
+        print("  distinto. Si se movio algo que dibuja Viralito, es otra cosa.")
+
     print()
-    if apto:
+    if veredicto == "identico":
+        print("  APTO. Los dos renders son identicos fotograma a fotograma.")
+    elif veredicto == "dentro_del_ruido":
         print("  APTO. La diferencia que introduce la version nueva no se")
-        print("  distingue del ruido que el motor mete contra si mismo.")
-    else:
+        print("  distingue del ruido que el motor mete contra si mismo")
+        print(f"  (control: minimo {d(c_min)}).")
+    elif veredicto == "hay_diferencia_real":
+        print("  HAY QUE MIRAR. Las dos corridas de la version actual salieron")
+        print("  IDENTICAS: sobre este clip el motor no mete ruido ninguno. Asi")
+        print("  que no hay piso contra el que disculpar nada — los")
+        print(f"  {reparto['distintos']} fotograma(s) que difieren son del cambio")
+        print("  de version, sin excusa posible.")
+        print()
+        como_mirar()
+    elif veredicto == "supera_el_ruido":
         print("  NO APTO POR EL NUMERO. Hay que MIRAR antes de decidir: el PSNR")
-        print("  solo no distingue un diseno que cambio de un video de archivo")
-        print("  que cayo en otro cuadro.")
+        print("  solo no distingue un diseno que cambio de un video que cayo en")
+        print("  otro cuadro.")
         print()
         if reparto["pct_distintos"] <= 15:
-            print(f"  Y el reparto sugiere lo segundo: solo "
+            print(f"  El reparto sugiere lo segundo: solo "
                   f"{reparto['pct_distintos']}% de los fotogramas difieren de")
-            print("  verdad. Cuando cambia el DISENO difieren casi todos. Extrae")
-            print("  uno de los fotogramas de arriba de los dos mp4 y comparalos:")
-            print("  si el texto, los colores y las cajas estan en el mismo sitio")
-            print("  y solo cambio el video de adentro, es remuestreo de fps.")
+            print("  verdad, y cuando cambia el DISENO difieren casi todos.")
         else:
-            print(f"  Y el reparto lo confirma: {reparto['pct_distintos']}% de los")
-            print("  fotogramas difieren. Eso ya no es un cuadro corrido, es el")
-            print("  render dibujando distinto.")
+            print(f"  El reparto lo confirma: {reparto['pct_distintos']}% de los")
+            print("  fotogramas difieren. Eso ya no es un cuadro corrido.")
+        print()
+        como_mirar()
+    else:
+        print("  SIN DATOS: no se pudo calcular el PSNR de alguno de los pares.")
     print(f"\n  los mp4 quedaron en {dest}")
     return 0 if apto else 2
 
