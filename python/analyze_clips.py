@@ -722,8 +722,54 @@ def heuristic_fallback(
     return clips
 
 
+def _anotar_mudo(
+    mudos: list[dict[str, Any]] | None,
+    i: int,
+    n: int,
+    chunk: list[dict[str, Any]],
+) -> None:
+    """Deja constancia de un trozo que no produjo ni un clip.
+
+    Un trozo mudo NO es lo mismo que un tramo sin nada bueno. Puede serlo -- el
+    final de una conferencia con la sala vaciandose, un ejercicio en equipos --
+    y puede ser que el modelo fallara y nadie mirara ese pedazo del video. Las
+    dos cosas se ven igual desde afuera: un hueco en las propuestas.
+
+    Lo que cambia es que ahora se sabe CUAL de las dos, porque queda escrito el
+    tramo exacto y cuantas palabras tenia. Un trozo mudo con 1.300 palabras es
+    un fallo; uno con 40 es una sala vacia.
+    """
+    if mudos is None:
+        return
+    ini, fin = _tramo(chunk)
+    mudos.append({
+        "trozo": i + 1,
+        "de": n,
+        "inicio_seg": round(ini, 1),
+        "fin_seg": round(fin, 1),
+        "palabras": len(chunk),
+    })
+    print(
+        f"[chunk {i + 1}/{n}] MUDO: no devolvio ningun clip, y cubre "
+        f"{ini / 60:.1f}-{fin / 60:.1f} min ({len(chunk)} palabras). "
+        f"Ese tramo del video queda sin representar.",
+        file=sys.stderr, flush=True,
+    )
+
+
+def _tramo(chunk: list[dict[str, Any]]) -> tuple[float, float]:
+    """Los segundos del video que cubre este trozo."""
+    if not chunk:
+        return (0.0, 0.0)
+    return (
+        float(chunk[0].get("start", 0) or 0),
+        float(chunk[-1].get("end", 0) or 0),
+    )
+
+
 def _analizar_chunks(
-    chunks: list[list[dict[str, Any]]], model: str, per_chunk: int, provider: str
+    chunks: list[list[dict[str, Any]]], model: str, per_chunk: int, provider: str,
+    mudos: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Analiza todos los trozos y devuelve los clips propuestos, en orden.
 
@@ -757,12 +803,16 @@ def _analizar_chunks(
         salida: list[dict[str, Any]] = []
         for i, chunk in enumerate(chunks):
             print(f"\n[chunk {i + 1}/{n}]", file=sys.stderr)
+            obtenidos: list[dict[str, Any]] = []
             try:
-                salida.extend(
-                    analyze_chunk(chunk, model=model, target_clips=per_chunk, provider=provider)
+                obtenidos = analyze_chunk(
+                    chunk, model=model, target_clips=per_chunk, provider=provider
                 )
             except Exception as e:  # noqa: BLE001
                 print(f"[chunk {i + 1}] error: {e}", file=sys.stderr)
+            salida.extend(obtenidos)
+            if not obtenidos:
+                _anotar_mudo(mudos, i, n, chunk)
         return salida
 
     # Tope de 4 en vuelo: son suscripciones personales, no una API con cuota
@@ -791,6 +841,10 @@ def _analizar_chunks(
 
     with ThreadPoolExecutor(max_workers=hilos) as pool:
         list(pool.map(_uno, range(n)))
+
+    for i, grupo in enumerate(resultados):
+        if not grupo:
+            _anotar_mudo(mudos, i, n, chunks[i])
 
     return [c for grupo in resultados for c in grupo]
 
@@ -842,6 +896,9 @@ def main() -> int:
         return 1
 
     raw_clips: list[dict[str, Any]] = []
+    # Trozos del transcript que no devolvieron ni un clip. Cada uno es un
+    # tramo del video que nadie represento -- y hasta ahora no se sabia.
+    trozos_mudos: list[dict[str, Any]] = []
     if args.use_heuristic:
         print(
             "[heuristic-mode] skipeando Ollama por --use-heuristic; "
@@ -862,7 +919,9 @@ def main() -> int:
         # Sobre-generamos a propósito (+2 por chunk): después del anclaje + dedup de
         # solapados se cae una parte, así que pedir de más asegura llegar al techo.
         per_chunk = max(3, (args.max_clips + len(chunks) - 1) // len(chunks) + 2)
-        raw_clips.extend(_analizar_chunks(chunks, args.model, per_chunk, provider))
+        raw_clips.extend(
+            _analizar_chunks(chunks, args.model, per_chunk, provider, trozos_mudos)
+        )
 
     valid_clips: list[dict[str, Any]] = []
     seen_ranges: list[tuple[float, float]] = []
@@ -1020,7 +1079,49 @@ def main() -> int:
         # Viajan aparte de `clips` a propósito: nada aguas abajo los toca, así
         # que no cambian ni un fotograma del resultado. Son para mirar.
         "descartados": descartados_registrados,
+        # Trozos del transcript que no devolvieron NI UN clip.
+        #
+        # No es lo mismo que un tramo sin nada bueno. Puede serlo -- el final de
+        # una conferencia con la sala vaciandose, un ejercicio en equipos -- y
+        # puede ser que el modelo fallara y ese pedazo del video no lo mirara
+        # nadie. Desde afuera las dos cosas se ven igual: un hueco.
+        #
+        # Con el tramo y la cantidad de palabras se distinguen: un trozo mudo
+        # con 1.300 palabras es un fallo; uno con 40 es una sala vacia. Antes
+        # esto no se guardaba y un video de 4 horas perdio 28 minutos seguidos
+        # de contenido bueno sin que nada lo dijera.
+        "trozos_mudos": trozos_mudos,
     }
+
+    # UN TRAMO SIN ANALIZAR SE DICE, NO SE DEJA PASAR.
+    #
+    # Antes esto era silencio absoluto: los clips salian, el resumen decia "ok",
+    # y 28 minutos seguidos de un video de 4 horas -- con alguien hablando al
+    # mismo ritmo que en el resto -- no aparecian en ninguna propuesta ni en
+    # ningun aviso.
+    if trozos_mudos:
+        con_habla = [t for t in trozos_mudos if t.get("palabras", 0) >= 300]
+        print(
+            f"[aviso] {len(trozos_mudos)} trozo(s) del transcript no devolvieron "
+            f"ningun clip:",
+            file=sys.stderr,
+        )
+        for t in trozos_mudos[:6]:
+            marca = "  <-- habia bastante que decir" if t.get("palabras", 0) >= 300 else ""
+            print(
+                f"    min {t['inicio_seg'] / 60:6.1f}-{t['fin_seg'] / 60:6.1f} · "
+                f"{t['palabras']:5} palabras{marca}",
+                file=sys.stderr,
+            )
+        if len(trozos_mudos) > 6:
+            print(f"    ... y {len(trozos_mudos) - 6} mas", file=sys.stderr)
+        if con_habla:
+            print(
+                f"[aviso] {len(con_habla)} de ellos tienen 300+ palabras: ahi NO "
+                f"era que faltara material, asi que conviene volver a analizar "
+                f"ese tramo.",
+                file=sys.stderr,
+            )
 
     out_path = LF_PROPOSALS / f"{video_id}.json"
     out_path.write_text(json.dumps(proposal, ensure_ascii=False, indent=2), encoding="utf-8")
