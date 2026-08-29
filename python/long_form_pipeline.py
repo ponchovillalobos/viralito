@@ -1434,6 +1434,30 @@ def _apply_post_fx(rendered: Path, clip_id: str, style_id: str) -> bool:
         return _post_fx_two_pass(rendered, lut_name)
 
 
+# Codigos y textos que significan "la maquina no pudo AHORA", no "esto esta mal".
+# 3221225794 es 0xC0000142 (STATUS_DLL_INIT_FAILED): Windows no pudo inicializar
+# el proceso. 3221225725 es 0xC00000FD (desbordamiento de pila). Los dos apuntan
+# a recursos, no al contenido del video -- el mismo clip renderiza bien minutos
+# despues, con la maquina descargada.
+_SENALES_TRANSITORIAS = (
+    "3221225794",
+    "0xc0000142",
+    "3221225725",
+    "0xc00000fd",
+    "not enough memory",
+    "cannot allocate memory",
+    "resource temporarily unavailable",
+    "insufficient system resources",
+    "the paging file is too small",
+)
+
+
+def _parece_transitorio(e: BaseException) -> bool:
+    """Si el fallo es de la maquina y no del video, esperar lo arregla."""
+    texto = str(e).lower()
+    return any(x in texto for x in _SENALES_TRANSITORIAS)
+
+
 def step_render_clip(
     video_id: str,
     clip_index: int,
@@ -2465,23 +2489,64 @@ def main() -> int:
                 file=sys.stderr, flush=True,
             )
             _avisar_de_lo_que_no_cuadra(clip_id, style_id)
-            out = step_render_clip(
-                args.video_id,
-                c["index"],
-                c["slug"],
-                style_id=style_id,
-                accent_color=args.accent_color,
-                aspect_ratio=args.aspect_ratio,
-                remotion_concurrency=rc,
-                subtitle_font=args.subtitle_font,
-                subtitle_color=args.subtitle_color,
-                editorial_theme=args.editorial_theme,
-                music_volume=args.music_volume,
-                render_pool=render_pool,
-                broll_source=args.broll_source,
-                broll_position=args.broll_position,
-            )
-            return (c["index"], style_id, out, False)
+
+            # ESPERAR ES EL ARREGLO, y no habia quien esperara.
+            #
+            # `step_render_clip` ya trae tres redes de seguridad -- el pool, el
+            # CLI directo, y npx -- pero las tres se agotan en segundos, una
+            # tras otra. Cuando el sistema no puede arrancar un proceso mas, las
+            # tres fallan por LA MISMA causa y a la misma velocidad: se gastan
+            # las tres contra un problema que solo cede con tiempo.
+            #
+            # Paso: los 13 clips de un video murieron con 0xC0000142 y el mismo
+            # video rindio entero al relanzarlo sin tocar nada. Tener tres
+            # caminos distintos no ayuda si ninguno espera; lo que faltaba era
+            # una cuarta red del tipo adecuado a la causa.
+            #
+            # Las esperas son largas a proposito: si en treinta segundos la
+            # maquina no se descongestiono, treinta mas no cambian nada. Y como
+            # los clips ya renderizados se saltan, esperar de mas cuesta mucho
+            # menos que abandonar un video.
+            ultimo: BaseException | None = None
+            for intento, espera in enumerate((60, 180, 420, 0), start=1):
+                try:
+                    out = step_render_clip(
+                        args.video_id,
+                        c["index"],
+                        c["slug"],
+                        style_id=style_id,
+                        accent_color=args.accent_color,
+                        aspect_ratio=args.aspect_ratio,
+                        remotion_concurrency=rc,
+                        subtitle_font=args.subtitle_font,
+                        subtitle_color=args.subtitle_color,
+                        editorial_theme=args.editorial_theme,
+                        music_volume=args.music_volume,
+                        render_pool=render_pool,
+                        broll_source=args.broll_source,
+                        broll_position=args.broll_position,
+                    )
+                    if intento > 1:
+                        print(
+                            f"[render] {clip_id}: salió en el intento {intento} "
+                            f"— era falta de recursos, no el video",
+                            file=sys.stderr, flush=True,
+                        )
+                    return (c["index"], style_id, out, False)
+                except Exception as e:  # noqa: BLE001
+                    ultimo = e
+                    # Un fallo del CONTENIDO no mejora esperando: reintentarlo
+                    # solo alarga la corrida y esconde el error de verdad.
+                    if not _parece_transitorio(e) or espera == 0:
+                        raise
+                    print(
+                        f"[render] {clip_id}: la máquina no pudo arrancar el "
+                        f"proceso (intento {intento}). Esperando {espera}s a que "
+                        f"se descongestione y reintentando.",
+                        file=sys.stderr, flush=True,
+                    )
+                    time.sleep(espera)
+            raise ultimo  # type: ignore[misc]  # inalcanzable: el último intento relanza
 
         # Etapa medida: el render y todo lo que viene pegado (LUT, mastering de
         # audio, re-encode NVENC, normalizacion de volumen) no aparecian en la
