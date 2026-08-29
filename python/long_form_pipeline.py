@@ -783,13 +783,51 @@ def step_extract(
     if clips:
         cmd.extend(["--clips", clips])
     output = run_capture(cmd)
-    # extract_clips imprime al final un JSON con la lista
-    last_line = output.strip().split("\n")[-1]
-    try:
-        data = json.loads(last_line)
-        return [c for c in data.get("clips", []) if c.get("ok")]
-    except json.JSONDecodeError:
+
+    # SE BUSCA EL RESUMEN, NO SE ASUME QUE ES LA ULTIMA LINEA.
+    #
+    # Esto tomaba `output.split("\n")[-1]` y lo parseaba. En esa etapa tambien
+    # escriben subprocesos (la transcripcion por lotes), asi que la ultima linea
+    # NO siempre es el resumen: basta con que un hijo vacie su buffer despues
+    # del padre.
+    #
+    # Cuando pasa, se lee un JSON ajeno, `data.get("clips")` devuelve otra cosa
+    # y el pipeline sigue con menos clips de los que hay — sin un solo error.
+    # Visto en una tanda real: 23 clips creados y validos en disco, 8
+    # reportados, cero fallos en el log. Quince clips extraidos que nadie volvio
+    # a mirar.
+    #
+    # Ahora se recorre de atras hacia adelante buscando un JSON que tenga la
+    # forma esperada, y si lo que se encuentra no cuadra con lo que se pidio, se
+    # dice.
+    resumen = None
+    for linea in reversed(output.strip().split("\n")):
+        linea = linea.strip()
+        if not linea.startswith("{"):
+            continue
+        try:
+            posible = json.loads(linea)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(posible, dict) and isinstance(posible.get("clips"), list):
+            resumen = posible
+            break
+
+    if resumen is None:
+        print("[extract] no se encontro el resumen de extract_clips en su salida. "
+              "No se puede saber que clips quedaron: se sigue sin ninguno.",
+              file=sys.stderr, flush=True)
         return []
+
+    obtenidos = [c for c in resumen["clips"] if c.get("ok")]
+    fallidos = [c for c in resumen["clips"] if not c.get("ok")]
+    if fallidos:
+        print(f"[extract] {len(fallidos)} de {len(resumen['clips'])} clips "
+              "fallaron al extraerse:", file=sys.stderr, flush=True)
+        for c in fallidos[:5]:
+            print(f"    {c.get('clip_id', '?')}: {str(c.get('error', ''))[:120]}",
+                  file=sys.stderr, flush=True)
+    return obtenidos
 
 
 # Estilos de largos que ILUSTRAN con videos de archivo (b-roll).
@@ -2231,6 +2269,31 @@ def main() -> int:
             recortar_silencios=not args.sin_recorte_silencios,
         )
         _e.metrica("clips_extraidos", len(clips_info))
+
+        # ¿SALIERON TANTOS COMO SE PIDIERON? La pregunta no se hacia.
+        #
+        # En una tanda real se propusieron 23 clips, se extrajeron 23 archivos
+        # validos, y el paso reporto 8. Los quince restantes existian en disco y
+        # nadie los volvio a mirar: no llegaron a graficos ni a render. El
+        # video salio con un tercio de lo que tenia, y el resumen decia "ok".
+        #
+        # Comparar dos numeros que ya estaban a mano lo habria cantado.
+        try:
+            _propuestos = len(
+                json.loads(Path(proposals_path).read_text(encoding="utf-8")).get("clips") or []
+            )
+        except (OSError, ValueError, TypeError):
+            _propuestos = 0
+        if _propuestos and len(clips_info) < _propuestos and not seleccion:
+            print(
+                f"[extract] ATENCION: hay {_propuestos} clips propuestos y solo "
+                f"{len(clips_info)} llegaron a la siguiente etapa. Los que faltan "
+                "pueden estar extraidos en disco pero fuera del pipeline; revisa "
+                f"long_form/clips/{args.video_id}_c*.mp4 antes de dar el video por "
+                "terminado.",
+                file=sys.stderr, flush=True,
+            )
+            _e.metrica("clips_perdidos", _propuestos - len(clips_info))
         _e.metrica("recorte_silencios", not args.sin_recorte_silencios)
         # Cuánto se recortó de verdad, no sólo si estaba activado. Sin esto la
         # bitácora no permitía contestar la única pregunta que importa de esta
