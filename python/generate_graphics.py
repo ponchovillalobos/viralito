@@ -1582,8 +1582,9 @@ A) LIMPIAR. Esto no es opcional y es la mitad del trabajo:
    - Frases completas. Nada de cortes a la mitad.
    Si devolvés una tarjeta con una frase rota, fallaste.
 
-B) VARIAR EL REGISTRO. Alterná los tres, y NO uses el mismo dos veces seguidas.
-   De cada 5 tarjetas, apuntá a: 2 del tipo 1, 2 del tipo 2, 1 del tipo 3.
+B) VARIAR EL REGISTRO. Cada tarjeta trae un campo "registro" con un número:
+   ése es el que le toca. No lo elijas vos, ya está elegido — sólo escribí la
+   tarjeta en ese registro. El campo "registro" NO va en tu respuesta.
 
    1. TAL CUAL — su frase, limpia. Cuando lo que dijo ya pega, no lo toques.
 
@@ -1595,10 +1596,9 @@ B) VARIAR EL REGISTRO. Alterná los tres, y NO uses el mismo dos veces seguidas.
       NOMBRE de lo que está describiendo. Sale de SU idea, no de tu conocimiento
       general.
 
-      DE CADA 5 TARJETAS, AL MENOS UNA TIENE QUE SER DE ESTE TIPO. Devolver
-      cinco tarjetas sin ninguna es un trabajo fallado, igual que devolver una
-      frase rota. Es el registro que se pierde primero, porque copiar es más
-      seguro — y un video entero copiando es justo lo que se ve plano.
+      Es el registro que más cuesta, porque copiar siempre es más seguro. Si
+      una tarjeta te toca en 3, no la resuelvas copiando: ahí es donde el video
+      deja de verse plano.
 
       Así se hace, sobre lo que él ya dijo:
         dice "me comparaba con los demás y siempre perdía"
@@ -1673,6 +1673,107 @@ def _inventa_numeros(propuesto: str, fuente: str) -> bool:
     return not nums.issubset(_numeros_de(fuente))
 
 
+def _muy_pegada(texto: str, fuente: str) -> bool:
+    """¿El texto es basicamente la frase del audio, palabra por palabra?
+
+    Se compara el vocabulario con contenido (>3 letras). Si casi todo lo que
+    dice ya estaba en el audio, es una copia — util para el registro 1, pero no
+    para el 3, que tiene que aportar una vuelta.
+    """
+    voc = {w for w in re.sub(r"[^a-z0-9 ]+", " ", (texto or "").lower()).split()
+           if len(w) > 3}
+    if not voc:
+        return True
+    voc_fuente = {w for w in re.sub(r"[^a-z0-9 ]+", " ", (fuente or "").lower()).split()
+                  if len(w) > 3}
+    return len(voc & voc_fuente) / len(voc) >= 0.8
+
+
+_PROMPT_VUELTA = """Te doy una frase que alguien dijo en un video. Escribi UNA
+frase corta para poner en pantalla que salga de esa idea SIN copiarla.
+
+Puede ser: el NOMBRE de lo que esta describiendo, la CONSECUENCIA que se
+desprende, o la TENSION que plantea.
+
+Ejemplos, sobre lo que la persona dijo:
+  "me comparaba con los demas y siempre perdia"  ->  "El espejo equivocado."
+  "practique la misma escena cien veces"         ->  "Lo que parece talento es horario."
+  "si no lo entiende tu mama, no lo entendio nadie" -> "Explicalo o no existe."
+
+REGLAS:
+- Maximo 7 palabras. Termina en punto.
+- Sale de SU idea. Nada de tu conocimiento general.
+- PROHIBIDO cualquier cifra, porcentaje o estudio que el no haya dicho.
+- No repitas su frase con otras palabras: aporta el angulo.
+
+Responde SOLO la frase, sin comillas ni explicacion.
+
+LO QUE DIJO: """
+
+
+def _segunda_vuelta_de_tuerca(enriched: list[dict], cards: list[dict],
+                              idx_send: list[int], ciclo: tuple,
+                              fuente: str) -> list[dict]:
+    """A las tarjetas que les tocaba el registro 3 y salieron copiadas, se les
+    vuelve a pedir — pero SIN el texto literal delante.
+
+    El campo `registro` por tarjeta no alcanzo. Medido sobre 32 tarjetas reales
+    con el modelo respondiendo bien: 53 % copia, 41 % apretado, 3 % vuelta de
+    tuerca, cuando se pedia 20 %.
+
+    La razon es que el modelo recibe la frase heuristica —que es el transcript
+    tal cual— y su trabajo mas seguro es limpiarla. Con la frase delante, casi
+    siempre la limpia.
+
+    Asi que en esta segunda pasada se le quita la muleta: se le da SOLO lo que
+    la persona dijo y se le pide el angulo. Una llamada corta, y solo para las
+    tarjetas que hagan falta.
+    """
+    a_rehacer = [
+        (n, i) for n, i in enumerate(idx_send)
+        if ciclo[n % len(ciclo)] == 3
+        and enriched[i].get("title")
+        and _muy_pegada(enriched[i].get("title", ""), fuente)
+    ]
+    print(f'[editorial] segunda vuelta: {len(a_rehacer)} candidatas de '
+          f'{len(idx_send)} tarjetas (registro 3 que salieron copiadas)',
+          file=sys.stderr, flush=True)
+    if not a_rehacer:
+        return enriched
+
+    rehechas = 0
+    for _, i in a_rehacer:
+        dicho = f"{cards[i].get('title', '')} {cards[i].get('subtitle', '')}".strip()
+        if not dicho:
+            continue
+        try:
+            frase = _ollama(_PROMPT_VUELTA + dicho, temperature=0.7, timeout=60).strip()
+        except Exception:  # noqa: BLE001
+            continue
+        frase = frase.strip().strip(chr(34)).split(chr(10))[0].strip()
+        # Se aplica la MISMA guarda que el resto: ninguna cifra que no se dijo.
+        if not frase:
+            continue
+        if len(frase.split()) > 9:
+            continue
+        if _inventa_numeros(frase, fuente):
+            continue
+        if _muy_pegada(frase, dicho):
+            continue  # volvio a copiar: se deja lo que habia
+        c = dict(enriched[i])
+        c["title"] = frase[:60]
+        nuevo_icono = _icon_for_text(f"{frase} {c.get('subtitle', '')}")
+        if nuevo_icono:
+            c["icon"] = nuevo_icono
+        enriched[i] = c
+        rehechas += 1
+
+    if rehechas:
+        print(f"[editorial] {rehechas} de {len(a_rehacer)} tarjetas rehechas como "
+              "vuelta de tuerca (habian salido copiadas)", file=sys.stderr)
+    return enriched
+
+
 def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
     """Reescritura con Ollama (si está): títulos impactantes + subtítulos que
     aportan datos/insights en vez de repetir, corrigiendo de paso frases rotas
@@ -1710,10 +1811,27 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
             + [f"{c.get('title', '')} {c.get('subtitle', '')} {c.get('number', '')}"
                f" {c.get('statValue', '')}" for c in cards]
         )
+        # EL REGISTRO SE ASIGNA ACA, NO SE PIDE.
+        #
+        # El prompt decia "de cada 5 tarjetas, 2 del tipo 1, 2 del tipo 2, 1 del
+        # tipo 3", con ejemplos y un minimo explicito. No alcanzaba: medido sobre
+        # 44 tarjetas reales salio 63.6 / 31.8 / 2.3, con la vuelta de tuerca
+        # practicamente desaparecida. El modelo no lleva la cuenta de una
+        # proporcion mientras escribe — copiar es siempre el camino seguro, y a
+        # eso tiende.
+        #
+        # Asi que la cuenta la lleva el codigo: cada tarjeta viaja con el numero
+        # que le toca. Es una decision por tarjeta, no una estadistica que
+        # alguien tenga que respetar de memoria.
+        _CICLO_DE_REGISTROS = (1, 2, 1, 2, 3)
         payload = [
-            {k: cards[i][k] for k in ("at", "duration", "kicker", "title", "accent",
-                                      "subtitle", "number", "statValue", "statUnit", "icon")}
-            for i in idx_send
+            {
+                **{k: cards[i][k] for k in ("at", "duration", "kicker", "title",
+                                            "accent", "subtitle", "number",
+                                            "statValue", "statUnit", "icon")},
+                "registro": _CICLO_DE_REGISTROS[n % len(_CICLO_DE_REGISTROS)],
+            }
+            for n, i in enumerate(idx_send)
         ]
         prompt = (
             _EDITORIAL_LLM_PROMPT
@@ -1721,11 +1839,36 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
             + f"\n\nTEMA DEL VIDEO (contexto): {full_text[:600]}\n\nJSON:"
         )
         raw = _ollama(prompt, temperature=0.4)
+
+        # ESTOS TRES RECHAZOS ERAN MUDOS, y descartan la reescritura ENTERA.
+        #
+        # Cuando pasa, las tarjetas se quedan con el texto heuristico — que sale
+        # del transcript tal cual. O sea: el video sale con todo literal, que es
+        # exactamente la queja que originó este trabajo ("parece que veo dos
+        # videos" primero, y despues "todo repite lo que digo").
+        #
+        # Se noto midiendo: tras un cambio en el prompt, el reparto de registros
+        # paso a 86 % literal y 0 % de vuelta de tuerca. No habia forma de saber
+        # si el modelo escribia mal o si su respuesta se estaba tirando a la
+        # basura. Eran cosas MUY distintas y se veian igual.
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         if not m:
+            print(f"[editorial] el modelo no devolvio JSON ({len(raw)} caracteres); "
+                  "las tarjetas se quedan con el texto crudo del transcript",
+                  file=sys.stderr, flush=True)
             return cards
-        out = json.loads(m.group(0)).get("cards", [])
+        try:
+            out = json.loads(m.group(0)).get("cards", [])
+        except json.JSONDecodeError as e:
+            print(f"[editorial] el JSON del modelo no se pudo leer ({e}); "
+                  "las tarjetas se quedan con el texto crudo del transcript",
+                  file=sys.stderr, flush=True)
+            return cards
         if not isinstance(out, list) or len(out) != len(idx_send):
+            print(f"[editorial] el modelo devolvio {len(out) if isinstance(out, list) else 'algo que no es una lista'} "
+                  f"tarjetas y se le pidieron {len(idx_send)}; se descarta TODA la "
+                  "reescritura y quedan con el texto crudo del transcript",
+                  file=sys.stderr, flush=True)
             return cards
         enriched: list[dict] = list(cards)  # las quotes quedan intactas en su lugar
         for i, new in zip(idx_send, out):
@@ -1770,6 +1913,9 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
                 [c.get("title", ""), c.get("subtitle", ""), c.get("kicker", "")]
             )
             enriched[i] = c
+        enriched = _segunda_vuelta_de_tuerca(
+            enriched, cards, idx_send, _CICLO_DE_REGISTROS, _fuente_de_verdad
+        )
         print(f"[editorial] {len(idx_send)} tarjetas enriquecidas con LLM "
               f"({len(cards) - len(idx_send)} pull-quotes textuales intactas)", file=sys.stderr)
         return enriched

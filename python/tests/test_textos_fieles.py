@@ -104,7 +104,12 @@ def test_el_filtro_esta_conectado_al_merge():
     """Que exista la función no alcanza: tiene que usarse al aplicar la respuesta."""
     fuente = (AQUI / "generate_graphics.py").read_text(encoding="utf-8")
     i = fuente.index("def _enrich_cards_llm")
-    bloque = fuente[i : i + 6000]
+    # La ventana llega hasta la SIGUIENTE función, no a 6000 caracteres fijos.
+    # Con el corte fijo, agregar diagnósticos dentro de la función empujaba el
+    # merge fuera de la ventana y el test fallaba sin que nada se hubiera
+    # desconectado: avisaba de un problema que no existía.
+    j = fuente.index("\ndef ", i + 10)
+    bloque = fuente[i:j]
     assert "_inventa_numeros(" in bloque, (
         "el filtro existe pero no se aplica al mezclar la respuesta del LLM: "
         "sería otra capacidad implementada y sin puerta de entrada"
@@ -138,9 +143,32 @@ def test_el_prompt_define_los_tres_registros():
         "invento — es la única distinción que el modelo no puede deducir solo"
     )
 
-    # La proporción explícita: sin un objetivo numérico el modelo juega a lo
-    # seguro y devuelve casi todo literal. Medido: 78% "tal cual" de 72 tarjetas.
-    assert "2 del tipo 1, 2 del tipo 2, 1 del tipo 3" in prompt
+    # LA PROPORCIÓN LA LLEVA EL CÓDIGO, NO EL PROMPT.
+    #
+    # Antes acá se exigía la frase "2 del tipo 1, 2 del tipo 2, 1 del tipo 3"
+    # dentro del prompt. Pedirlo no alcanzaba: medido sobre 32 tarjetas reales
+    # con el modelo respondiendo bien, salía 53 % copia / 41 % apretado / 3 %
+    # vuelta de tuerca, cuando se pedía 20 % de la última. El modelo no lleva la
+    # cuenta de una proporción mientras escribe.
+    #
+    # Ahora cada tarjeta viaja con el número que le toca, asignado por el
+    # código, y hay una segunda pasada para las que salgan copiadas igual.
+    fuente = (AQUI / "generate_graphics.py").read_text(encoding="utf-8")
+    assert "_CICLO_DE_REGISTROS" in fuente, (
+        "la proporción de registros ya no está en el prompt; tiene que estar "
+        "en el código, asignada por tarjeta"
+    )
+    assert '"registro": _CICLO_DE_REGISTROS' in fuente, (
+        "el ciclo existe pero no viaja con cada tarjeta: sería otra capacidad "
+        "implementada y sin puerta de entrada"
+    )
+    assert "_segunda_vuelta_de_tuerca(" in fuente, (
+        "falta la segunda pasada, que es lo que rescata las tarjetas de "
+        "registro 3 que el modelo devuelve copiadas igual"
+    )
+    assert 'registro" con un número' in prompt, (
+        "el prompt tiene que explicarle al modelo qué es el campo `registro`"
+    )
 
     # Y la limpieza es obligatoria, no un extra. Sobrevivían frases rotas como
     # "Sea, nos hemos entrenado" (era "O sea") y dos ideas pegadas sin relación.
