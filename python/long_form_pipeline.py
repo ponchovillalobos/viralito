@@ -2125,18 +2125,76 @@ def main() -> int:
                             _e.metrica("usado_pct", round(_usado / _dv * 100))
 
                             _hueco = 0.0
+                            _hueco_ini = _hueco_fin = 0.0
                             _prev = 0.0
                             for _s, _e2 in _tramos:
-                                _hueco = max(_hueco, _s - _prev)
+                                if _s - _prev > _hueco:
+                                    _hueco, _hueco_ini, _hueco_fin = _s - _prev, _prev, _s
                                 _prev = max(_prev, _e2)
-                            _hueco = max(_hueco, _dv - _prev)
+                            if _dv - _prev > _hueco:
+                                _hueco, _hueco_ini, _hueco_fin = _dv - _prev, _prev, _dv
                             _e.metrica("hueco_max_min", round(_hueco / 60, 1))
-                            if _hueco > 15 * 60:
+
+                            # CUANTO SE HABLABA EN ESE HUECO. Sin este dato el
+                            # aviso es ruido: marcaba 36 minutos "perdidos" al
+                            # final de una conferencia donde lo unico que se oye
+                            # es "Gracias. Gracias." con la sala vaciandose, y 19
+                            # minutos de otra que eran la logistica de un
+                            # ejercicio en equipos ("hagan espacio, de a dos").
+                            # Los dos huecos estaban BIEN.
+                            #
+                            # El que no lo estaba tenia 1.200 palabras cada 10
+                            # minutos, el mismo ritmo que el resto del video, y
+                            # eran 28 minutos de material publicable que se
+                            # perdieron. Desde el reloj los tres se ven igual.
+                            _pal = 0
+                            if _hueco > 0:
+                                try:
+                                    _tj = LF_TRANSCRIPTS / f"{args.video_id}.json"
+                                    _ws = json.loads(
+                                        _tj.read_text(encoding="utf-8")
+                                    ).get("words") or []
+                                    _pal = sum(
+                                        1 for _w in _ws
+                                        if _hueco_ini <= float(_w.get("start", 0) or 0) < _hueco_fin
+                                    )
+                                except Exception:  # noqa: BLE001
+                                    _pal = -1  # no se pudo saber; se dice asi
+                            _e.metrica("hueco_max_palabras", _pal)
+
+                            # 40 palabras por minuto es media lengua: por debajo
+                            # de eso no hay una charla, hay ruido de sala.
+                            #
+                            # QUE NO RESUELVE, medido sobre los cuatro huecos
+                            # grandes que habia en disco: separa el aire muerto
+                            # (Chile, 19 p/min -> calla, bien) del material
+                            # perdido (D04, 127 p/min -> avisa, bien), pero NO
+                            # separa la logistica, que se habla a ritmo normal
+                            # -- "hagan espacio, en equipos de dos, ¿ya estan?"
+                            # da 103 p/min y avisa igual. Ese caso cuesta una
+                            # mirada. Distinguirlo pediria leer el contenido, y
+                            # eso ya lo hace el modelo cuando descarta
+                            # logistica: un hueco ahi es el sistema funcionando.
+                            # Se prefiere avisar de mas en la duda que callar
+                            # sobre 28 minutos publicables.
+                            _ritmo = (_pal / (_hueco / 60)) if _hueco > 0 and _pal > 0 else 0
+                            if _hueco > 15 * 60 and (_pal < 0 or _ritmo >= 40):
                                 print(
                                     f"[analisis] hay {_hueco / 60:.0f} minutos seguidos "
-                                    "sin ningun clip. Puede ser que ahi no hubiera nada "
-                                    "que sacar, o que se haya pasado por alto: vale la "
-                                    "pena mirarlo.",
+                                    f"sin ningun clip ({_hueco_ini / 60:.0f}-"
+                                    f"{_hueco_fin / 60:.0f} min) y ahi se hablaba: "
+                                    f"{_pal} palabras, {_ritmo:.0f} por minuto. NO era "
+                                    f"que faltara material. "
+                                    f"Vale la pena volver a analizar ese tramo.",
+                                    file=sys.stderr, flush=True,
+                                )
+                            elif _hueco > 15 * 60:
+                                print(
+                                    f"[analisis] {_hueco / 60:.0f} minutos seguidos sin "
+                                    f"clips ({_hueco_ini / 60:.0f}-{_hueco_fin / 60:.0f} "
+                                    f"min), pero ahi casi no se habla ({_pal} palabras, "
+                                    f"{_ritmo:.0f} por minuto): es sala vacia o logistica, "
+                                    f"no material perdido.",
                                     file=sys.stderr, flush=True,
                                 )
             except Exception:
