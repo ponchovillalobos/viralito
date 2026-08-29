@@ -2216,6 +2216,32 @@ def main() -> int:
             for si, style_id in enumerate(styles, start=1)
         ]
         render_total = len(tasks)
+
+        # ¿ESTÁ ARRIBA EL SERVIDOR? Se pregunta ANTES, no 23 veces después.
+        #
+        # El render descarga cada clip por HTTP desde el servidor de Next. Con el
+        # servidor caído, cada tarea falla con un 404 al primer fotograma. Pasó:
+        # 23 clips, 168 segundos, 23 fallos idénticos, y el resumen decía "ok".
+        # Preguntarlo una vez cuesta un segundo y dice exactamente qué hacer.
+        _api = os.environ.get("VIRAL_API_HOST") or "http://localhost:3000"
+        try:
+            import urllib.error
+            import urllib.request
+            urllib.request.urlopen(f"{_api}/api/projects", timeout=8).read(1)
+        except Exception as _e:  # noqa: BLE001
+            print(
+                f"[render] El servidor de Next no responde en {_api} ({_e}).",
+                file=sys.stderr, flush=True,
+            )
+            print(
+                "[render] Sin él, el render no puede descargar los clips y los "
+                f"{render_total} fallarían con 404. Arrancalo con `npm run dev` "
+                "en frontend/ y volvé a correr esto: los clips ya extraídos se "
+                "reaprovechan, no se pierde el trabajo hecho.",
+                file=sys.stderr, flush=True,
+            )
+            raise SystemExit(1)
+
         workers = min(_render_workers(), max(1, len(tasks)))
         # ── OLA 3 — POOL de render-servers (bundle UNA vez, reusado) ──────────
         # Arrancamos un pool de N=workers instancias del render-server.mjs ANTES del
@@ -2355,8 +2381,38 @@ def main() -> int:
         "renders_pedidos": render_total,
         "renders_fallidos": max(0, render_total - render_done),
     })
+    # CERO RENDERS NO ES "ok".
+    #
+    # Esto decía `"ok": True` sin mirar nada y devolvía 0. Con el servidor de
+    # Next caído, los 23 clips fallaron con 404 y el pipeline informó
+    # `{"ok": true, "rendered": 0, "render_tasks": 23}` y salió con éxito. El
+    # lote que lo llamaba lo dio por bueno y siguió al video siguiente — habría
+    # recorrido los once produciendo nada, diciendo que todo bien.
+    #
+    # Que falten ALGUNOS es otra cosa: un clip que falla no invalida los otros
+    # veintidós. Sólo el cero absoluto es un fracaso del paso.
+    todo_fallo = render_total > 0 and render_done == 0
+    if todo_fallo:
+        print(
+            f"[pipeline] NINGUNO de los {render_total} clips se renderizó.",
+            file=sys.stderr, flush=True,
+        )
+        print(
+            "[pipeline] La causa más común es que el servidor de Next no esté "
+            "arriba: el render descarga cada clip por HTTP y sin servidor "
+            "responde 404. Arrancalo con `npm run dev` en frontend/ y volvé a "
+            "correr esto — los clips ya extraídos se reaprovechan.",
+            file=sys.stderr, flush=True,
+        )
+    elif render_total and render_done < render_total:
+        print(
+            f"[pipeline] {render_total - render_done} de {render_total} clips "
+            "no se renderizaron; el resto sí.",
+            file=sys.stderr, flush=True,
+        )
+
     print(json.dumps({
-        "ok": True,
+        "ok": not todo_fallo,
         "video_id": args.video_id,
         # En modo clips rápidos no se genera clean (se corta del raw).
         "clean": str(clean_path) if clean_path else None,
@@ -2367,7 +2423,7 @@ def main() -> int:
         "render_failed": max(0, render_total - render_done),
         "elapsed_min": round(elapsed / 60, 2),
     }))
-    return 0
+    return 1 if todo_fallo else 0
 
 
 if __name__ == "__main__":
