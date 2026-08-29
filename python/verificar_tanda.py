@@ -165,6 +165,29 @@ def main() -> int:
                     problemas.append(
                         f"{g.stem}: cifra sin respaldo {sorted(fuera)} en {tit[:38]!r}")
 
+        # ¿EL VIDEO REFLEJA LO QUE DICEN LOS GRAFICOS?
+        #
+        # Este verificador lee los JSON de graficos, pero lo que se publica es el
+        # MP4. Si los graficos se regeneraron DESPUES del render, el JSON esta
+        # limpio y el video sigue con el texto viejo — y esto reportaba "sin
+        # problemas" mirando el archivo equivocado.
+        #
+        # Paso tal cual: se corrigieron 6 subtitulos repetidos en los graficos de
+        # un video ya renderizado, el verificador dio limpio, y los 23 MP4
+        # seguian mostrando el texto de antes. Verificar la ENTRADA y creer que
+        # se verifico la SALIDA es la version mas facil de este error.
+        if renders:
+            gs = list(LF.glob(f"graphics/{vid}_c*.json"))
+            if gs:
+                g_max = max(f.stat().st_mtime for f in gs)
+                viejos = [f for f in renders if f.stat().st_mtime < g_max]
+                if viejos:
+                    problemas.append(
+                        f"{vid}: {len(viejos)} de {len(renders)} renders son "
+                        "ANTERIORES a sus graficos — el video no muestra lo que "
+                        "dice el JSON. Hay que volver a renderizar."
+                    )
+
         tot_repes += repes
         tot_cifras += cifras
         estado = "todos" if renders and not malos else (
