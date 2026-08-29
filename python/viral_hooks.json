@@ -27,7 +27,10 @@
       "template": "Lo que nadie te cuenta sobre <X>",
       "example_real": "Lo que nadie te cuenta sobre vender por afiliados",
       "mechanism": "curiosidad + exclusividad",
-      "best_for": ["confesion", "insight_contraintuitivo"],
+      "best_for": [
+        "confesion",
+        "insight_contraintuitivo"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -35,23 +38,30 @@
       "template": "¿Sabías que estás haciendo esto mal?",
       "example_real": "¿Sabías que estás haciendo mal tus anuncios?",
       "mechanism": "alerta + autoreflexion",
-      "best_for": ["callout", "diagnostico"],
+      "best_for": [
+        "callout",
+        "diagnostico"
+      ],
       "source": "whyadsmedia"
     },
     {
       "id": "if_you_have_problem",
-      "template": "Si tenés <problema>, mirá esto",
-      "example_real": "Si tenés ansiedad al vender, mirá esto",
+      "template": "Si tienes <problema>, mira esto",
+      "example_real": "Si tienes ansiedad al vender, mira esto",
       "mechanism": "identificacion_inmediata",
-      "best_for": ["callout_directo"],
+      "best_for": [
+        "callout_directo"
+      ],
       "source": "whyadsmedia"
     },
     {
       "id": "five_seconds_to_decide",
-      "template": "Tenés 5 segundos para decidir...",
-      "example_real": "Tenés 5 segundos: ¿opción A u opción B?",
+      "template": "Tienes 5 segundos para decidir...",
+      "example_real": "Tienes 5 segundos: ¿opción A u opción B?",
       "mechanism": "urgencia + implicacion",
-      "best_for": ["pattern_interrupt"],
+      "best_for": [
+        "pattern_interrupt"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -59,7 +69,9 @@
       "template": "Así fue cómo conseguí <logro> en <X> días",
       "example_real": "Así conseguí 10k seguidores en 30 días",
       "mechanism": "aspiracion + confianza + cifra_dura",
-      "best_for": ["confesion_cifra"],
+      "best_for": [
+        "confesion_cifra"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -67,7 +79,9 @@
       "template": "Probé <X> durante una semana",
       "example_real": "Probé el método Pomodoro 7 días",
       "mechanism": "curiosidad + humanidad",
-      "best_for": ["experimento"],
+      "best_for": [
+        "experimento"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -75,7 +89,9 @@
       "template": "<N> trucos que ojalá hubiese sabido antes",
       "example_real": "3 trucos sobre TikTok que ojalá supiera",
       "mechanism": "empatia + valor_inmediato",
-      "best_for": ["lista_valor"],
+      "best_for": [
+        "lista_valor"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -83,7 +99,10 @@
       "template": "No cometas este error si usás <X>",
       "example_real": "No cometas este error en TikTok Ads",
       "mechanism": "prevencion + confianza",
-      "best_for": ["callout_directo", "warning"],
+      "best_for": [
+        "callout_directo",
+        "warning"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -91,15 +110,20 @@
       "template": "Esto es lo que está matando tu <X>",
       "example_real": "Esto mata tu engagement en TikTok",
       "mechanism": "alarma + diagnostico",
-      "best_for": ["pattern_interrupt", "diagnostico"],
+      "best_for": [
+        "pattern_interrupt",
+        "diagnostico"
+      ],
       "source": "whyadsmedia"
     },
     {
       "id": "do_this_if_you_want",
-      "template": "Hacé esto si querés <beneficio>",
-      "example_real": "Hacé esto si querés más conversiones",
+      "template": "Hacé esto si quieres <beneficio>",
+      "example_real": "Hacé esto si quieres más conversiones",
       "mechanism": "accion_clara + esperanza",
-      "best_for": ["how_to"],
+      "best_for": [
+        "how_to"
+      ],
       "source": "whyadsmedia"
     },
     {
@@ -107,7 +131,9 @@
       "template": "Nadie te ha contado esto…",
       "example_real": "Nadie te ha contado esto sobre cerrar ventas",
       "mechanism": "curiosidad + exclusividad",
-      "best_for": ["confesion"],
+      "best_for": [
+        "confesion"
+      ],
       "source": "growfik"
     },
     {
@@ -115,7 +141,9 @@
       "template": "Lo que nadie quiere que sepas…",
       "example_real": "Lo que nadie quiere que sepas sobre ganar con IA",
       "mechanism": "conspiracion + insider",
-      "best_for": ["contraintuitivo"],
+      "best_for": [
+        "contraintuitivo"
+      ],
       "source": "growfik"
     },
     {
@@ -123,7 +151,9 @@
       "template": "Si ves esto, es una señal…",
       "example_real": "Si ves esto, es una señal de que vas tarde",
       "mechanism": "destino + algoritmo + identificacion",
-      "best_for": ["pattern_interrupt"],
+      "best_for": [
+        "pattern_interrupt"
+      ],
       "source": "growfik"
     },
     {
@@ -131,7 +161,9 @@
       "template": "No lo vas a creer pero…",
       "example_real": "No lo vas a creer pero cobré 5x más con esto",
       "mechanism": "sorpresa + cifra",
-      "best_for": ["confesion_cifra"],
+      "best_for": [
+        "confesion_cifra"
+      ],
       "source": "growfik"
     },
     {
@@ -139,7 +171,9 @@
       "template": "Así fue como lo logré…",
       "example_real": "Así fue como pasé de 0 a 30k seguidores",
       "mechanism": "storytelling + aspiracion",
-      "best_for": ["confesion"],
+      "best_for": [
+        "confesion"
+      ],
       "source": "growfik"
     },
     {
@@ -147,7 +181,9 @@
       "template": "Cómo conseguir <tema> sin gastar un peso",
       "example_real": "Cómo conseguir clientes sin gastar un peso en ads",
       "mechanism": "ahorro + esperanza",
-      "best_for": ["how_to"],
+      "best_for": [
+        "how_to"
+      ],
       "source": "growfik"
     },
     {
@@ -155,7 +191,9 @@
       "template": "Ya dejá de hacerlo",
       "example_real": "Ya dejá de mandar mensajes a los leads así",
       "mechanism": "comando_directo + autoridad",
-      "best_for": ["callout_directo"],
+      "best_for": [
+        "callout_directo"
+      ],
       "source": "growfik"
     },
     {
@@ -163,7 +201,9 @@
       "template": "Quedate hasta el final para saber…",
       "example_real": "Quedate hasta el final para saber el método exacto",
       "mechanism": "loop + retencion",
-      "best_for": ["retention_loop"],
+      "best_for": [
+        "retention_loop"
+      ],
       "source": "growfik"
     }
   ],
