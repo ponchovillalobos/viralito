@@ -22,6 +22,7 @@ import json
 import os
 import random
 import re
+import unicodedata
 import sys
 import time
 import urllib.request
@@ -1673,6 +1674,49 @@ def _inventa_numeros(propuesto: str, fuente: str) -> bool:
     return not nums.issubset(_numeros_de(fuente))
 
 
+def _repite_el_titulo(subtitulo: str, titulo: str) -> bool:
+    """¿El subtitulo no agrega nada que el titular no diga ya?
+
+    Se comparan las palabras con contenido (>3 letras, sin las vacias). Si casi
+    todas las del subtitulo ya estan en el titulo, son la misma frase dos veces
+    y la segunda linea esta de relleno.
+
+    El umbral es 0.7 y no 1.0 a proposito: "Correo de seguimiento con
+    pendientes" / "Enviar un correo de seguimiento con los pendientes de
+    caracter" no comparten TODAS las palabras —la segunda agrega "enviar" y
+    "caracter"— y aun asi es la misma frase estirada.
+
+    Un subtitulo corto no se toca: con dos o tres palabras el solape es ruido
+    estadistico, no repeticion.
+    """
+    voc_sub = _palabras_con_contenido(subtitulo)
+    if len(voc_sub) < 3:
+        return False
+    voc_tit = _palabras_con_contenido(titulo)
+    if not voc_tit:
+        return False
+
+    # SE MIRAN LAS DOS DIRECCIONES.
+    #
+    # Mirar solo cuanto del subtitulo esta en el titulo dejaba pasar el caso
+    # real que motivo esto: "Correo de seguimiento con pendientes" seguido de
+    # "Enviar un correo de seguimiento con los pendientes de caracter". El
+    # subtitulo agrega dos palabras (enviar, caracter) y baja a 0.6 — pero el
+    # TITULAR entero esta dentro del subtitulo, que es igual de redundante.
+    comun = len(voc_sub & voc_tit)
+    return max(comun / len(voc_sub), comun / len(voc_tit)) >= 0.7
+
+
+def _palabras_con_contenido(texto: str) -> set[str]:
+    """Palabras que cargan significado: mas de 3 letras y sin las de relleno."""
+    vacias = {"para", "como", "pero", "esto", "esta", "este", "esos", "esas",
+              "unos", "unas", "sobre", "entre", "cuando", "porque", "tambien"}
+    limpio = unicodedata.normalize("NFKD", (texto or "").lower())
+    limpio = "".join(ch for ch in limpio if not unicodedata.combining(ch))
+    limpio = re.sub(r"[^a-z0-9 ]+", " ", limpio)
+    return {w for w in limpio.split() if len(w) > 3 and w not in vacias}
+
+
 def _muy_pegada(texto: str, fuente: str) -> bool:
     """¿El texto es basicamente la frase del audio, palabra por palabra?
 
@@ -1912,6 +1956,23 @@ def _enrich_cards_llm(cards: list[dict], words: list[dict]) -> list[dict]:
             c["title"], c["subtitle"], c["kicker"] = review_screen_texts(
                 [c.get("title", ""), c.get("subtitle", ""), c.get("kicker", "")]
             )
+
+            # EL SUBTÍTULO NO PUEDE SER EL TITULAR OTRA VEZ.
+            #
+            # Visto en pantalla, en el primer render de la tanda:
+            #   "¿Qué te sugiere como objetivo SMART?" / "Sugiere como objetivo SMART."
+            #   "Correo de seguimiento con pendientes" / "Enviar un correo de
+            #    seguimiento con los pendientes de carácter."
+            #
+            # Dos líneas para decir una cosa. El prompt ya pide dejarlo vacío si
+            # no agrega nada ("vacío es mejor que relleno") y el modelo igual lo
+            # rellena, porque un campo vacío se siente como trabajo sin hacer.
+            #
+            # El chequeo que ya existía compara tarjetas ENTRE SÍ y por eso decía
+            # "SIN texto repetido": la repetición estaba DENTRO de una tarjeta,
+            # donde nadie miraba.
+            if _repite_el_titulo(c.get("subtitle", ""), c.get("title", "")):
+                c["subtitle"] = ""
             enriched[i] = c
         enriched = _segunda_vuelta_de_tuerca(
             enriched, cards, idx_send, _CICLO_DE_REGISTROS, _fuente_de_verdad
