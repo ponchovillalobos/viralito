@@ -242,10 +242,24 @@ Ver [STYLES.md](./STYLES.md) para detalles de cada uno.
 
 ## Traer un video de YouTube
 
-Los dos asistentes tienen un campo para pegar el enlace: `/editor/wizard` (un
-video corto) y `/largos` (un curso del que salen varios clips). El archivo cae en
-la **misma carpeta** que si lo subieras a mano, así que desde ahí el pipeline es
-idéntico — no hay un "camino de YouTube" aparte que pueda comportarse distinto.
+Los dos asistentes aceptan enlaces: `/editor/wizard` (un video corto) y
+`/largos` (un curso del que salen varios clips). El archivo cae en la **misma
+carpeta** que si lo subieras a mano, así que desde ahí el pipeline es idéntico —
+no hay un "camino de YouTube" aparte que pueda comportarse distinto.
+
+### Varios de una vez
+
+En `/largos` podés pegar **muchos enlaces juntos**, como vengan: uno por línea,
+separados por comas, o con texto suelto entre medias. Se bajan **de a uno** y
+podés cerrar la pantalla: la cola sigue sola.
+
+De a uno a propósito, no todos a la vez. Bajar en paralelo pelea por el disco y
+la red con lo que se esté renderizando, y en este proyecto ya está medido que
+dos cosas pesadas a la vez tardan más que una detrás de otra.
+
+No se encola dos veces el mismo enlace —ni dentro de la misma pegada ni contra
+lo que ya está esperando—, porque bajar dos horas de video por duplicado no lo
+arregla nadie después.
 
 Por consola:
 
@@ -253,7 +267,26 @@ Por consola:
 python descargar_de_url.py <url> --flujo corto           # → raw/
 python descargar_de_url.py <url> --flujo largo           # → long_form/raw/
 python descargar_de_url.py <url> --flujo largo --id D21_curso_ventas
+python descargar_de_url.py <url> --flujo largo --exigir-calidad
 ```
+
+### Si llega en mala calidad
+
+Pedir "hasta 1080p" **no garantiza 1080p**. Cuando YouTube limita a quien
+descarga, sirve formatos degradados y yt-dlp baja el que haya, contento. Pasó:
+de una tanda de once videos, nueve llegaron en 640×360 — 224 MB para 110
+minutos. El archivo existe, dura lo que debe y abre bien; sólo se ve mal, y no
+te enterás hasta ver el render.
+
+Por eso el script **mide** la resolución del archivo y la reporta (`ancho`,
+`alto`, `calidad_degradada`). Por debajo de 720p avisa. Con `--exigir-calidad`
+además falla y **borra** el archivo, para no dejarte un video malo pareciendo
+bueno.
+
+Si te pasa: **esperá un rato y volvé a bajarlo**. La degradación de YouTube pasa
+sola. Lo que NO conviene es forzar un cliente concreto (`player_client`): yt-dlp
+ya prueba varios y se queda con el que más ofrece, y nombrarle uno a mano es
+justo lo que provocó aquellos nueve videos en 360p.
 
 Sin `--id`, el nombre sale del título del video convertido a la convención
 `D##_slug`: *"Cómo VENDER más en 2026 | Estrategia #1"* → `D03_como_vender_mas_en_2026_estrategia_1`.
