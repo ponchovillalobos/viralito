@@ -57,6 +57,20 @@ AQUI = Path(__file__).resolve().parent
 # arreglo posible más adelante.
 ALTURA_MINIMA = 720
 
+# QUE SE PONE ENCIMA DEL VIDEO. Se escribe en castellano en el plan porque el
+# plan lo lee una persona, no un programa.
+#
+# NINGUNO incluye ilustraciones: los monitos quedaron fuera del editorial por
+# pedido explicito — se veian mal sobre una tipografia cuidada.
+MATERIAL = {
+    "gifs": ("editorial_broll", "giphy"),
+    "video": ("editorial_broll", "pexels_video"),
+    "fotos": ("editorial_broll", "pexels_photo"),
+    "mixto": ("editorial_broll", "giphy,pexels_photo"),
+    # Sin material de apoyo: solo el video, el texto y el tema.
+    "limpio": ("editorial_full", None),
+}
+
 
 def altura(mp4: Path) -> int:
     """Alto MEDIDO del archivo. 0 si no se pudo leer."""
@@ -88,11 +102,16 @@ def leer_plan(ruta: Path) -> list[tuple[str, str, str]]:
         if not linea or linea.startswith("#"):
             continue
         partes = linea.split(":")
-        if len(partes) != 3:
+        if len(partes) not in (3, 4):
             raise SystemExit(
-                f"{ruta}:{n}: se esperaba `id:tema:acento` y vino {linea!r}"
+                f"{ruta}:{n}: se esperaba `id:tema:acento` o "
+                f"`id:tema:acento:material` y vino {linea!r}"
             )
-        salida.append((partes[0].strip(), partes[1].strip(), partes[2].strip()))
+        # El cuarto campo es el MATERIAL DE APOYO: gifs, video, fotos.
+        # Sin el, el estilo decide como siempre.
+        material = partes[3].strip() if len(partes) == 4 else ""
+        salida.append((partes[0].strip(), partes[1].strip(),
+                       partes[2].strip(), material))
     return salida
 
 
@@ -116,8 +135,11 @@ def main() -> int:
         tanda += leer_plan(args.plan)
     for v in args.video:
         partes = v.split(":")
-        if len(partes) != 3:
-            raise SystemExit(f"--video espera `id:tema:acento`, vino {v!r}")
+        if len(partes) not in (3, 4):
+            raise SystemExit(
+                f"--video espera `id:tema:acento[:material]`, vino {v!r}")
+        if len(partes) == 3:
+            partes.append("")
         tanda.append(tuple(p.strip() for p in partes))  # type: ignore[arg-type]
 
     if not tanda:
@@ -136,7 +158,7 @@ def main() -> int:
     saltados: list[str] = []
     fallados: list[str] = []
 
-    for i, (vid, tema, acento) in enumerate(tanda, 1):
+    for i, (vid, tema, acento, material) in enumerate(tanda, 1):
         crudo = Path(LF_RAW) / f"{vid}.mp4"
         cabecera = f"[{i}/{len(tanda)}] {vid}"
 
@@ -157,15 +179,16 @@ def main() -> int:
         print(f"\n=== {cabecera} · {h}p · tema {tema} · acento {acento} ===",
               flush=True)
         t0 = time.time()
-        r = subprocess.run(
-            [sys.executable, str(AQUI / "long_form_pipeline.py"), vid,
-             "--render", "--graphics",
-             "--styles", args.estilo,
-             "--aspect-ratio", args.aspecto,
-             "--editorial-theme", tema,
-             "--accent-color", acento],
-            cwd=str(AQUI),
-        )
+        estilo, fuente = MATERIAL.get(material, (args.estilo, None))
+        cmd = [sys.executable, str(AQUI / "long_form_pipeline.py"), vid,
+               "--render", "--graphics",
+               "--styles", estilo,
+               "--aspect-ratio", args.aspecto,
+               "--editorial-theme", tema,
+               "--accent-color", acento]
+        if fuente:
+            cmd += ["--broll-source", fuente]
+        r = subprocess.run(cmd, cwd=str(AQUI))
         minutos = round((time.time() - t0) / 60, 1)
 
         if r.returncode == 0:
