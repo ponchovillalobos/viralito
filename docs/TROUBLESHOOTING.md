@@ -406,6 +406,48 @@ enorme (HEVC de 2h+, decenas de GB) puede reventar la memoria igual. Para esos u
 **«Importar por ruta»** en el wizard de largos (o `/api/long_form/import-path`): copia/
 hardlink por filesystem, sin pasar por HTTP ni RAM, **sin límite de tamaño**.
 
+## Subir la versión de Remotion
+
+Todos los paquetes `remotion` y `@remotion/*` están pineados a la **misma
+versión exacta**, sin `^`. Mezclarlas ya rompió renders (4.0.462 con
+`motion-blur`/`noise`/`transitions` de 4.0.465). La regla es cambiarlas **todas
+juntas** y verificar con render + PSNR contra la anterior.
+
+Para lo segundo hay herramienta: `python/probar_version_de_remotion.py`.
+
+```powershell
+# 1) Un arbol de prueba, aparte, para no tocar node_modules mientras algo renderiza
+robocopy remotion D:\viral-data\_prueba_remotion_NNN /E /XD node_modules
+cd D:\viral-data\_prueba_remotion_NNN
+# fijar TODOS los paquetes remotion a la version nueva, y luego:
+npm install
+
+# 2) Un props de un clip real (build-clip-props.mjs lo borra al terminar el render,
+#    asi que hay que generarlo a proposito)
+cd <repo>\remotion
+node build-clip-props.mjs <clip_id> <estilo> props_prueba.json
+
+# 3) La medicion
+cd ..\python
+.\venv\Scripts\python.exe probar_version_de_remotion.py `
+    --props ..\remotion\props_prueba.json `
+    --arbol-nuevo D:\viral-data\_prueba_remotion_NNN
+```
+
+**Cómo se lee.** El render de Remotion **no es determinista**: dos corridas de
+la *misma* versión sobre el mismo clip no dan archivos idénticos. Por eso un
+PSNR entre versiones no significa nada por sí solo — un 40 dB se puede leer como
+"casi igual" o como "cambió bastante", según lo que uno quiera creer.
+
+La herramienta renderiza **tres** veces: dos con la versión actual (el control) y
+una con la nueva. Si la diferencia que introduce la versión nueva es menor que la
+que el motor introduce contra sí mismo, la versión nueva no cambia el resultado
+de forma observable. Devuelve 0 si es apto y 2 si no.
+
+Es el mismo criterio con el que se decidió encender la aceleración por placa
+(`probar_paridad_gl.py`), donde el peor fotograma con GPU —31.86 dB— quedaba
+dentro del piso de ruido del control software↔software, que era 33.19 dB.
+
 ## Reportar bugs
 
 Si encontrás un error nuevo:
