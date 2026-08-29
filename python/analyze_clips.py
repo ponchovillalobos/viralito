@@ -918,12 +918,44 @@ def main() -> int:
                     c["viralityScore"] = r.get("score", 0) if isinstance(r, dict) else r
             antes = len(valid_clips)
             valid_clips.sort(key=lambda c: float(c.get("viralityScore") or 0), reverse=True)
+            descartados = valid_clips[args.max_clips:]
             valid_clips = valid_clips[: args.max_clips]
             print(
                 f"[recorte] {antes} candidatos → {len(valid_clips)} por PUNTUACION "
                 f"(antes se recortaba por orden cronologico y se perdia el final del video)",
                 file=sys.stderr,
             )
+
+            # QUÉ SE TIRÓ, Y DE DÓNDE. Antes se perdía sin registro.
+            #
+            # El recorte se queda con lo mejor y es ciego al tiempo: si los
+            # clips de más puntaje se agrupan, tramos enteros del video
+            # desaparecen. En una tanda de once videos pasó en cuatro, con
+            # huecos de 15 a 28 minutos donde había alguien hablando a 110-128
+            # palabras por minuto. No eran silencios.
+            #
+            # Saber si en un hueco había candidatos es lo que permite decidir si
+            # sobra material o si la selección se lo comió — y esa información
+            # se estaba tirando a la basura. Ahora los descartados viajan en el
+            # proposals, con su puntaje y su momento.
+            #
+            # NO se cambia el criterio de selección. Probé un reparto que
+            # sacrificaba puntaje por cobertura y, medido, en un video EMPEORÓ
+            # el hueco (28.4 -> 36.6 min): tapaba uno abriendo otro. Sin los
+            # descartados guardados no había forma de validarlo, y un arreglo
+            # que no se puede medir no se sube.
+            if descartados:
+                por_momento = sorted(descartados, key=lambda c: float(c.get("start", 0)))
+                print(f"[recorte] {len(descartados)} candidatos descartados, "
+                      "guardados en el proposals para poder revisarlos:",
+                      file=sys.stderr)
+                for c in por_momento[:5]:
+                    print(f"    min {float(c.get('start', 0)) / 60:5.1f} · "
+                          f"{float(c.get('viralityScore') or 0):3.0f} pts · "
+                          f"{str(c.get('slug', ''))[:44]}", file=sys.stderr)
+                if len(por_momento) > 5:
+                    print(f"    ... y {len(por_momento) - 5} más",
+                          file=sys.stderr)
         except Exception as exc:  # noqa: BLE001
             # Si el scorer no está disponible, se cae al comportamiento anterior:
             # peor reparto, pero nunca dejar al pipeline sin clips.
@@ -933,6 +965,14 @@ def main() -> int:
             valid_clips = valid_clips[: args.max_clips]
 
     valid_clips.sort(key=lambda c: c["start"])
+
+    # Se define aunque no haya habido recorte: el resumen la escribe siempre,
+    # y una variable que solo existe en una rama es un NameError esperando.
+    descartados_registrados = [
+        {k: c.get(k) for k in ("start", "end", "slug", "hook", "viralityScore")}
+        for c in sorted(locals().get("descartados") or [],
+                        key=lambda c: float(c.get("start", 0)))
+    ]
 
     # Fallback heurístico: si después de todos los intentos no hay clips válidos,
     # generar clips uniformes de ~45s para que el pipeline igual produzca algo.
@@ -973,6 +1013,13 @@ def main() -> int:
         "transcript_duration": duration,
         "fallback_heuristic": used_fallback,
         "clips": valid_clips,
+        # Los que NO entraron, con su puntaje y su momento. Sirven para
+        # contestar la única pregunta que importa de un hueco largo: ¿ahí no
+        # había nada, o había y el recorte por puntaje se lo comió?
+        #
+        # Viajan aparte de `clips` a propósito: nada aguas abajo los toca, así
+        # que no cambian ni un fotograma del resultado. Son para mirar.
+        "descartados": descartados_registrados,
     }
 
     out_path = LF_PROPOSALS / f"{video_id}.json"
