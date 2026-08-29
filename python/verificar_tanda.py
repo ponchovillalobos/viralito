@@ -73,6 +73,29 @@ def sonda_resolucion(mp4: Path) -> str:
         return ""
 
 
+def _clips_de_las_propuestas(vid: str) -> set[str]:
+    """Los `cNN_slug` que el analisis vigente eligio para este video.
+
+    OJO CON EL INDICE: los clips de `proposals/*.json` NO traen campo `index`.
+    El numero sale de su POSICION en la lista, 1-based. Leerlo con
+    `c.get("index", 0)` devuelve 0 para todos y hace que ningun render coincida
+    -- lo que reporta los 239 clips del disco como huerfanos y ninguno como
+    bueno. Paso exactamente asi.
+    """
+    p = LF / "proposals" / f"{vid}.json"
+    if not p.exists():
+        return set()
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return set()
+    return {
+        f"c{i:02d}_{c.get('slug', '')}"
+        for i, c in enumerate(d.get("clips") or [], 1)
+        if c.get("slug")
+    }
+
+
 def numeros(t: str) -> set[str]:
     return {m.group(0).replace(".", "").replace(",", "")
             for m in re.finditer(r"\d[\d.,]*", t or "")}
@@ -125,12 +148,36 @@ def main() -> int:
     # Los que salieron en la orientacion contraria a la esperada. No son un
     # error -- hay videos verticales a proposito -- pero conviene decirlo.
     verticales: list[str] = []
+    # Renders que ya no corresponden a ninguna propuesta: sobras de un
+    # analisis anterior. No son un error del video, son basura acumulada.
+    huerfanos: list[str] = []
 
     for vid, tema, _acento in tanda:
         # Los `_fxfused.mp4` son intermedios que el pipeline crea y borra solo.
         renders = sorted(
             f for f in LF.glob(f"renders/{vid}_c*.mp4") if "_fxfused" not in f.name
         )
+
+        # LOS QUE SOBRARON DE UN ANALISIS ANTERIOR.
+        #
+        # Si un video se vuelve a analizar, la seleccion de clips cambia y los
+        # MP4 de la seleccion vieja SIGUEN EN DISCO. No estan rotos ni
+        # desactualizados: no corresponden a nada. Son los "videos dobles" que
+        # se ven en la interfaz, el mismo material dos o tres veces.
+        #
+        # Importa separarlos porque contaminan todo lo demas: uno de ellos
+        # aparecia como "render anterior a su grafico", que mandaba a
+        # re-renderizar un clip que ya no existe en las propuestas.
+        vivos = _clips_de_las_propuestas(vid)
+        huerfanos_aqui: list[Path] = []
+        if vivos:
+            for f in list(renders):
+                resto = f.stem[len(vid) + 1:]
+                if not any(resto.startswith(v) for v in vivos):
+                    huerfanos_aqui.append(f)
+            renders = [f for f in renders if f not in huerfanos_aqui]
+            huerfanos.extend(f.name for f in huerfanos_aqui)
+
         tot_clips += len(renders)
 
         # LA ORIENTACION LA DECIDE EL VIDEO, NO EL VERIFICADOR.
@@ -162,7 +209,13 @@ def main() -> int:
                 f"{f.name}: {r or 'ilegible'}, se esperaba {esperada}")
 
         repes = cifras = 0
+        # Los graficos huerfanos tambien sobran. Un video re-analizado deja los
+        # JSON de la seleccion vieja en disco, y revisarlos reporta subtitulos
+        # repetidos y cifras sin respaldo de tarjetas que NO estan en ningun
+        # video publicado. Cuatro de esos aparecian como problemas a resolver.
         for g in sorted(LF.glob(f"graphics/{vid}_c*.json")):
+            if vivos and not any(g.stem[len(vid) + 1:].startswith(v) for v in vivos):
+                continue
             t = LF / "transcripts" / g.name
             dicho = ""
             if t.exists():
@@ -249,6 +302,17 @@ def main() -> int:
             print(f"    {n}")
         if len(verticales) > 4:
             print(f"    ... y {len(verticales) - 4} más")
+        print()
+
+    if huerfanos:
+        print(f"  {len(huerfanos)} render(s) HUERFANOS: no corresponden a ningun "
+              f"clip de las propuestas actuales. Quedaron de un analisis "
+              f"anterior, y son los que se ven repetidos en la interfaz.")
+        for n in sorted(huerfanos)[:6]:
+            print(f"    {n}")
+        if len(huerfanos) > 6:
+            print(f"    ... y {len(huerfanos) - 6} mas")
+        print("    No hace falta re-renderizarlos: hay que apartarlos.")
         print()
 
     if problemas:
