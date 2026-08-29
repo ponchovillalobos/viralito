@@ -146,6 +146,31 @@ def servidor_vivo(api: str) -> bool:
         return False
 
 
+def ollama_vivo() -> bool:
+    """¿Responde el modelo local? Se pregunta ANTES, no después de perder horas.
+
+    Sin Ollama, `generate_graphics` no se cae: sigue en modo heurístico, avisa
+    por stderr, y devuelve tarjetas sin reescribir. El pipeline termina, el
+    resumen dice OK y los videos salen. Peores, pero salen.
+
+    MEDIDO: cinco videos de una tanda se hicieron con Ollama caído y tienen
+    entre 28 % y 41 % de tarjetas con subtítulo, contra 60-80 % de los que se
+    hicieron con Ollama arriba. La mitad del texto de apoyo, sin un solo fallo
+    que lo delatara — el aviso existía y moría en un log que nadie lee mientras
+    el resumen final decía OK cinco veces.
+
+    Es el mismo control que ya se hace con el servidor de Next, por el mismo
+    motivo: preguntar una vez cuesta un segundo, y enterarse después cuesta la
+    tanda entera.
+    """
+    url = os.environ.get("OLLAMA_URL") or "http://localhost:11434"
+    try:
+        urllib.request.urlopen(f"{url}/api/tags", timeout=10).read(1)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def leer_plan(ruta: Path) -> list[tuple[str, str, str]]:
     salida: list[tuple[str, str, str]] = []
     for n, linea in enumerate(ruta.read_text(encoding="utf-8").splitlines(), 1):
@@ -176,6 +201,9 @@ def main() -> int:
     ap.add_argument("--estilo", default="editorial_full",
                     help="estilo visual para toda la tanda (default: editorial_full)")
     ap.add_argument("--aspecto", default="16:9", choices=["9:16", "16:9"])
+    ap.add_argument("--sin-ollama", action="store_true",
+                    help="edita igual con el modelo local caido. Las tarjetas "
+                         "salen sin reescribir: medido, la mitad de subtitulos")
     ap.add_argument("--seguir-si-degradado", action="store_true",
                     help="edita igual los videos por debajo de "
                          f"{ALTURA_MINIMA}p, en vez de saltarlos")
@@ -204,6 +232,22 @@ def main() -> int:
               "frontend/ y volvé a lanzar esto.", file=sys.stderr)
         return 1
     print(f"[tanda] servidor OK en {api}")
+
+    if not args.sin_ollama and not ollama_vivo():
+        print("[tanda] El modelo local (Ollama) no responde.", file=sys.stderr)
+        print("[tanda] Sin el, las tarjetas salen SIN REESCRIBIR y nada falla: "
+              "los videos se hacen igual, peores, y el resumen dice OK. Medido "
+              "sobre una tanda real: 28-41% de tarjetas con subtitulo, contra "
+              "60-80% con Ollama arriba.", file=sys.stderr)
+        print("[tanda] Arrancalo con `ollama serve` y volve a lanzar esto, o "
+              "forza con --sin-ollama si de verdad lo queres asi.",
+              file=sys.stderr)
+        return 1
+    if args.sin_ollama:
+        print("[tanda] --sin-ollama: las tarjetas iran sin reescribir",
+              flush=True)
+    else:
+        print("[tanda] modelo local OK")
 
     hechos: list[str] = []
     saltados: list[str] = []

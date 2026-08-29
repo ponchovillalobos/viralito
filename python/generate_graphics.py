@@ -2202,7 +2202,29 @@ def main() -> int:
     result = generate(tp, use_llm=not args.no_llm, illustrations=args.illustrations,
                       density=args.density, accent=args.accent)
     out = Path(args.out) if args.out else LF_GRAPHICS / f"{clip_id}.json"
-    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # NO SE REESCRIBE UN FICHERO QUE NO CAMBIO.
+    #
+    # Estos gráficos se regeneran en CADA corrida del pipeline (basta con que el
+    # estilo los use; no hace falta pasar `--graphics`). Escribir siempre movía
+    # la fecha del fichero aunque el contenido fuera idéntico — y desde que el
+    # SKIP del render compara su MP4 contra la fecha de su gráfico, eso volvía a
+    # marcar como desactualizado TODO en cada corrida. El SKIP dejaba de saltar
+    # nada y una re-corrida barata pasaba a ser un render completo.
+    #
+    # Tocar la fecha tiene que significar que algo cambió. Cuando cambia de
+    # verdad, el render SÍ hay que rehacerlo, y así el aviso vale.
+    nuevo = json.dumps(result, ensure_ascii=False, indent=2)
+    try:
+        igual = out.exists() and out.read_text(encoding="utf-8") == nuevo
+    except OSError:
+        igual = False
+    if igual:
+        print(f"[graphics] {out.name}: sin cambios, no se reescribe "
+              f"(así el render que ya existe sigue estando al día)",
+              file=sys.stderr)
+    else:
+        out.write_text(nuevo, encoding="utf-8")
     print(json.dumps({
         "ok": True, "out": str(out),
         "dataViz": len(result["dataViz"]),
