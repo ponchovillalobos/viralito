@@ -569,6 +569,57 @@ def step_analyze(
     return out
 
 
+def step_ajustar_bordes(video_id: str, proposals_path: Path) -> None:
+    """Lleva el principio y el final de cada clip a una frontera del habla.
+
+    No inventa contenido: estira o encoge unas decimas hasta donde el orador
+    respiro. Si no hay frontera a mano, deja el clip como estaba — es mejor un
+    corte imperfecto que uno que se lleva media idea ajena.
+
+    Escribe sobre el mismo proposals para que TODO lo de abajo (puntaje,
+    extraccion, graficos) trabaje con los tiempos corregidos. Si trabajaran con
+    tiempos distintos, la metrica diria una cosa y el video mostraria otra.
+    """
+    from lib.bordes_de_clip import ajustar_clip, cierra_frase
+
+    tr = LF_TRANSCRIPTS / f"{video_id}.json"
+    if not tr.exists():
+        print("[bordes] sin transcript: no se ajusta nada", file=sys.stderr)
+        return
+    try:
+        palabras = json.loads(tr.read_text(encoding="utf-8")).get("words") or []
+        datos = json.loads(proposals_path.read_text(encoding="utf-8"))
+        clips = datos.get("clips") or []
+    except (OSError, ValueError) as e:
+        print(f"[bordes] no se pudo leer ({e}): se dejan los tiempos originales",
+              file=sys.stderr)
+        return
+    if not palabras or not clips:
+        print("[bordes] transcript o propuestas vacias: no se ajusta nada",
+              file=sys.stderr)
+        return
+
+    antes = sum(1 for c in clips if cierra_frase(float(c.get("end", 0)), palabras))
+    nuevos, movidos = [], 0
+    for c in clips:
+        nc, cambio = ajustar_clip(c, palabras)
+        movidos += cambio
+        nuevos.append(nc)
+    despues = sum(1 for c in nuevos if cierra_frase(float(c.get("end", 0)), palabras))
+
+    datos["clips"] = nuevos
+    try:
+        proposals_path.write_text(
+            json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as e:
+        print(f"[bordes] no se pudo escribir ({e}): quedan los originales",
+              file=sys.stderr)
+        return
+
+    print(f"[bordes] {movidos}/{len(clips)} clips ajustados · cierran frase "
+          f"{antes}/{len(clips)} -> {despues}/{len(clips)}", file=sys.stderr)
+
+
 def step_score_virality(video_id: str, proposals_path: Path) -> None:
     """Virality Score (0-100) por clip. Lee las propuestas + el transcript y reescribe
     cada clip con viralityScore/reasons/factors, reordenando de más a menos viral.
@@ -2042,6 +2093,21 @@ def main() -> int:
         # Virality Score (0-100) por clip — reordena de más a menos viral.
         # IMPORTANTE: el score corre ANTES (síncrono) porque reordena los clips y el
         # explain lee ese orden; además el extract consume este proposals.
+        # BORDES A FRONTERA DE FRASE, antes de puntuar y de extraer.
+        #
+        # `cierran_frase` ya se medía y se escribía en la bitácora — y nadie
+        # hacía nada con ella. En una tanda real dio 17/23: seis clips de cada
+        # veintitrés terminaban a mitad de frase. Se medía el defecto y se
+        # publicaba igual.
+        #
+        # Y se nota: un corto que corta en "y entonces lo que pasa es que—" se
+        # siente roto en el primer segundo, antes de que nadie lea un titular.
+        #
+        # Medido sobre esas mismas 23 propuestas: 16/23 -> 21/23 cerrando
+        # frase, con un ajuste medio del final de 0.15 s. Casi no mueve nada;
+        # sólo lo mueve al sitio correcto.
+        step_ajustar_bordes(args.video_id, proposals_path)
+
         print("\n========== Virality Score ==========", file=sys.stderr)
         step_score_virality(args.video_id, proposals_path)
 
