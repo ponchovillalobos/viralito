@@ -128,4 +128,116 @@ describe("barridos en los cortes a B-roll", () => {
     // Y tiene que haber paneles VACIOS: con dos opacos no barre, tapa.
     expect(capa, "faltan los paneles vacios que dejan ver el video").toContain("<Vacio />");
   });
+  it("el tipo de barrido VARIA: antes era `wipe` en todos los videos", () => {
+    // Lo que se veia: veinte clips seguidos con el mismo barrido, porque
+    // `applyBrollWipes` escribia `kind: "wipe"` fijo y solo alternaba la
+    // direccion. Un catalogo de nueve presentaciones del que se usaba una.
+    const conBroll = (): ResolvedProject =>
+      base({
+        bRoll: [
+          { start: 1, end: 5 },
+          { start: 10, end: 15 },
+          { start: 20, end: 25 },
+        ],
+      } as Partial<ResolvedProject>);
+
+    const tiposPorAcento = new Set<string>();
+    for (const acento of ["#c9a96a", "#635bff", "#e30613", "#4a7fb5", "#8e2a1e"]) {
+      const p = conBroll();
+      applyBrollWipes(p, acento);
+      tiposPorAcento.add(barridos(p).map((b) => b.kind).join(","));
+    }
+    expect(
+      tiposPorAcento.size,
+      "todos los videos reciben la misma secuencia de barridos: no hay variedad",
+    ).toBeGreaterThan(1);
+  });
+
+  it("la variedad es REPRODUCIBLE: el mismo video da el mismo barrido", () => {
+    // Sortear en vez de elegir haria que dos renders del mismo clip no se
+    // puedan comparar, y el proyecto compara renders con PSNR.
+    const hacer = () => {
+      const p = base({
+        bRoll: [
+          { start: 1, end: 5 },
+          { start: 10, end: 15 },
+          { start: 20, end: 25 },
+        ],
+      } as Partial<ResolvedProject>);
+      applyBrollWipes(p, "#c9a96a");
+      return barridos(p).map((b) => b.kind);
+    };
+    expect(hacer()).toEqual(hacer());
+    expect(hacer()).toEqual(hacer());
+  });
+
+  it("cada tipo emitido EXISTE en el composition", () => {
+    // El eslabon que se rompe solo: elegir un `kind` que el switch de la capa
+    // no contempla no falla, cae en el `default` y sale un `slide` silencioso.
+    const capa = readFileSync(
+      join(
+        process.cwd(),
+        "..",
+        "remotion",
+        "src",
+        "layers",
+        "pro-transition-series-layer.tsx",
+      ),
+      "utf8",
+    );
+    const enEsquema = capa.match(/\.enum\(\[([^\]]+)\]\)/);
+    expect(enEsquema, "no se encontro el enum de kinds en la capa").not.toBeNull();
+    const permitidos = new Set(
+      (enEsquema as RegExpMatchArray)[1]
+        .split(",")
+        .map((x) => x.trim().replace(/^"|"$/g, "")),
+    );
+
+    const emitidos = new Set<string>();
+    for (const acento of ["#c9a96a", "#635bff", "#e30613", "#4a7fb5", "#8e2a1e", "#0d7680"]) {
+      const p = base({
+        bRoll: [
+          { start: 1, end: 5 },
+          { start: 10, end: 15 },
+          { start: 20, end: 25 },
+        ],
+      } as Partial<ResolvedProject>);
+      applyBrollWipes(p, acento);
+      barridos(p).forEach((b) => emitidos.add(b.kind));
+    }
+
+    expect(emitidos.size, "no se emitio ningun barrido").toBeGreaterThan(0);
+    for (const k of emitidos) {
+      expect(
+        permitidos.has(k),
+        `se emite el barrido "${k}" y el composition no lo conoce: caeria en el ` +
+          `default y saldria un slide sin que nada falle`,
+      ).toBe(true);
+    }
+  });
+
+  it("los barridos con shader quedan fuera hasta poder medirlos", () => {
+    // `zoomBlur` y `zoomInOut` vienen en @remotion/transitions 4.0.462, pero
+    // dibujan con shaders sobre OffscreenCanvas y exigen Chrome con el flag
+    // experimental `canvas-draw-element`. Prometerlas sin comprobar que rinden
+    // en este render offline es exactamente lo que este proyecto no hace.
+    const fuente = readFileSync(
+      join(
+        process.cwd(),
+        "src",
+        "app",
+        "api",
+        "editor",
+        "auto-build",
+        "lib",
+        "fx-enrichments.ts",
+      ),
+      "utf8",
+    );
+    const i = fuente.indexOf("const TIPOS =");
+    expect(i, "no se encontro la lista de tipos").toBeGreaterThan(-1);
+    const lista = fuente.slice(i, fuente.indexOf("]", i));
+    expect(lista).not.toContain("zoomBlur");
+    expect(lista).not.toContain("zoomInOut");
+  });
 });

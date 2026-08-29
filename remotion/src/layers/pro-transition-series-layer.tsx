@@ -33,13 +33,22 @@ import { flip } from "@remotion/transitions/flip";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { fade } from "@remotion/transitions/fade";
 import { none } from "@remotion/transitions/none";
+// `iris` ya venia dentro de @remotion/transitions 4.0.462 y llevaba tiempo sin
+// usarse: el paquete trae NUEVE presentaciones y aqui habia seis. Es CSS puro
+// (un circulo que abre o cierra), asi que no pide nada del entorno de render.
+//
+// Las otras dos que faltan, `zoomBlur` y `zoomInOut`, quedan fuera A PROPOSITO:
+// dibujan con shaders sobre OffscreenCanvas y exigen Chrome con el flag
+// experimental `canvas-draw-element`. Sin medir que rindan en este render
+// offline, agregarlas seria prometer algo que no se comprobo.
+import { iris } from "@remotion/transitions/iris";
 
 export const proTransitionSeriesSchema = z.object({
   at: z.number(),
   /** Duración del barrido (frames). El overlay total dura un poco más para enmarcar. */
   durationFrames: z.number().default(14),
   kind: z
-    .enum(["slide", "wipe", "flip", "clockWipe", "fade", "none"])
+    .enum(["slide", "wipe", "flip", "clockWipe", "iris", "fade", "none"])
     .default("slide"),
   /** Dirección para slide/wipe/flip (las que la soportan). */
   direction: z
@@ -128,6 +137,8 @@ export const ProTransitionSeriesLayer: React.FC<{
               return flip({ direction: tr.direction }) as unknown as AnyPresentation;
             case "clockWipe":
               return clockWipe({ width, height }) as unknown as AnyPresentation;
+            case "iris":
+              return iris({ width, height }) as unknown as AnyPresentation;
             case "fade":
               return fade() as unknown as AnyPresentation;
             case "none":

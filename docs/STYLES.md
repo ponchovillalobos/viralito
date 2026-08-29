@@ -472,7 +472,8 @@ cinco eslabones del congelado). Los dos se comprobaron rompiéndolos a propósit
 ### Barridos de color en los cortes a B-roll (`proTransitionSeries`)
 
 Un panel del acento cruza el cuadro con las transiciones **oficiales** de
-Remotion (`@remotion/transitions`: `slide`, `wipe`, `flip`, `clockWipe`). Es el
+Remotion (`@remotion/transitions`: `slide`, `wipe`, `flip`, `clockWipe`, `iris`).
+Es el
 complemento de `proTransitions`, que son las caseras y ponen destellos en los
 beats: aquéllas parpadean, éstas barren.
 
@@ -486,6 +487,21 @@ alternada. Quince barridos no se ven editados, se ven nerviosos; y barrer para
 tapar medio segundo de archivo no compensa.
 
 **De qué color.** El acento, uno solo — la misma regla mono-color de siempre.
+
+**De qué tipo.** Uno de cuatro (`wipe`, `slide`, `iris`, `flip`), y los tres
+barridos de un video son distintos entre sí. Antes era `wipe` **siempre, en
+todos los videos**: sólo cambiaba la dirección, y veinte clips seguidos parecían
+el mismo clip. El paquete traía nueve presentaciones y se usaba una.
+
+La elección no se sortea, se deriva del color de acento — que es distinto por
+video. Así hay variedad entre videos y, a la vez, dos renders del mismo clip
+salen iguales, que es lo que permite compararlos con PSNR.
+
+Las otras dos que trae la versión pineada, `zoomBlur` y `zoomInOut`, quedan
+fuera **a propósito**: dibujan con shaders sobre `OffscreenCanvas` y piden
+Chrome con el flag experimental `canvas-draw-element`. Puede que rindan bien en
+este render offline; nadie lo midió, y hasta que alguien lo mida no entran. Hay
+un test que impide agregarlas por descuido.
 
 #### La capa abortaba el render y nadie lo sabía
 

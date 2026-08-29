@@ -685,6 +685,24 @@ export function applyBrollWipes(project: ResolvedProject, accentColor?: string):
   const CRUCE = 9; // frames del barrido; el efecto completo dura 2x (~0.6s a 30fps)
   const DIRECCIONES = ["from-left", "from-right", "from-top", "from-bottom"] as const;
 
+  // DE QUE TIPO. Antes: `wipe`, siempre, en todos los videos, y solo cambiaba la
+  // direccion. Eso es lo que hace que veinte clips seguidos parezcan el mismo
+  // clip — la misma queja que trajeron los monitos repetidos.
+  //
+  // Las cuatro de aqui son las que no piden nada del entorno de render (CSS y
+  // transformaciones puras). `zoomBlur` y `zoomInOut`, que tambien vienen en el
+  // paquete, dibujan con shaders y exigen un flag experimental de Chrome: no
+  // entran sin medirlas.
+  const TIPOS = ["wipe", "slide", "iris", "flip"] as const;
+
+  // La variedad se ELIGE, no se sortea: el mismo video tiene que dar el mismo
+  // resultado en cada corrida, o dos renders del mismo clip no se pueden
+  // comparar. El desplazamiento sale del acento, que es distinto por video.
+  const semilla = [...(accentColor || "#0a0a0a")].reduce(
+    (a, c) => (a * 31 + c.charCodeAt(0)) >>> 0,
+    7,
+  );
+
   const cortes = broll
     .filter((b) => typeof b.start === "number" && typeof b.end === "number")
     .filter((b) => (b.end as number) - (b.start as number) >= 1.2)
@@ -698,7 +716,7 @@ export function applyBrollWipes(project: ResolvedProject, accentColor?: string):
     ...cortes.map((b, i) => ({
       at: +(b.start as number).toFixed(2),
       durationFrames: CRUCE,
-      kind: "wipe" as const,
+      kind: TIPOS[(semilla + i) % TIPOS.length],
       // Alterna la direccion: tres barridos identicos se leen como un tic.
       direction: DIRECCIONES[i % DIRECCIONES.length],
       color: accentColor || "#0a0a0a",
