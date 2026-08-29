@@ -92,3 +92,77 @@ def test_el_veredicto_sale_en_el_codigo_de_salida(fuente: str) -> None:
     assert "return 0 if apto else 2" in fuente, (
         "no distingue 'apto' de 'no apto' en el codigo de salida"
     )
+
+
+# ---------------------------------------------------------------------------
+# El reparto por fotograma.
+#
+# El promedio y el minimo no distinguen dos situaciones muy distintas: que el
+# DISENO haya cambiado (difieren casi todos los fotogramas) o que el video de
+# archivo haya caido en otro cuadro (la mayoria identicos, unos pocos muy
+# distintos, los de movimiento rapido).
+#
+# La segunda paso de verdad al probar 4.0.518 contra 4.0.462: el minimo dio
+# 18.73 dB, que se lee como un render roto, y al extraer el peor fotograma de
+# los dos videos el diseno estaba pixel a pixel igual -- misma tipografia, mismo
+# color, misma caja, misma vineta. Lo unico distinto era el cuadro del B-roll,
+# en rafagas de 3 de cada 5: remuestreo de fps.
+#
+# Sin este reparto hay que ir a extraer fotogramas a mano para saber cual de las
+# dos es, que es lo que hubo que hacer aquella vez.
+# ---------------------------------------------------------------------------
+
+REGISTRO_EJEMPLO = "\n".join(
+    [
+        "n:1 mse_avg:0.00 psnr_avg:inf",
+        "n:2 mse_avg:0.00 psnr_avg:inf",
+        "n:3 mse_avg:1.00 psnr_avg:48.13",
+        "n:4 mse_avg:1.00 psnr_avg:41.02",
+        "n:5 mse_avg:871.81 psnr_avg:18.73",
+        "n:6 mse_avg:688.90 psnr_avg:19.75",
+        "linea que no es de psnr y hay que ignorar",
+    ]
+)
+
+
+def test_el_reparto_cuenta_las_tres_clases(tmp_path) -> None:
+    import probar_version_de_remotion as P
+
+    reg = tmp_path / "psnr.log"
+    reg.write_text(REGISTRO_EJEMPLO, encoding="utf-8")
+    r = P._reparto(reg)
+
+    assert r["fotogramas"] == 6, "conto la linea que no es de psnr"
+    assert r["identicos"] == 2
+    assert r["casi_iguales"] == 2
+    assert r["distintos"] == 2
+    assert r["primeros_distintos"] == [5, 6], (
+        "no dice QUE fotogramas mirar, que es lo unico que evita extraerlos a mano"
+    )
+
+
+def test_el_reparto_se_reporta(fuente: str) -> None:
+    assert "_reparto(" in fuente, "no se calcula el reparto por fotograma"
+    # El JSON sale de `resultado`, que se arma antes del `if args.json`.
+    i = fuente.index("resultado = {")
+    j = fuente.index("}", fuente.index('"apto"', i))
+    assert '"reparto"' in fuente[i:j], (
+        "el reparto no entra en el resultado, asi que no sale en el JSON y no "
+        "se puede encadenar"
+    )
+    assert "pct_distintos" in fuente, "no se reporta la proporcion que difiere"
+
+
+def test_el_veredicto_negativo_manda_a_mirar_y_no_a_concluir(fuente: str) -> None:
+    """Un 'NO APTO' seco haria descartar una version que estaba bien."""
+    i = fuente.index("NO APTO")
+    cola = fuente[i:i + 1600]
+    assert "MIRAR" in cola or "mirar" in cola, (
+        "el veredicto negativo no manda a mirar los fotogramas: se leeria como "
+        "'la version nueva rompe el render', que es justo lo que la primera "
+        "medicion real parecia decir y no era"
+    )
+    assert "pct_distintos" in cola, (
+        "el veredicto negativo no usa el reparto, que es lo que distingue un "
+        "diseno cambiado de un cuadro de video corrido"
+    )

@@ -83,15 +83,21 @@ def _render(arbol: Path, props_json: Path, salida: Path, concurrencia: int) -> f
     return time.time() - t0
 
 
-def _psnr(a: Path, b: Path) -> dict:
-    """PSNR entre dos videos. Mismo filtro de ffmpeg que usa probar_paridad_gl."""
+def _psnr(a: Path, b: Path, registro: Path | None = None) -> dict:
+    """PSNR entre dos videos. Mismo filtro de ffmpeg que usa probar_paridad_gl.
+
+    Con `registro` guarda el detalle POR FOTOGRAMA, que es lo unico que permite
+    saber que clase de diferencia es. Ver `_reparto`.
+    """
     from config import FFMPEG_PATH
 
+    filtro = "psnr" if registro is None else f"psnr=stats_file={registro.name}"
     r = subprocess.run(
         [str(FFMPEG_PATH), "-hide_banner", "-i", str(a), "-i", str(b),
-         "-lavfi", "psnr", "-f", "null", "-"],
+         "-lavfi", filtro, "-f", "null", "-"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=3600,
+        cwd=str(registro.parent) if registro is not None else None,
     )
     texto = (r.stderr or "") + (r.stdout or "")
     medio = re.search(r"average:([0-9.]+|inf)", texto)
@@ -103,6 +109,49 @@ def _psnr(a: Path, b: Path) -> dict:
         return float("inf") if m.group(1) == "inf" else float(m.group(1))
 
     return {"medio": num(medio), "minimo": num(minimo)}
+
+
+def _reparto(registro: Path) -> dict:
+    """Como se REPARTE la diferencia entre los fotogramas.
+
+    El promedio y el minimo no distinguen dos situaciones muy distintas:
+
+      - El diseno cambio. Casi todos los fotogramas difieren un poco.
+      - El video de archivo cayo en otro cuadro. La mayoria son identicos o
+        casi, y un punado difiere mucho -- los de movimiento rapido.
+
+    La segunda paso de verdad al probar 4.0.518: el diseno salio pixel a pixel
+    igual (tipografia, colores, panel, vineta) y lo unico que cambio fue en que
+    fotograma del B-roll caia cada instante, en rafagas de 3 de cada 5. Eso es
+    remuestreo de fps, no una regresion visual -- pero el minimo de 18.73 dB,
+    solo, se lee como si el render se hubiera roto.
+
+    Sin este reparto hay que ir a extraer fotogramas a mano para saber cual de
+    las dos es. Que es lo que hubo que hacer la primera vez.
+    """
+    identicos = casi = distintos = 0
+    tramos: list[int] = []
+    for linea in registro.read_text(encoding="utf-8", errors="replace").splitlines():
+        n = re.search(r"^n:(\d+)", linea)
+        p = re.search(r"psnr_avg:(inf|[0-9.]+)", linea)
+        if not (n and p):
+            continue
+        if p.group(1) == "inf":
+            identicos += 1
+        elif float(p.group(1)) < 30.0:
+            distintos += 1
+            tramos.append(int(n.group(1)))
+        else:
+            casi += 1
+    total = identicos + casi + distintos
+    return {
+        "fotogramas": total,
+        "identicos": identicos,
+        "casi_iguales": casi,
+        "distintos": distintos,
+        "pct_distintos": round(distintos * 100 / total, 1) if total else 0.0,
+        "primeros_distintos": tramos[:12],
+    }
 
 
 def _tam(p: Path) -> str:
@@ -170,8 +219,9 @@ def main() -> int:
     if not args.json:
         print(f"  {v_nueva}        {t_b:7.1f} s   {_tam(b)}")
 
-    control = _psnr(a1, a2)
-    entre = _psnr(a1, b)
+    control = _psnr(a1, a2, dest / "psnr_control.log")
+    entre = _psnr(a1, b, dest / "psnr_versiones.log")
+    reparto = _reparto(dest / "psnr_versiones.log")
 
     # El criterio. La version nueva es aceptable si la diferencia que introduce
     # NO se distingue del ruido propio del motor.
@@ -191,6 +241,7 @@ def main() -> int:
                      "nueva": round(t_b, 1)},
         "psnr_control_vieja_vs_vieja": control,
         "psnr_vieja_vs_nueva": entre,
+        "reparto": reparto,
         "apto": bool(apto),
     }
 
@@ -207,13 +258,35 @@ def main() -> int:
     print(f"  prueba   {v_vieja} vs {v_nueva}:  medio {d(entre['medio'])}  "
           f"minimo {d(e_min)}")
     print()
+    print(f"  reparto de los {reparto['fotogramas']} fotogramas:")
+    print(f"    identicos            {reparto['identicos']:5}")
+    print(f"    casi iguales (>=30)  {reparto['casi_iguales']:5}")
+    print(f"    distintos    (< 30)  {reparto['distintos']:5}   "
+          f"{reparto['pct_distintos']}%")
+    if reparto["primeros_distintos"]:
+        print(f"    primeros distintos: "
+              f"{reparto['primeros_distintos']}")
+
+    print()
     if apto:
         print("  APTO. La diferencia que introduce la version nueva no se")
         print("  distingue del ruido que el motor mete contra si mismo.")
     else:
-        print("  NO APTO. La version nueva cambia el resultado MAS de lo que el")
-        print("  motor varia contra si mismo: hay una diferencia real que")
-        print("  conviene mirar cuadro a cuadro antes de subir.")
+        print("  NO APTO POR EL NUMERO. Hay que MIRAR antes de decidir: el PSNR")
+        print("  solo no distingue un diseno que cambio de un video de archivo")
+        print("  que cayo en otro cuadro.")
+        print()
+        if reparto["pct_distintos"] <= 15:
+            print(f"  Y el reparto sugiere lo segundo: solo "
+                  f"{reparto['pct_distintos']}% de los fotogramas difieren de")
+            print("  verdad. Cuando cambia el DISENO difieren casi todos. Extrae")
+            print("  uno de los fotogramas de arriba de los dos mp4 y comparalos:")
+            print("  si el texto, los colores y las cajas estan en el mismo sitio")
+            print("  y solo cambio el video de adentro, es remuestreo de fps.")
+        else:
+            print(f"  Y el reparto lo confirma: {reparto['pct_distintos']}% de los")
+            print("  fotogramas difieren. Eso ya no es un cuadro corrido, es el")
+            print("  render dibujando distinto.")
     print(f"\n  los mp4 quedaron en {dest}")
     return 0 if apto else 2
 

@@ -97,6 +97,8 @@ def main() -> int:
     ap.add_argument("--video", action="append", default=[], metavar="ID:TEMA:ACENTO")
     ap.add_argument("--resolucion", default="1920x1080",
                     help="la que se espera (default 1920x1080)")
+    ap.add_argument("--estricto", action="store_true",
+                    help="exige la resolucion EXACTA; sin esto se acepta la misma dada vuelta, porque hay videos verticales a proposito")
     args = ap.parse_args()
 
     tanda: list[tuple[str, str, str]] = []
@@ -120,6 +122,9 @@ def main() -> int:
 
     tot_clips = tot_repes = tot_cifras = 0
     problemas: list[str] = []
+    # Los que salieron en la orientacion contraria a la esperada. No son un
+    # error -- hay videos verticales a proposito -- pero conviene decirlo.
+    verticales: list[str] = []
 
     for vid, tema, _acento in tanda:
         # Los `_fxfused.mp4` son intermedios que el pipeline crea y borra solo.
@@ -128,13 +133,33 @@ def main() -> int:
         )
         tot_clips += len(renders)
 
+        # LA ORIENTACION LA DECIDE EL VIDEO, NO EL VERIFICADOR.
+        #
+        # Esto comparaba todo contra 1920x1080 y marcaba como error los seis
+        # clips de un video que es VERTICAL a proposito (1080x1920, estilo
+        # supreme). El video estaba bien; la comprobacion estaba mal.
+        #
+        # Una falsa alarma repetida es peor que no comprobar: ensena a ignorar
+        # el verificador, y el dia que reporte algo real tambien se ignora. Asi
+        # que si la resolucion medida es la esperada DADA VUELTA, se acepta y se
+        # reporta aparte: ese video se hizo en vertical y punto. Con --estricto
+        # se pierde la tolerancia, que es lo que quiere quien esta revisando una
+        # tanda que sabe horizontal entera.
+        esperada = args.resolucion
+        volteada = "x".join(reversed(esperada.split("x"))) if "x" in esperada else ""
+        acepta_volteada = not args.estricto
+
         malos = 0
         for f in renders:
             r = sonda_resolucion(f)
-            if r != args.resolucion:
-                malos += 1
-                problemas.append(
-                    f"{f.name}: {r or 'ilegible'}, se esperaba {args.resolucion}")
+            if r == esperada:
+                continue
+            if acepta_volteada and volteada and r == volteada:
+                verticales.append(f.name)
+                continue
+            malos += 1
+            problemas.append(
+                f"{f.name}: {r or 'ilegible'}, se esperaba {esperada}")
 
         repes = cifras = 0
         for g in sorted(LF.glob(f"graphics/{vid}_c*.json")):
@@ -176,17 +201,34 @@ def main() -> int:
         # un video ya renderizado, el verificador dio limpio, y los 23 MP4
         # seguian mostrando el texto de antes. Verificar la ENTRADA y creer que
         # se verifico la SALIDA es la version mas facil de este error.
+        # CADA render contra SU PROPIO grafico, no contra el mas nuevo del video.
+        #
+        # Comparar todo contra el maximo hacia que regenerar los graficos de UN
+        # clip marcara los trece del video. El aviso decia la verdad —algo hay
+        # que re-renderizar— pero no decia QUE, y re-renderizar trece clips
+        # cuando sobra con uno es una hora de maquina tirada. Un aviso que no se
+        # puede accionar se termina ignorando igual que uno falso.
         if renders:
-            gs = list(LF.glob(f"graphics/{vid}_c*.json"))
-            if gs:
-                g_max = max(f.stat().st_mtime for f in gs)
-                viejos = [f for f in renders if f.stat().st_mtime < g_max]
-                if viejos:
-                    problemas.append(
-                        f"{vid}: {len(viejos)} de {len(renders)} renders son "
-                        "ANTERIORES a sus graficos — el video no muestra lo que "
-                        "dice el JSON. Hay que volver a renderizar."
-                    )
+            graficos = {g.stem: g.stat().st_mtime
+                        for g in LF.glob(f"graphics/{vid}_c*.json")}
+            viejos = []
+            for f in renders:
+                # renders/<clip_id>_<estilo>.mp4  ↔  graphics/<clip_id>.json
+                suyo = next(
+                    (m for base, m in graficos.items() if f.stem.startswith(base)),
+                    None,
+                )
+                if suyo is not None and f.stat().st_mtime < suyo:
+                    viejos.append(f)
+            if viejos:
+                cuales = ", ".join(sorted(f.stem for f in viejos)[:4])
+                resto = f" (+{len(viejos) - 4} mas)" if len(viejos) > 4 else ""
+                problemas.append(
+                    f"{vid}: {len(viejos)} de {len(renders)} renders son "
+                    f"ANTERIORES a su propio grafico — esos videos no muestran "
+                    f"lo que dice su JSON. Hay que volver a renderizar: "
+                    f"{cuales}{resto}"
+                )
 
         tot_repes += repes
         tot_cifras += cifras
@@ -197,6 +239,17 @@ def main() -> int:
     print("  " + "-" * 70)
     print(f"  {'TOTAL':24}{tot_clips:>7}{'':>8}{tot_repes:>7}{tot_cifras:>8}")
     print()
+
+    # Se dice, pero no cuenta como problema: un video vertical no esta roto.
+    if verticales:
+        print(f"  {len(verticales)} clip(s) en la orientación contraria a "
+              f"{args.resolucion} — son verticales a propósito. Con --estricto "
+              f"se reportan como error.")
+        for n in sorted(verticales)[:4]:
+            print(f"    {n}")
+        if len(verticales) > 4:
+            print(f"    ... y {len(verticales) - 4} más")
+        print()
 
     if problemas:
         print(f"  {len(problemas)} problema(s):")
