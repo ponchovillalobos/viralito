@@ -61,7 +61,12 @@ def sonda_resolucion(mp4: Path) -> str:
             [FFPROBE, "-v", "error", "-select_streams", "v:0",
              "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x",
              str(mp4)],
-            capture_output=True, text=True, timeout=60,
+            # `encoding` explícito: sin él, Python decodifica con la página de
+            # códigos de la consola y en una máquina con otro locale la salida
+            # llega distinta. Es regla del proyecto y la cuida
+            # `test_subprocess_encoding.py` — que atrapó esta misma línea.
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=60,
         )
         return (r.stdout or "").strip().strip("x")
     except Exception:  # noqa: BLE001
