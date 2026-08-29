@@ -2342,6 +2342,9 @@ def main() -> int:
     # como éxito ("listo pero faltan videos"). Ahora la ruta puede avisar el parcial.
     render_done = 0
     render_total = 0
+    # Se declara acá arriba para que el diagnóstico final pueda leerla
+    # incluso si el render nunca llegó a arrancar.
+    causas_de_fallo: list[str] = []
 
     # Step 7: render (opcional) — N estilos × M clips
     if args.render and clips_info:
@@ -2492,6 +2495,9 @@ def main() -> int:
             _er.metrica("trabajadores", workers)
             _er.metrica("concurrencia_por_render", rc)
             try:
+                # Las causas REALES de los fallos, para poder diagnosticar con lo
+                # que pasó y no con lo que suele pasar.
+                causas_de_fallo.clear()
                 with ThreadPoolExecutor(max_workers=workers) as pool:
                     futures = {pool.submit(_render_one, t): t for t in tasks}
                     for fut in as_completed(futures):
@@ -2507,8 +2513,10 @@ def main() -> int:
                                     file=sys.stderr, flush=True,
                                 )
                         except subprocess.CalledProcessError as e:
+                            causas_de_fallo.append(str(e))
                             print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
                         except Exception as e:  # noqa: BLE001 — un clip fallido no tumba el lote
+                            causas_de_fallo.append(str(e))
                             print(f"[fail] render clip {c['index']} style {style_id}: {e}", file=sys.stderr)
             finally:
                 if skipped_count:
@@ -2565,13 +2573,45 @@ def main() -> int:
             f"[pipeline] NINGUNO de los {render_total} clips se renderizó.",
             file=sys.stderr, flush=True,
         )
-        print(
-            "[pipeline] La causa más común es que el servidor de Next no esté "
-            "arriba: el render descarga cada clip por HTTP y sin servidor "
-            "responde 404. Arrancalo con `npm run dev` en frontend/ y volvé a "
-            "correr esto — los clips ya extraídos se reaprovechan.",
-            file=sys.stderr, flush=True,
-        )
+        # Antes acá se afirmaba, siempre, que la causa era el servidor de Next
+        # caído. Una vez fue falso: los 13 clips murieron con un ffmpeg
+        # 3221225794 (Windows no pudo arrancar el proceso) y el mensaje mandó a
+        # revisar un servidor que estaba perfectamente arriba. Un diagnóstico
+        # fijo es peor que ninguno: hace perder el tiempo en el lugar
+        # equivocado. Ahora se dice LO QUE PASÓ, y la hipótesis sólo se ofrece
+        # si los errores se le parecen.
+        vistas = sorted({c[:200] for c in causas_de_fallo})
+        if vistas:
+            print("[pipeline] Lo que devolvió el render:", file=sys.stderr, flush=True)
+            for c in vistas[:3]:
+                print(f"[pipeline]   {c}", file=sys.stderr, flush=True)
+            if len(vistas) > 3:
+                print(f"[pipeline]   (y {len(vistas) - 3} causa(s) distinta(s) más)",
+                      file=sys.stderr, flush=True)
+        junto = " ".join(causas_de_fallo).lower()
+        if (not causas_de_fallo) or "404" in junto or "econnrefused" in junto or "fetch" in junto:
+            print(
+                "[pipeline] Eso suele ser el servidor de Next caído: el render "
+                "descarga cada clip por HTTP y sin servidor responde 404. "
+                "Arrancalo con `npm run dev` en frontend/ y volvé a correr esto "
+                "— los clips ya extraídos se reaprovechan.",
+                file=sys.stderr, flush=True,
+            )
+        elif "3221225794" in junto or "0xc0000142" in junto:
+            print(
+                "[pipeline] 3221225794 es 0xC0000142 de Windows: el sistema no "
+                "pudo arrancar el proceso de ffmpeg, casi siempre por quedarse "
+                "sin recursos con demasiados procesos a la vez. Volvé a correr "
+                "esto con la máquina descargada; los clips ya extraídos se "
+                "reaprovechan.",
+                file=sys.stderr, flush=True,
+            )
+        else:
+            print(
+                "[pipeline] Volvé a correr esto cuando esté resuelto: los clips "
+                "ya extraídos se reaprovechan.",
+                file=sys.stderr, flush=True,
+            )
     elif render_total and render_done < render_total:
         print(
             f"[pipeline] {render_total - render_done} de {render_total} clips "

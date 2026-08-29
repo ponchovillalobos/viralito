@@ -81,9 +81,46 @@ def test_se_comprueba_el_servidor_antes_de_renderizar() -> None:
     )
 
 
-def test_el_aviso_de_cero_renders_explica_la_causa_probable() -> None:
+def test_el_aviso_de_cero_renders_dice_lo_que_paso_no_lo_que_suele_pasar() -> None:
+    """Un diagnostico fijo manda a revisar el lugar equivocado.
+
+    Este test pedia antes que el aviso nombrara "el servidor de Next no esta
+    arriba", que es la causa mas frecuente. Y una corrida la desmintio: los 13
+    clips de un video murieron con `FFmpeg quit with code 3221225794`
+    --0xC0000142, Windows no pudo arrancar el proceso-- con el servidor
+    perfectamente arriba. El aviso mando a arrancar algo que ya estaba
+    corriendo.
+
+    Afirmar siempre la misma causa es peor que no decir ninguna: la primera
+    hace perder el tiempo con confianza. Lo que se exige ahora es que el aviso
+    muestre EL ERROR QUE VOLVIO del render, y que la hipotesis del servidor
+    quede condicionada a que los errores se le parezcan.
+    """
     fuente = _fuente()
     assert "NINGUNO de los" in fuente
-    assert re.search(r"servidor de Next.*no est|no est.*servidor de Next", fuente), (
-        "el aviso de cero renders tiene que nombrar la causa mas comun"
+
+    # 1. Las causas reales se juntan y se imprimen.
+    assert "causas_de_fallo" in fuente, (
+        "no se guarda la causa de cada clip fallido, asi que el aviso no puede "
+        "decir que fue lo que paso"
+    )
+    assert re.search(r"devolvi\w* el render|Lo que devolvi", fuente), (
+        "las causas se guardan pero no se muestran"
+    )
+
+    # 2. La hipotesis del servidor sigue estando, pero condicionada.
+    i = fuente.index("NINGUNO de los")
+    cola = fuente[i:]
+    assert "servidor de Next" in cola, (
+        "la causa mas frecuente sigue mereciendo mencionarse cuando encaja"
+    )
+    assert '"404" in' in cola or "'404' in" in cola, (
+        "la hipotesis del servidor tiene que depender de que los errores se le "
+        "parezcan (404 / conexion rechazada), no afirmarse siempre"
+    )
+
+    # 3. Y el caso que la desmintio quedo cubierto por su nombre.
+    assert "3221225794" in cola, (
+        "el fallo que probo que el diagnostico fijo era falso no esta "
+        "reconocido: volveria a mandar a revisar el servidor"
     )

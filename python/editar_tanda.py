@@ -72,20 +72,43 @@ MATERIAL = {
 }
 
 
-def altura(mp4: Path) -> int:
-    """Alto MEDIDO del archivo. 0 si no se pudo leer."""
-    ffprobe = str(Path(FFMPEG_PATH).with_name("ffprobe.exe"))
-    try:
-        r = subprocess.run(
-            [ffprobe, "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "stream=height", "-of", "csv=p=0", str(mp4)],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=60,
-        )
-        return int((r.stdout or "0").strip() or 0)
-    except Exception:  # noqa: BLE001
-        return 0
+def altura(mp4: Path) -> int | None:
+    """Alto MEDIDO del archivo. `None` si NO SE PUDO MEDIR.
 
+    La diferencia entre 0 y `None` costo cinco videos. Esta funcion devolvia 0
+    en los dos casos --video ilegible y ffprobe que no contesto-- y quien
+    llamaba trataba el 0 como "calidad degradada" y saltaba el video. Con la
+    maquina cargada por ocho trabajadores de render, ffprobe se paso del plazo
+    y cinco videos sanos (720p, medidos despues sin carga) quedaron fuera de la
+    tanda sin que nada fallara ni avisara.
+
+    "No pude medir" no es "medi algo malo". Se reintenta con mas plazo, y si
+    aun asi no se puede, quien llama decide -- pero enterado.
+    """
+    ffprobe = str(Path(FFMPEG_PATH).with_name("ffprobe.exe"))
+    # Plazos crecientes: bajo carga, el primer intento puede no alcanzar.
+    for plazo in (60, 180, 300):
+        try:
+            r = subprocess.run(
+                [ffprobe, "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=height", "-of", "csv=p=0", str(mp4)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=plazo,
+            )
+        except subprocess.TimeoutExpired:
+            continue
+        except Exception:  # noqa: BLE001
+            return None
+        salida = (r.stdout or "").strip()
+        if salida:
+            try:
+                return int(salida.splitlines()[0])
+            except ValueError:
+                return None
+        if r.returncode != 0:
+            # Sin salida y con error: el archivo es ilegible, y eso SI es medir.
+            return None
+    return None
 
 def servidor_vivo(api: str) -> bool:
     try:
@@ -157,6 +180,9 @@ def main() -> int:
     hechos: list[str] = []
     saltados: list[str] = []
     fallados: list[str] = []
+    # Los que se editaron sin saber en que calidad: no es un fallo, pero
+    # tiene que verse en el resumen y no perderse entre lineas de render.
+    sin_medir: list[str] = []
 
     for i, (vid, tema, acento, material) in enumerate(tanda, 1):
         crudo = Path(LF_RAW) / f"{vid}.mp4"
@@ -168,7 +194,19 @@ def main() -> int:
             continue
 
         h = altura(crudo)
-        if h < ALTURA_MINIMA and not args.seguir_si_degradado:
+        if h is None:
+            # No se pudo medir. NO se salta: saltar por no poder medir fue
+            # exactamente el fallo que dejo cinco videos sanos sin editar. Se
+            # avisa fuerte y se sigue.
+            print("", flush=True)
+            print(f"=== {cabecera} - no se pudo medir la altura, se edita "
+                  f"igual ===", flush=True)
+            print("    ffprobe no contesto ni con el plazo largo. Suele ser la "
+                  "maquina cargada, no el archivo. Si el video sale borroso, "
+                  "medilo a mano con ffprobe y volve a bajarlo.", flush=True)
+            sin_medir.append(vid)
+            h = 0  # solo para la cabecera de abajo
+        elif h < ALTURA_MINIMA and not args.seguir_si_degradado:
             print(f"\n=== {cabecera} — {h}p, calidad degradada, se salta ===",
                   flush=True)
             print("    Volvé a bajarlo con --exigir-calidad, o forzá con "
@@ -206,6 +244,8 @@ def main() -> int:
         print(f"   SALTADO {x}")
     for x in fallados:
         print(f"   FALLO   {x}")
+    for x in sin_medir:
+        print(f"   SIN MEDIR {x} (se edito, sin comprobar la calidad)")
     print("=========================")
 
     # Que la tanda ENTERA falle es distinto de que falle una: lo primero suele
