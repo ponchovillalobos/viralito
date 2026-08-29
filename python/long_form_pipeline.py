@@ -33,6 +33,7 @@ from config import (
     LF_CLEAN,
     LF_CLIPS,
     LF_CUTS,
+    LF_GRAPHICS,
     LF_PROJECTS,
     LF_PROPOSALS,
     LF_RAW,
@@ -206,13 +207,81 @@ def _force_render() -> bool:
     return os.environ.get("VIRAL_FORCE_RENDER", "0") == "1"
 
 
-def _render_already_done(out: Path) -> bool:
-    """True si el .mp4 final YA existe en disco y es válido (tamaño > umbral).
-    Best-effort: cualquier error de stat → False (se renderiza igual)."""
+def _render_already_done(out: Path, clip_id: str | None = None) -> bool:
+    """True si el .mp4 final ya está en disco, se puede REPRODUCIR y está AL DÍA.
+
+    Antes esto miraba una sola cosa: que el archivo pesara más de 100 KB. Con eso
+    dio por buenos dos casos que no lo eran, los dos vistos en la misma tanda:
+
+    1. UN ARCHIVO ESCRITO A MEDIAS. Un render que muere mientras escribe deja un
+       MP4 grande y roto: 73 MB, sin el átomo `moov`, que ffprobe rechaza con
+       "Invalid mvhd time scale 0" y duración N/A. Pesaba de sobra, así que al
+       re-correr el pipeline lo saltó y el video quedó roto para siempre —
+       exactamente el caso que el SKIP existe para no romper.
+
+    2. UN RENDER VIEJO. Si los gráficos se regeneran después, el MP4 sigue
+       mostrando el texto anterior. Pasó con siete clips de un video: el
+       pipeline regeneró los gráficos de los quince y saltó el render de los
+       siete que ya estaban en disco. Ninguno falló; siete videos quedaron
+       diciendo otra cosa que su JSON.
+
+    Los dos comparten la misma causa: "el archivo está" no es "el archivo sirve".
+
+    Best-effort en todo: cualquier error → False, y se renderiza. Equivocarse
+    hacia renderizar de más cuesta minutos; hacia saltar de más cuesta un video
+    roto que nadie mira hasta que ya se publicó.
+    """
     try:
-        return out.is_file() and out.stat().st_size > _RENDER_MIN_VALID_BYTES
+        if not (out.is_file() and out.stat().st_size > _RENDER_MIN_VALID_BYTES):
+            return False
     except OSError:
         return False
+
+    # ¿Se puede reproducir? Un MP4 sin `moov` no tiene duración legible.
+    #
+    # OJO CON LA RESPUESTA "N/A": ffprobe la devuelve, con código de salida 0,
+    # para un archivo cuyo contenedor no puede leer. Es una RESPUESTA — dice que
+    # el archivo está roto — y no un fallo de la medición. Envolver el `float()`
+    # en un `except` la convertía en "no se pudo comprobar" y dejaba pasar el
+    # archivo truncado, que es justo lo que hay que atrapar.
+    ffprobe = str(Path(FFMPEG_PATH).with_name("ffprobe.exe"))
+    try:
+        r = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(out)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120,
+        )
+    except Exception:  # noqa: BLE001 — acá sí: no se pudo medir, no se concluye
+        r = None
+    if r is not None:
+        salida = (r.stdout or "").strip()
+        try:
+            duracion = float(salida)
+        except ValueError:
+            duracion = 0.0  # "N/A" o vacío: el contenedor no se puede leer
+        if duracion <= 0:
+            print(f"[skip] {out.name} pesa {out.stat().st_size // 1024} KB pero no "
+                  f"se puede reproducir (ffprobe: {salida or 'sin respuesta'!r}): "
+                  f"se escribió a medias. Se rehace.",
+                  file=sys.stderr, flush=True)
+            return False
+
+    # ¿Está al día con lo que va a mostrar?
+    if clip_id:
+        try:
+            propio = out.stat().st_mtime
+            for fuente in (LF_GRAPHICS / f"{clip_id}.json",
+                           *LF_PROJECTS.glob(f"{clip_id}_*.json")):
+                if fuente.is_file() and fuente.stat().st_mtime > propio:
+                    print(f"[skip] {out.name} es anterior a {fuente.name}: "
+                          f"mostraría el texto viejo. Se rehace.",
+                          file=sys.stderr, flush=True)
+                    return False
+        except OSError:
+            pass
+
+    return True
 
 
 def _offthread_cache_flag() -> str:
@@ -2535,7 +2604,7 @@ def main() -> int:
             clip_id = f"{args.video_id}_c{c['index']:02d}_{c['slug']}"
             out = LF_RENDERS / f"{clip_id}_{style_id}.mp4"
             # SKIP: el render final ya está en disco y es válido → contarlo como hecho.
-            if not force_render and _render_already_done(out):
+            if not force_render and _render_already_done(out, clip_id):
                 print(
                     f"[skip] clip {ci}/{n_clips} · estilo {style_id}: ya renderizado ({out.name})",
                     file=sys.stderr, flush=True,
