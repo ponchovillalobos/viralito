@@ -240,6 +240,44 @@ Para entender qué hace cada estilo, ver los videos de ejemplo en `C:\viral-data
 
 Ver [STYLES.md](./STYLES.md) para detalles de cada uno.
 
+## Editar varios videos seguidos
+
+Para una tanda —varios cursos, cada uno con su propia identidad visual— hay una
+herramienta que los recorre sola:
+
+```bash
+python editar_tanda.py --plan mi_tanda.txt
+```
+
+El plan es un texto, una línea por video, `id:tema:acento`:
+
+```
+# tanda de agosto — editorial horizontal, un color por video
+D01_curso_ventas:vogue:#c9a96a
+D02_charla_ia:ft:#0d7680
+D03_taller_datos:stripe:#635bff
+```
+
+Un tema y un color **por video**, no por clip: es lo que hace que la tanda se
+vea variada sin verse desordenada. Los temas están en
+`frontend/src/lib/editorial-themes.ts`.
+
+Va secuencial a propósito: el pipeline ya paraleliza por dentro y dos videos a
+la vez se pelean por el mismo procesador.
+
+Lleva tres controles, y cada uno viene de una tanda que salió mal:
+
+- **Comprueba que el servidor de Next responda antes de empezar.** El render
+  descarga cada clip por HTTP; sin servidor todos fallan con 404. Pasó: 23
+  clips, 168 segundos, 23 fallos idénticos, y el resumen decía "ok".
+- **No edita un video por debajo de 720p.** Se nota en pantalla completa y no
+  hay cómo arreglarlo después. Con `--seguir-si-degradado` se fuerza igual.
+- **Un fallo no detiene la tanda.** Se anota y sigue; al final dice qué salió,
+  qué se saltó y qué falló.
+
+Relanzarla es seguro: el pipeline se salta por su cuenta los clips que ya tienen
+render, así que retoma donde quedó en vez de rehacer todo.
+
 ## Traer un video de YouTube
 
 Los dos asistentes aceptan enlaces: `/editor/wizard` (un video corto) y
