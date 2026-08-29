@@ -2029,15 +2029,54 @@ def main() -> int:
                         _e.metrica("cierran_frase", f"{_cierran}/{len(_cl)}")
                     except Exception:
                         pass
-                    # Cobertura: si todos los clips salen del primer tramo, el
-                    # recorte cronológico se comió el final del video.
+                    # ALCANCE, USO Y HUECO. Tres cosas distintas que antes eran
+                    # una, y mal nombrada.
+                    #
+                    # Habia una sola metrica, `cobertura_pct`, calculada como
+                    # "donde arranca el ULTIMO clip / duracion". Eso no es
+                    # cobertura: es alcance. Decia 91 % mientras el video usado
+                    # de verdad era el 14 %. Un numero alto y tranquilizador
+                    # para una pregunta que nadie habia hecho.
+                    #
+                    #   alcance_pct   hasta donde llega la seleccion. Sirve para
+                    #                 detectar que el recorte se comio el final.
+                    #   usado_pct     cuanto del video sale de verdad en clips.
+                    #                 Bajo es NORMAL: se eligen los mejores
+                    #                 momentos de dos horas, no se cubre todo.
+                    #   hueco_max_min el tramo seguido mas largo sin un solo
+                    #                 clip. Este es el accionable: 27 minutos
+                    #                 seguidos sin nada puede ser que ahi no
+                    #                 hubiera nada, o que se paso por alto.
                     _st = sorted(float(c["start"]) for c in _cl if c.get("start") is not None)
                     if _st:
                         _dv = _ffprobe_duration(raw_path) or 0
                         if _dv > 0:
                             _e.metrica("primer_clip_min", round(_st[0] / 60, 1))
                             _e.metrica("ultimo_clip_min", round(_st[-1] / 60, 1))
-                            _e.metrica("cobertura_pct", round(_st[-1] / _dv * 100))
+                            _e.metrica("alcance_pct", round(_st[-1] / _dv * 100))
+
+                            _tramos = sorted(
+                                (float(c["start"]), float(c["end"])) for c in _cl
+                                if c.get("start") is not None and c.get("end") is not None
+                            )
+                            _usado = sum(e - s for s, e in _tramos)
+                            _e.metrica("usado_pct", round(_usado / _dv * 100))
+
+                            _hueco = 0.0
+                            _prev = 0.0
+                            for _s, _e2 in _tramos:
+                                _hueco = max(_hueco, _s - _prev)
+                                _prev = max(_prev, _e2)
+                            _hueco = max(_hueco, _dv - _prev)
+                            _e.metrica("hueco_max_min", round(_hueco / 60, 1))
+                            if _hueco > 15 * 60:
+                                print(
+                                    f"[analisis] hay {_hueco / 60:.0f} minutos seguidos "
+                                    "sin ningun clip. Puede ser que ahi no hubiera nada "
+                                    "que sacar, o que se haya pasado por alto: vale la "
+                                    "pena mirarlo.",
+                                    file=sys.stderr, flush=True,
+                                )
             except Exception:
                 pass
 

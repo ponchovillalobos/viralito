@@ -120,3 +120,31 @@ def test_esta_conectado_al_pipeline() -> None:
     assert fuente.index("step_ajustar_bordes(args.video_id") < fuente.index(
         "clips_info = step_extract"
     )
+
+
+def test_las_metricas_de_seleccion_no_se_llaman_como_no_son() -> None:
+    """`cobertura_pct` medía alcance, no cobertura.
+
+    Decía 91 % mientras el video usado de verdad era el 14 %: un número alto y
+    tranquilizador para una pregunta que nadie había hecho. Son tres cosas
+    distintas y ahora se llaman por su nombre.
+    """
+    fuente = (Path(__file__).resolve().parent.parent / "long_form_pipeline.py").read_text(
+        encoding="utf-8"
+    )
+    # Se prohíbe EMITIRLA, no nombrarla. La primera versión de este test pedía
+    # que la palabra no apareciera en ningún sitio, y fallaba por el comentario
+    # que explica por qué se quitó — castigando justo la costumbre de dejar
+    # escrito el porqué. Mismo caso que las líneas de cita en el verificador de
+    # documentación.
+    assert 'metrica("cobertura_pct"' not in fuente, (
+        "volvió la métrica que mentía: medía alcance y se llamaba cobertura"
+    )
+    for metrica in ("alcance_pct", "usado_pct", "hueco_max_min"):
+        assert f'metrica("{metrica}"' in fuente, f"falta la métrica {metrica}"
+
+    # El hueco grande AVISA. Un dato en la bitácora que nadie mira es lo que
+    # dejó pasar que los clips cortaran a mitad de frase durante toda una tanda.
+    assert "minutos seguidos" in fuente, (
+        "el hueco grande se calcula pero no se avisa"
+    )
