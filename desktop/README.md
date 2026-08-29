@@ -22,6 +22,24 @@ La versión se declara en **tres** archivos y tienen que coincidir:
 `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` y `package.json`. Hoy: `0.5.0`.
 (`package.json` decía `0.1.0`, desalineado de los otros dos.)
 
+## Estado: ya está compilado, y espera tu clic
+
+El instalador de **v0.5.0 ya se compiló** en GitHub Actions y salió bien
+(corrida del 24 ago 2026, artifact `instalador-windows`, 651 MB).
+
+No aparece publicado porque el workflow crea el release como **borrador**
+(`draft: true` en `release.yml`). Eso es a propósito: publicar algo que la gente
+va a descargar es una decisión de persona, no de un pipeline.
+
+Para terminarlo:
+
+1. Entrá a **Releases** en el repositorio → verás `v0.5.0` marcado como *Draft*.
+2. Revisá los archivos adjuntos y las notas que generó solas.
+3. **Publish release**.
+
+O bajate el artifact directamente desde la corrida, sin publicar nada:
+Actions → release → la corrida en verde → `instalador-windows`.
+
 ## Cómo se compila
 
 **El camino real es CI**, no la máquina de desarrollo. `.github/workflows/release.yml`
