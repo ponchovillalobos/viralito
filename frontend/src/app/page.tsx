@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, ArrowRight, Telescope, Film, Clapperboard, CalendarClock, Trophy } from "lucide-react";
+import { Scissors, ArrowRight, Telescope, Film, Clapperboard, CalendarClock, Trophy, Mic, Video, Headphones } from "lucide-react";
 import { OnboardingModal, OnboardingTourLink } from "@/components/home/onboarding-modal";
 import { OpenFolderButton } from "@/components/home/open-folder-button";
 
@@ -45,10 +45,25 @@ const ACTIONS = [
     color: "#f59e0b", // ámbar
     wide: true,
   },
+  {
+    // 6ta tarjeta: mismo wizard de largos — acepta audio (ej. podcast de NotebookLM,
+    // que no trae imagen) y arma el video con estilo editorial: gráficos, íconos e
+    // ilustraciones generados desde cero + B-roll de Pexels, porque el audio solo no
+    // tiene nada que mostrar.
+    href: "/largos?audio=1",
+    title: "Podcast de audio a video",
+    desc: "Sube el audio de un podcast (sin video) y la IA le pone estilo editorial: gráficos, ilustraciones y B-roll de Pexels generados desde cero.",
+    icon: Mic,
+    color: "#22c55e", // verde
+  },
 ] as const;
 
 const SECONDARY = [
   { href: "/research", label: "Buscar inspiración (analizar virales ajenos)", icon: Telescope },
+  // Accesos directos a "Mis videos" filtrados por origen — para que un podcast de
+  // audio no se pierda entre docenas de clips con cámara (y viceversa).
+  { href: "/publicar?origen=video", label: "Mis videos (con cámara)", icon: Video },
+  { href: "/publicar?origen=audio", label: "Mis audios (podcasts)", icon: Headphones },
 ] as const;
 
 export default function Home() {

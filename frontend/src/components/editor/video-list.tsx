@@ -185,7 +185,7 @@ export function VideoList() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="video/mp4,video/quicktime,.mp4,.mov"
+            accept="video/mp4,video/quicktime,.mp4,.mov,.mp3,.wav,.m4a,.aac,.ogg,.flac,audio/*"
             multiple
             className="hidden"
             onChange={(e) => e.target.files && e.target.files.length > 0 && importVideos(e.target.files)}

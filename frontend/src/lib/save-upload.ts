@@ -18,9 +18,14 @@ import { spawn } from "node:child_process";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import path from "node:path";
-import { FFPROBE_EXE } from "@/lib/paths";
+import { FFMPEG_EXE, FFPROBE_EXE } from "@/lib/paths";
 
 const VALID_EXTS = new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v"]);
+// Podcasts de solo audio (ej. exportados de NotebookLM): no traen video, así que
+// se envuelven en un MP4 sintético (fondo fijo + el audio) para que el resto del
+// pipeline (que espera un contenedor con pista de video) no necesite cambios.
+export const AUDIO_EXTS = new Set([".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"]);
+export const ALL_VALID_EXTS = new Set([...VALID_EXTS, ...AUDIO_EXTS]);
 
 /** Error “de usuario” (mensaje mostrable) — la ruta lo mapea a 4xx, no a 500. */
 export class UploadError extends Error {
@@ -58,8 +63,13 @@ async function uniquePath(dir: string, filename: string, ext: string): Promise<s
   }
 }
 
-/** Corre ffprobe sobre el archivo; lanza UploadError si está corrupto/incompleto. */
-export async function validateVideo(filePath: string): Promise<void> {
+/** Corre ffprobe sobre el archivo; lanza UploadError si está corrupto/incompleto.
+ * `expect` decide qué pista exige: "video" (default, para MP4/MOV/etc.) o "audio"
+ * (para el podcast de solo audio, antes de envolverlo en un MP4 sintético). */
+export async function validateVideo(
+  filePath: string,
+  expect: "video" | "audio" = "video"
+): Promise<void> {
   const args = [
     "-v", "error",
     "-show_entries", "format=format_name,duration",
@@ -117,9 +127,119 @@ export async function validateVideo(filePath: string): Promise<void> {
   }
   const hasDuration = parsed.format?.duration && parseFloat(parsed.format.duration) > 0;
   const hasVideo = (parsed.streams ?? []).some((s) => s.codec_type === "video");
+  const hasAudio = (parsed.streams ?? []).some((s) => s.codec_type === "audio");
+  if (expect === "audio") {
+    if (!hasDuration || !hasAudio) {
+      throw new UploadError("El archivo no parece un audio válido (sin pista de audio o sin duración).");
+    }
+    return;
+  }
   if (!hasDuration || !hasVideo) {
     throw new UploadError("El archivo no parece un video válido (sin pista de video o sin duración).");
   }
+}
+
+/** Duración en segundos de `filePath` vía ffprobe, o `null` si no se pudo leer. */
+async function probeDurationSeconds(filePath: string): Promise<number | null> {
+  const args = ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath];
+  const out = await new Promise<string | null>((resolve) => {
+    const proc = spawn(FFPROBE_EXE, args, { windowsHide: true });
+    let stdout = "";
+    proc.stdout.on("data", (c) => (stdout += c.toString()));
+    proc.on("error", () => resolve(null));
+    proc.on("close", (code) => resolve(code === 0 ? stdout : null));
+  });
+  const n = out ? parseFloat(out.trim()) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Envuelve un audio (podcast sin imagen — ej. exportado de NotebookLM) en un MP4
+ * con fondo fijo, para que el resto del pipeline (transcribe, extract_clips, el
+ * composition de Remotion) lo trate como un video más — no necesitan tocarse.
+ *
+ * Fondo oscuro neutro fijo: el color de acento real se elige después en el wizard
+ * (paso "Color principal"), y el estilo editorial pinta sus propios gráficos e
+ * ilustraciones encima, así que el fondo del "video" en sí casi no se ve.
+ */
+export async function synthesizeVideoFromAudio(audioPath: string, outMp4Path: string): Promise<void> {
+  // `-shortest` solo, sin un largo explícito, dejó el contenedor ~2s más largo que el
+  // audio real (padding del encoder de color/video) — el resto del pipeline usa esta
+  // duración para todo (transcript, recorte de clips), así que se pide el largo EXACTO
+  // del audio con `-t` en vez de confiar en que las dos pistas terminen sincronizadas.
+  const durationSec = await probeDurationSeconds(audioPath);
+  const args = [
+    "-y",
+    "-f", "lavfi",
+    "-i", "color=c=0x0f1115:s=1920x1080:r=30",
+    "-i", audioPath,
+    ...(durationSec ? ["-t", durationSec.toFixed(3)] : ["-shortest"]),
+    "-c:v", "libx264",
+    "-tune", "stillimage",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "192k",
+    outMp4Path,
+  ];
+  const result = await new Promise<{ code: number; stderr: string }>((resolve) => {
+    const proc = spawn(FFMPEG_EXE, args, { windowsHide: true });
+    let stderr = "";
+    const timer = setTimeout(() => {
+      try { proc.kill("SIGKILL"); } catch {}
+      resolve({ code: -1, stderr: stderr + "\n[timeout]" });
+    }, 10 * 60_000); // un podcast de 2h a codificar de cero puede tardar varios minutos
+    proc.stderr.on("data", (c) => (stderr += c.toString()));
+    proc.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ code: -1, stderr: String(e) });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code: code ?? -1, stderr });
+    });
+  });
+  if (result.code !== 0) {
+    throw new UploadError(
+      "No se pudo convertir el audio a video:\n" + result.stderr.trim().split("\n").slice(-5).join("\n")
+    );
+  }
+}
+
+/**
+ * Marca `mp4Path` como originado de un audio (podcast sin imagen): un sidecar vacío
+ * `<mp4Path>.audiosrc`. `/api/projects` lo lee para taggear "Audio" en Mis videos —
+ * así un podcast no se pierde entre los videos con cámara.
+ */
+export async function markAsAudioSource(mp4Path: string): Promise<void> {
+  await fs.writeFile(`${mp4Path}.audiosrc`, "").catch(() => {});
+}
+
+/**
+ * Valida `tmpPath` (video o audio, según `ext`) y lo publica en `destDir`.
+ * Si es audio, lo envuelve en un MP4 sintético (nombre final con extensión .mp4,
+ * distinto del `finalPath` de video que ya reservó el llamador) y borra el `.part`
+ * original. Devuelve el path/nombre PUBLICADO (puede diferir del `finalPath` pedido).
+ */
+async function publishValidated(
+  tmpPath: string,
+  finalPath: string,
+  ext: string,
+  destDir: string
+): Promise<{ filename: string; path: string; sizeBytes: number }> {
+  if (AUDIO_EXTS.has(ext)) {
+    await validateVideo(tmpPath, "audio");
+    const mp4Name = path.basename(finalPath, ext) + ".mp4";
+    const mp4Path = await uniquePath(destDir, mp4Name, ".mp4");
+    await synthesizeVideoFromAudio(tmpPath, mp4Path);
+    await fs.rm(tmpPath, { force: true }).catch(() => {});
+    await markAsAudioSource(mp4Path);
+    const stat = await fs.stat(mp4Path);
+    return { filename: path.basename(mp4Path), path: mp4Path, sizeBytes: stat.size };
+  }
+  await validateVideo(tmpPath, "video");
+  await fs.rename(tmpPath, finalPath);
+  const stat = await fs.stat(finalPath);
+  return { filename: path.basename(finalPath), path: finalPath, sizeBytes: stat.size };
 }
 
 /**
@@ -134,9 +254,9 @@ export async function saveUploadedVideo(
 ): Promise<{ filename: string; sizeBytes: number; path: string }> {
   const filename = sanitizeFilename(blob.name || "video.mp4");
   const ext = path.extname(filename).toLowerCase();
-  if (!VALID_EXTS.has(ext)) {
+  if (!ALL_VALID_EXTS.has(ext)) {
     throw new UploadError(
-      `extensión no soportada (${ext}). Permitidas: ${[...VALID_EXTS].join(", ")}`,
+      `extensión no soportada (${ext}). Permitidas: ${[...ALL_VALID_EXTS].join(", ")}`,
       400
     );
   }
@@ -168,13 +288,10 @@ export async function saveUploadedVideo(
       );
     }
 
-    // 3) Validar que sea un MP4/MOV demuxable (atoms OK, tiene video + duración).
-    //    Esto es lo que atrapa un upload que llegó cortado (moov atom ausente).
-    await validateVideo(tmpPath);
-
-    // 4) Publicar atómicamente: el nombre final aparece recién aquí, ya validado.
-    await fs.rename(tmpPath, finalPath);
-    return { filename: path.basename(finalPath), sizeBytes: written, path: finalPath };
+    // 3) Validar (video: MP4/MOV demuxable con pista de video; audio: pista de
+    //    audio + duración) y publicar — si es audio, envuelto en un MP4 sintético.
+    const published = await publishValidated(tmpPath, finalPath, ext, destDir);
+    return { filename: published.filename, sizeBytes: published.sizeBytes, path: published.path };
   } catch (err) {
     await fs.rm(tmpPath, { force: true }).catch(() => {});
     throw err;
@@ -199,9 +316,9 @@ export async function saveStreamedVideo(
 ): Promise<{ filename: string; sizeBytes: number; path: string }> {
   const filename = sanitizeFilename(rawName || "video.mp4");
   const ext = path.extname(filename).toLowerCase();
-  if (!VALID_EXTS.has(ext)) {
+  if (!ALL_VALID_EXTS.has(ext)) {
     throw new UploadError(
-      `extensión no soportada (${ext}). Permitidas: ${[...VALID_EXTS].join(", ")}`,
+      `extensión no soportada (${ext}). Permitidas: ${[...ALL_VALID_EXTS].join(", ")}`,
       400
     );
   }
@@ -248,10 +365,9 @@ export async function saveStreamedVideo(
       );
     }
 
-    // Validar demuxable (atrapa stream cortado: moov atom ausente, etc.).
-    await validateVideo(tmpPath);
-    await fs.rename(tmpPath, finalPath);
-    return { filename: path.basename(finalPath), sizeBytes: written, path: finalPath };
+    // Validar (demuxable + pista esperada) y publicar — audio envuelto en MP4 sintético.
+    const published = await publishValidated(tmpPath, finalPath, ext, destDir);
+    return { filename: published.filename, sizeBytes: published.sizeBytes, path: published.path };
   } catch (err) {
     await fs.rm(tmpPath, { force: true }).catch(() => {});
     throw err;

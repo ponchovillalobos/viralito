@@ -12,8 +12,14 @@ export const STATUS_COLOR: Record<Project["status"], string> = {
 
 export const STATUS_OPTIONS = ["all", "borrador", "aprobado", "publicado"] as const;
 export const PLATFORM_OPTIONS = ["all", "tiktok", "instagram", "linkedin"] as const;
+// "video" = venía con imagen propia (cámara); "audio" = se generó a partir de un
+// podcast de solo audio (ej. NotebookLM) — el fondo es sintético, todo lo visual
+// (gráficos + B-roll) lo puso el estilo editorial. Separarlos evita que un podcast
+// se pierda entre decenas de clips con cámara.
+export const SOURCE_KIND_OPTIONS = ["all", "video", "audio"] as const;
 export type StatusFilter = (typeof STATUS_OPTIONS)[number];
 export type PlatformFilter = (typeof PLATFORM_OPTIONS)[number];
+export type SourceKindFilter = (typeof SOURCE_KIND_OPTIONS)[number];
 
 export interface CaptionVariant {
   caption: string;
@@ -51,6 +57,8 @@ export interface ProjectExt extends Project {
   viralityScore?: number | null;
   /** Nombre corto y humano (2-3 palabras) derivado del id — para mostrar en la lista. */
   shortTitle?: string;
+  /** true si el raw viene de un audio (podcast sin imagen) envuelto en MP4 sintético. */
+  audioSource?: boolean;
   /** Nuevo: 3 variantes por plataforma generadas en una corrida de generate_caption.py */
   captions?: {
     tiktok?: CaptionVariant;

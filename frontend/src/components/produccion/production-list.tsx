@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectCardSkeleton } from "@/components/ui/skeleton";
-import { RefreshCcw, ExternalLink, Clock, Copy, Check, Sparkles, Loader2, Search, X, Play, Calendar, Camera, Trash2, CheckSquare, FolderOpen } from "lucide-react";
+import { RefreshCcw, ExternalLink, Clock, Copy, Check, Sparkles, Loader2, Search, X, Play, Calendar, Camera, Trash2, CheckSquare, FolderOpen, Mic } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toastError } from "@/lib/toast-error";
 import { ScheduleDialog } from "@/components/produccion/schedule-dialog";
@@ -28,14 +28,25 @@ import {
   STATUS_COLOR,
   STATUS_OPTIONS,
   PLATFORM_OPTIONS,
+  SOURCE_KIND_OPTIONS,
   STYLE_LABEL,
   pickCaptionForPlatform,
   type StatusFilter,
   type PlatformFilter,
+  type SourceKindFilter,
   type ProjectExt,
 } from "@/components/produccion/produccion-types";
 
 export function ProductionList() {
+  // Leído ARRIBA de todo: el filtro de origen necesita su valor inicial (URL) para
+  // el primer useState de más abajo — si se lee después, una navegación de OTRA
+  // página (ej. el link "Mis audios" del menú principal, que desmonta/monta este
+  // componente entero) llega con el chip "todos" activo aunque la URL diga
+  // ?origen=audio: el patrón "diff contra el render anterior" solo dispara en
+  // cambios de query DENTRO de una instancia ya montada, no en el primer render.
+  const parametros = useSearchParams();
+  const origenInicial = (parametros.get("origen") as SourceKindFilter | null) ?? "all";
+
   const [projects, setProjects] = useState<ProjectExt[]>([]);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState<string | null>(null);
@@ -61,6 +72,9 @@ export function ProductionList() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("all");
   const [filterPlatform, setFilterPlatform] = useState<PlatformFilter>("all");
+  const [filterSourceKind, setFilterSourceKind] = useState<SourceKindFilter>(
+    SOURCE_KIND_OPTIONS.includes(origenInicial) ? origenInicial : "all"
+  );
   // Selección múltiple para borrar en lote.
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -80,7 +94,6 @@ export function ProductionList() {
   // setState sincrono dentro de un efecto, el render en cascada que React 19
   // marca como error. `useSearchParams` funciona igual en el render del servidor
   // y en el del navegador, asi que no hay desajuste de hidratacion.
-  const parametros = useSearchParams();
   const qInicial = parametros.get("q") ?? "";
   const [prevQ, setPrevQ] = useState(qInicial);
   if (prevQ !== qInicial) {
@@ -88,18 +101,30 @@ export function ProductionList() {
     if (qInicial) setSearch(qInicial);
   }
 
+  // Deep-link: /publicar?origen=audio (o =video) — el menú principal enlaza acá
+  // directo, para que un podcast recién procesado no se pierda entre los demás.
+  // El valor INICIAL ya se aplicó arriba (en el useState de filterSourceKind); esto
+  // solo cubre un cambio de query mientras el componente sigue montado.
+  const [prevOrigen, setPrevOrigen] = useState(origenInicial);
+  if (prevOrigen !== origenInicial) {
+    setPrevOrigen(origenInicial);
+    if (SOURCE_KIND_OPTIONS.includes(origenInicial)) setFilterSourceKind(origenInicial);
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return projects.filter((p) => {
       if (filterStatus !== "all" && p.status !== filterStatus) return false;
       if (filterPlatform !== "all" && !(p.platforms?.includes(filterPlatform) ?? false)) return false;
+      if (filterSourceKind === "audio" && !p.audioSource) return false;
+      if (filterSourceKind === "video" && p.audioSource) return false;
       if (q) {
         const haystack = `${p.id} ${p.title ?? ""} ${p.caption ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [projects, search, filterStatus, filterPlatform]);
+  }, [projects, search, filterStatus, filterPlatform, filterSourceKind]);
 
   // Agrupa las VARIANTES de estilo del MISMO clip en un solo grupo → una tarjeta en vez
   // de N "repetidas". El base se obtiene quitando el sufijo `_{styleId}` del id (un clip de
@@ -125,13 +150,21 @@ export function ProductionList() {
     return out;
   }, [filtered]);
 
-  const hasActiveFilters = search !== "" || filterStatus !== "all" || filterPlatform !== "all";
+  const hasActiveFilters =
+    search !== "" || filterStatus !== "all" || filterPlatform !== "all" || filterSourceKind !== "all";
 
   function clearFilters() {
     setSearch("");
     setFilterStatus("all");
     setFilterPlatform("all");
+    setFilterSourceKind("all");
   }
+
+  const SOURCE_KIND_LABEL: Record<SourceKindFilter, string> = {
+    all: "todos",
+    video: "con cámara",
+    audio: "audio (podcast)",
+  };
 
   async function load() {
     setLoading(true);
@@ -379,6 +412,18 @@ export function ProductionList() {
             />
           ))}
 
+          <span className="ml-3 font-mono-tab text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            origen:
+          </span>
+          {SOURCE_KIND_OPTIONS.map((sk) => (
+            <FilterChip
+              key={sk}
+              active={filterSourceKind === sk}
+              onClick={() => setFilterSourceKind(sk)}
+              label={SOURCE_KIND_LABEL[sk]}
+            />
+          ))}
+
           {hasActiveFilters && (
             <button
               type="button"
@@ -559,6 +604,14 @@ export function ProductionList() {
                   {p.source === "long_form" && (
                     <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] text-violet-300 ring-1 ring-inset ring-violet-500/20">
                       Video largo
+                    </span>
+                  )}
+                  {p.audioSource && (
+                    <span
+                      className="flex items-center gap-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300 ring-1 ring-inset ring-emerald-500/20"
+                      title="Este video se generó a partir de un audio (podcast sin imagen) — el fondo es sintético."
+                    >
+                      <Mic className="h-2.5 w-2.5" /> Audio
                     </span>
                   )}
                 </div>

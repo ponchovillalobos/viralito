@@ -1075,7 +1075,7 @@ export function LongFormWizard() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".mp4,.mov,.mkv,.webm,.m4v,video/mp4,video/quicktime"
+                accept=".mp4,.mov,.mkv,.webm,.m4v,.mp3,.wav,.m4a,.aac,.ogg,.flac,video/mp4,video/quicktime,audio/*"
                 multiple
                 className="hidden"
                 onChange={(e) => e.target.files && e.target.files.length > 0 && importVideos(e.target.files)}
@@ -1170,7 +1170,7 @@ export function LongFormWizard() {
                 icon={FolderOpen}
                 tone="violet"
                 title="Todavía no tienes videos largos"
-                description="Sube un curso, charla o entrevista desde tu compu y el sistema lo recorta en clips virales."
+                description="Sube un curso, charla o entrevista desde tu compu (o un audio de podcast — ej. exportado de NotebookLM) y el sistema lo recorta en clips virales."
                 cta={{
                   label: importing ? "Subiendo…" : "Subir desde mi compu",
                   onClick: () => fileInputRef.current?.click(),

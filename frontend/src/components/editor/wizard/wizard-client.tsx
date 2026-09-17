@@ -1431,7 +1431,7 @@ export function WizardClient({ initialStyle }: { initialStyle?: string } = {}) {
                 <input
                   ref={importInputRef}
                   type="file"
-                  accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.mp4,.mov,.mkv,.webm"
+                  accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.mp4,.mov,.mkv,.webm,.mp3,.wav,.m4a,.aac,.ogg,.flac,audio/*"
                   multiple
                   className="hidden"
                   disabled={importing}

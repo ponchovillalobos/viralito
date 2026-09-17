@@ -1,13 +1,28 @@
 import { NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { PROJECTS_DIR, LF_ROOT } from "@/lib/paths";
-import { buildBackingChecker } from "@/lib/orphan-sweep";
+import { PROJECTS_DIR, LF_ROOT, RAW_DIR, LF_RAW } from "@/lib/paths";
+import { buildBackingChecker, longFormOwner } from "@/lib/orphan-sweep";
 import { loadClipScores, matchClipScore, shortTitle } from "@/lib/viral-meta";
 
 export const dynamic = "force-dynamic";
 
 const LF_PROJECTS_DIR = path.join(LF_ROOT, "projects");
+
+// ¿El raw de este proyecto viene de un audio (podcast sin imagen, ej. NotebookLM)?
+// `synthesizeVideoFromAudio` deja un sidecar vacío `<mp4>.audiosrc` junto al RAW del
+// video completo — pero `videoId` en un clip de largos es el del CLIP
+// (`{raw}_c09_slug`), no el del raw. `longFormOwner` (mismo regex que usa el sweep
+// de huérfanos para agrupar clips bajo su video real) recupera el raw primero.
+// Se chequea con `existsSync` (no async) porque esto corre por cada uno de
+// decenas/cientos de proyectos y ya está cacheado por el OS.
+import { existsSync } from "node:fs";
+function isAudioSourced(videoId: string | undefined, source: "short" | "long_form"): boolean {
+  if (!videoId) return false;
+  const rawDir = source === "long_form" ? LF_RAW : RAW_DIR;
+  const rawId = source === "long_form" ? longFormOwner(videoId) : videoId;
+  return existsSync(path.join(rawDir, `${rawId}.mp4.audiosrc`));
+}
 
 // Caché por archivo (mtime): esta ruta se golpea ~100 veces por sesión y leía + parseaba
 // TODOS los JSON en cada request. Con el caché solo se re-lee lo que cambió en disco.
@@ -90,6 +105,7 @@ export async function GET() {
           ...(p as Record<string, unknown>),
           viralityScore: match?.score ?? (p as { viralityScore?: number }).viralityScore ?? null,
           shortTitle: shortTitle(p.id as string),
+          audioSource: isAudioSourced(p.videoId, p.source),
         };
       });
     projects.sort((a, b) =>

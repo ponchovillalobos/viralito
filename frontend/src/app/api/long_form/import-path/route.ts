@@ -16,12 +16,13 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { LF_RAW } from "@/lib/paths";
-import { validateVideo, UploadError } from "@/lib/save-upload";
+import { validateVideo, synthesizeVideoFromAudio, markAsAudioSource, AUDIO_EXTS, UploadError } from "@/lib/save-upload";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800; // 30 min — el fallback de copia de un archivo de GIGAS tarda
 
 const VALID_EXTS = new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v"]);
+const ALL_VALID_EXTS = new Set([...VALID_EXTS, ...AUDIO_EXTS]);
 
 /**
  * Allowlist de raíces desde donde se puede IMPORTAR un video del disco. Sin esto el
@@ -118,44 +119,55 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = path.extname(srcPath).toLowerCase();
-    if (!VALID_EXTS.has(ext)) {
+    if (!ALL_VALID_EXTS.has(ext)) {
       return NextResponse.json(
-        { error: `extensión no soportada (${ext}). Permitidas: ${[...VALID_EXTS].join(", ")}` },
+        { error: `extensión no soportada (${ext}). Permitidas: ${[...ALL_VALID_EXTS].join(", ")}` },
         { status: 400 }
       );
     }
+    const isAudio = AUDIO_EXTS.has(ext);
 
-    // Validar el ORIGINAL con ffprobe antes de copiar (no copiar 10 GB de basura).
-    await validateVideo(srcPath);
+    // Validar el ORIGINAL con ffprobe antes de copiar (no copiar GIGAS de basura).
+    await validateVideo(srcPath, isAudio ? "audio" : "video");
 
     await fs.mkdir(LF_RAW, { recursive: true });
 
-    // Nombre destino sin colisión.
-    const baseName = path.basename(srcPath).replace(/[^a-zA-Z0-9._\- ]/g, "_");
+    // Nombre destino sin colisión. Un podcast de audio se publica como .mp4 (se
+    // envuelve en un video sintético: fondo fijo + el audio original).
+    const destExt = isAudio ? ".mp4" : ext;
+    const baseName = path.basename(srcPath, ext).replace(/[^a-zA-Z0-9._\- ]/g, "_") + destExt;
     let destPath = path.join(LF_RAW, baseName);
     let counter = 1;
     while (
       await fs.access(destPath).then(() => true).catch(() => false)
     ) {
-      const b = path.basename(baseName, ext);
-      destPath = path.join(LF_RAW, `${b}_${counter}${ext}`);
+      const b = path.basename(baseName, destExt);
+      destPath = path.join(LF_RAW, `${b}_${counter}${destExt}`);
       counter++;
       if (counter > 200) throw new Error("demasiadas colisiones de nombre");
     }
 
-    // Hardlink (instantáneo, mismo volumen). Si falla (otro disco, EXDEV), copiar.
-    let method = "hardlink";
-    try {
-      await fs.link(srcPath, destPath);
-    } catch {
-      method = "copia";
-      await fs.copyFile(srcPath, destPath);
+    let method: string;
+    if (isAudio) {
+      method = "audio-a-video";
+      await synthesizeVideoFromAudio(srcPath, destPath);
+      await markAsAudioSource(destPath);
+    } else {
+      // Hardlink (instantáneo, mismo volumen). Si falla (otro disco, EXDEV), copiar.
+      method = "hardlink";
+      try {
+        await fs.link(srcPath, destPath);
+      } catch {
+        method = "copia";
+        await fs.copyFile(srcPath, destPath);
+      }
     }
 
+    const destStat = await fs.stat(destPath);
     return NextResponse.json({
       ok: true,
       filename: path.basename(destPath),
-      sizeBytes: stat.size,
+      sizeBytes: destStat.size,
       path: destPath,
       method,
     });

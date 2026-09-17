@@ -252,6 +252,12 @@ archivo de Pexels que ilustran lo que decís, montados en cortinillas sobre el l
 }
 ```
 
+**Es el recomendado para podcasts de solo audio** (sin cámara, ej. exportados de
+NotebookLM): el upload convierte el audio a un MP4 con fondo fijo (ver
+`synthesizeVideoFromAudio` en `frontend/src/lib/save-upload.ts`), y como no hay nada
+que mostrar del video original, el B-roll de Pexels + las ilustraciones y gráficos
+generados son TODO lo visual del resultado.
+
 ## 10. Cine clásico — `cine_clasico` 🎞️🎙️
 
 **Tagline**: Cine antiguo: en los momentos dramáticos la voz suena a radio vieja y la imagen se vuelve blanco y negro.

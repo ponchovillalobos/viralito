@@ -8,10 +8,12 @@ Este archivo se carga automáticamente al inicio de cada sesión. Contiene conte
 
 | Pantalla | Para qué |
 |---|---|
-| `/editor/wizard` | un video corto, paso a paso |
+| `/editor/wizard` | un video corto, paso a paso. También un video LARGO completo sin cortar (subilo acá, no en `/largos`, si no querés que lo trocee en clips) |
 | `/largos` | un video largo, del que salen varios clips virales. Acepta **varios enlaces de YouTube pegados de una vez** y los baja de a uno, por la cola compartida — se puede cerrar la pantalla |
-| `/produccion` | los videos ya hechos: descripción lista para publicar, y marcar en qué redes los subiste |
+| `/produccion` (`/publicar`) | los videos ya hechos: descripción lista para publicar, marcar en qué redes los subiste, y un filtro **origen: con cámara / audio (podcast)** para no perder de vista los que vinieron de un audio sin imagen |
 | `/metricas` | cómo rindieron |
+
+**Podcasts de solo audio** (ej. exportado de NotebookLM, sin video): tanto `/editor/wizard` como `/largos` aceptan `.mp3/.wav/.m4a/.aac/.ogg/.flac` — el upload los envuelve en un MP4 sintético (fondo fijo + el audio) antes de tocar el resto del pipeline, así que ningún paso de abajo necesitó cambios. El estilo `editorial_broll` es el pensado para esto: como no hay cámara, todo lo visual (B-roll de Pexels + gráficos/íconos generados) lo pone el estilo. Detalle técnico y la trampa que costó tiempo en `synthesizeVideoFromAudio` (`frontend/src/lib/save-upload.ts`).
 
 **Por consola**, para lo que la interfaz no cubre — ver la sección de comandos
 más abajo.
@@ -173,6 +175,7 @@ npx remotion render src/index.ts ViralVideo "C:\viral-data\videos\renders\<id>.m
 - **OneDrive locks files**: si Next.js hot reload no funciona, mover proyecto fuera de OneDrive
 - **Stickers SIEMPRE top-center**: ignorar el `position` del JSON viejo
 - **Fuentes del render = TTF LOCALES, NUNCA `@remotion/google-fonts`**: cargar fuentes por red (gstatic) rompe el render offline y aborta CUALQUIER estilo sin internet (fue la causa raíz de "los videos no salían"). Agregar fuentes vía `python/download_fonts.py` (baja 43 TTF OFL/Apache → `remotion/public/fonts`) + registrarlas con el helper `F` de `remotion/src/layers/local-editorial-fonts.ts`. Ese loader es **LAZY**: `new FontFace(...)` + `document.fonts.add(face)` **SIN `.load()`** → el browser baja la fuente sólo cuando un glyph la usa. NO usa `delayRender` (bajo render concurrente de largos una `delayRender` por fuente se quedaba sin limpiar → Remotion abortaba el clip con `delayRender ... not cleared after 58000ms`; el `setTimeout` NO sirve porque Remotion controla los timers del render). NO usa `@remotion/fonts.loadFont` (hace `cancelRender` en fallo) ni `@remotion/google-fonts` (carga a nivel de módulo desde gstatic). Si una fuente falta → cae a la del sistema, nunca aborta.
+- **"Failed to fetch ... Chrome rejecting the request because the disk space is low" en el render de largos NO es un mensaje genérico** — tomarlo literal antes que nada más: revisar `Get-CimInstance Win32_LogicalDisk` de **C:** (no de la unidad de datos). Un render que sirve B-roll vía `/api/assets/broll/stream` desde el propio dev server, con C: casi lleno, falla el fetch de forma intermitente y deja 25+ de 30 clips sin renderizar — parecía un problema de concurrencia/red, era simplemente que no había disco. Liberar C: y re-correr el mismo job (el pipeline salta lo ya renderizado) lo resuelve sin tocar código.
 
 ## Estado actual del proyecto
 
@@ -199,6 +202,7 @@ Documentado en `README.md`. Resumen:
 - ✅ **Pipeline largos resiliente**: export incremental (cada render se escribe a disco al terminar) + SKIP de clips ya renderizados al re-correr (default; `VIRAL_FORCE_RENDER=1` fuerza regenerar TODO). El resumen JSON final reporta `rendered` / `render_tasks` / `render_failed`
 - ✅ **Wizards** con barra de navegación FIJA al fondo (`fixed inset-x-0 bottom-0`, "Siguiente" siempre visible). El flujo recorre los pasos y un solo "Crear" final hace todo. En largos: "Crear todos los videos" (modo `full`, un jalón) o "revisar los momentos antes" (modo `analyze`, 2 pasos)
 - ✅ **Provider de clips/caption offline-aware**: `analyze_clips.py` y `generate_caption.py` chequean DNS (`_online()`); offline van DIRECTO a Ollama local en vez de colgarse intentando el provider OAuth (claude/codex)
+- ✅ **Upload de audio (podcasts sin video)** en `/editor/wizard` y `/largos`: `saveUploadedVideo`/`saveStreamedVideo`/`import-path` (`frontend/src/lib/save-upload.ts`) detectan `.mp3/.wav/.m4a/.aac/.ogg/.flac` y llaman `synthesizeVideoFromAudio` (ffmpeg: fondo de color fijo 1920×1080 + el audio, con `-t` a la duración EXACTA del audio — ver trampa de abajo) antes de guardar en `raw/`. El resultado se marca con un sidecar vacío `<mp4>.audiosrc`; `/api/projects` lo lee (`isAudioSourced`, resolviendo primero el raw dueño de un clip de largos con `longFormOwner`) y expone `audioSource` para el badge/filtro "🎙️ Audio" en `production-list.tsx` y los accesos `/publicar?origen=audio|video` del menú principal
 - ⏳ Pendiente opcional: skills `.claude` para invocar pipeline desde Claude Code
 
 ## Rendimiento: qué está medido y qué lo gobierna
