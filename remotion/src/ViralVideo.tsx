@@ -46,6 +46,7 @@ import {
 } from "./layers/pro-transition-series-layer";
 import { AudiogramLayer, audiogramSchema } from "./layers/audiogram-layer";
 import { LensFxLayer, lensFxSchema } from "./layers/lens-fx-layer";
+import { LightLeakLayer, lightLeakSchema } from "./layers/light-leak-layer";
 import { StatPopLayer, statPopSchema } from "./layers/stat-pop-layer";
 import { LowerThirdLayer, lowerThirdSchema } from "./layers/lower-third-layer";
 import { IllustrationStickerLayer } from "./layers/illustration-sticker-layer";
@@ -259,6 +260,9 @@ export const viralVideoSchema = z.object({
   words: z.array(wordSchema).default([]),
   bRoll: z.array(bRollSchema).default([]),
   musicUrl: z.string().nullable().default(null),
+  // Segundo de la pista desde el que suena la música. Lo elige beat-sync para que
+  // el tramo de más energía caiga dentro del clip. 0 = desde el principio.
+  musicStartSec: z.number().default(0),
   musicVolume: z.number().default(0.35),
   // F1 — Director emocional: curva de DUCKING de la música. Puntos {t, v} donde v
   // multiplica musicVolume (0.35 = voz hablando, 1.0 = pausa larga → la música
@@ -357,6 +361,9 @@ export const viralVideoSchema = z.object({
   lottieStickers: z.array(lottieStickerSchema).default([]),
   // F3 — Partículas procedurales (confeti/chispas/brasas/lluvia de emojis). Opt-in.
   particleBursts: z.array(particleBurstSchema).default([]),
+  // Destellos de luz (lightLeak de @remotion/effects) en los drops de la música.
+  // Opt-in: [] = render idéntico.
+  lightLeaks: z.array(lightLeakSchema).default([]),
   // MOTION PRO — Fondo animado (aurora/mesh/grid), opcionalmente audio-reactivo.
   // null = sin fondo (render idéntico al histórico).
   animatedBackground: animatedBackgroundSchema.nullable().default(null),
@@ -408,6 +415,7 @@ export const defaultProps: ViralVideoProps = {
   musicUrl: null,
   musicVolume: 0.35,
   musicVolumeCurve: [],
+  musicStartSec: 0,
   subtitleStyle: "bebas",
   subtitleColor: "#ffffff",
   subtitleHighlight: "#34d399",
@@ -454,6 +462,7 @@ export const defaultProps: ViralVideoProps = {
   kineticHeadlines: [],
   lottieStickers: [],
   particleBursts: [],
+  lightLeaks: [],
   animatedBackground: null,
   editorialLayout: null,
   editorialCards: [],
@@ -479,6 +488,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   musicUrl,
   musicVolume,
   musicVolumeCurve,
+  musicStartSec,
   subtitleStyle,
   subtitleColor,
   subtitleHighlight,
@@ -523,6 +533,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
   kineticHeadlines,
   lottieStickers,
   particleBursts,
+  lightLeaks,
   animatedBackground,
   editorialLayout,
   editorialCards,
@@ -1250,6 +1261,11 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
         );
       })()}
 
+      {/* LIGHT LEAK — destello de luz en los drops, teñido al acento. Bajo subtítulos. */}
+      {lightLeaks.length > 0 && (
+        <LightLeakLayer leaks={lightLeaks} currentTime={currentTime} />
+      )}
+
       {/* Subtítulo: con kineticPreset "none" se usa el SubtitleLayer de siempre.
           Los estilos que eligen un preset cinético montan KineticSubtitleLayer en su lugar.
           En modo EDITORIAL no hay captions: las tarjetas tipográficas SON el texto. */}
@@ -1433,7 +1449,11 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
 
       {/* MOTION PRO — Fondo animado (aurora/mesh/grid), pulsa con la música. */}
       {animatedBackground && (
-        <AnimatedBackgroundLayer bg={animatedBackground} musicUrl={musicUrl} />
+        <AnimatedBackgroundLayer
+          bg={animatedBackground}
+          musicUrl={musicUrl}
+          musicOffsetFrames={Math.max(0, Math.round((musicStartSec ?? 0) * fps))}
+        />
       )}
 
       {/* F3 — Partículas procedurales (confeti/chispas/brasas/lluvia de emojis). */}
@@ -1473,6 +1493,7 @@ export const ViralVideo: React.FC<ViralVideoProps> = ({
       {musicUrl && (
         <Audio
           src={musicUrl}
+          trimBefore={Math.max(0, Math.round((musicStartSec ?? 0) * fps))}
           // F1 — Auto-ducking: la música baja cuando hay voz y respira en pausas
           // largas, con rampa de 0.45s en cada transición (sin saltos audibles).
           // Curva vacía = volumen constante. SIEMPRE: fade-out en los últimos

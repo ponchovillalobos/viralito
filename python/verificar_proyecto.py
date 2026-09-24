@@ -32,32 +32,40 @@ from urllib.parse import parse_qs, urlparse
 
 import config
 
-# Listas de elementos con tiempos. El nombre del campo de inicio/fin varía según
-# la lista, así que cada entrada declara el suyo. Un elemento sin tiempos (o con
-# tiempos nulos) se ignora: hay listas donde son opcionales.
-LISTAS_CON_TIEMPO: tuple[tuple[str, str, str], ...] = (
-    ("bRoll", "start", "end"),
-    ("captions", "start", "end"),
-    ("manualSubtitles", "start", "end"),
-    ("animations", "start", "end"),
-    ("emphasisCards", "start", "end"),
-    ("wordStickers", "start", "end"),
-    ("floatingEmojis", "start", "end"),
-    ("imageOverlays", "start", "end"),
-    ("cameraMoves", "start", "end"),
-    ("reactionZooms", "start", "end"),
-    ("sceneFx", "start", "end"),
-    ("proTransitions", "start", "end"),
-    ("iconStickers", "start", "end"),
-    ("lottieStickers", "start", "end"),
-    ("particleBursts", "start", "end"),
+# Listas de elementos con tiempos, con los NOMBRES DE CAMPO REALES del composition
+# (remotion/src/schemas.ts, cinematic-layers.tsx, scene-fx.tsx, particle-layer.tsx).
+# Cada entrada: (lista, campo_inicio, campo_fin | None, campo_duración | None,
+# duración por omisión del schema, segundos por unidad de la duración).
+#
+# Antes decía `start`/`end` para las quince. Sólo bRoll los usa: el resto es
+# `at` + `duration` (o `durationFrames`), e imageOverlays es `startTime`/`endTime`.
+# Como el chequeo se salta en silencio un elemento sin tiempos, doce de quince
+# listas nunca se revisaban — stickers, tarjetas, zooms, transiciones — y el
+# script decía "sano" igual. Mismo defecto que check-style-parity.mjs antes de
+# arreglarlo: el guardián no veía lo que tenía que guardar.
+LISTAS_CON_TIEMPO: tuple[tuple[str, str, str | None, str | None, float, float], ...] = (
+    ("bRoll", "start", "end", None, 0.0, 1.0),
+    ("captions", "start", "end", None, 0.0, 1.0),
+    ("manualSubtitles", "start", "end", None, 0.0, 1.0),
+    ("imageOverlays", "startTime", "endTime", None, 0.0, 1.0),
+    ("emphasisCards", "at", None, "duration", 0.9, 1.0),
+    ("wordStickers", "at", None, "duration", 1.1, 1.0),
+    ("floatingEmojis", "at", None, "duration", 1.2, 1.0),
+    ("cameraMoves", "at", None, "duration", 1.5, 1.0),
+    ("reactionZooms", "at", None, "duration", 0.25, 1.0),
+    ("sceneFx", "at", None, "duration", 1.2, 1.0),
+    ("proTransitions", "at", None, "durationFrames", 8, 1 / 30),
+    ("iconStickers", "at", None, "duration", 1.1, 1.0),
+    ("lottieStickers", "at", None, "duration", 1.6, 1.0),
+    ("particleBursts", "at", None, "duration", 2.2, 1.0),
 )
 
 # Listas de marcas instantáneas: un solo tiempo, sin duración.
 LISTAS_CON_MARCA: tuple[tuple[str, str], ...] = (
-    ("zoomMarks", "time"),
-    ("stutterMarks", "time"),
-    ("sfxMarks", "time"),
+    ("animations", "at"),
+    ("zoomMarks", "at"),
+    ("stutterMarks", "at"),
+    ("sfxMarks", "at"),
 )
 
 # Tolerancia al final del video. Un elemento que se pasa por menos de esto es
@@ -126,6 +134,25 @@ def _ruta_de_asset_local(url: str) -> Path | None:
         return directo
 
 
+def _numero(valor) -> float | None:
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def _inicio_y_fin(elem: dict, campo_ini: str, campo_fin: str | None,
+                  campo_dur: str | None, dur_omision: float, unidad: float):
+    """Inicio y fin en segundos, sea la lista `start/end` o `at + duration`."""
+    ini = _numero(elem.get(campo_ini))
+    if ini is None:
+        return None, None
+    if campo_fin:
+        return ini, _numero(elem.get(campo_fin))
+    dur = _numero(elem.get(campo_dur))
+    return ini, ini + (dur_omision if dur is None else dur) * unidad
+
+
 def _revisar_tiempos(proyecto: dict, duracion: float | None) -> list[Hallazgo]:
     hallazgos: list[Hallazgo] = []
 
@@ -135,11 +162,11 @@ def _revisar_tiempos(proyecto: dict, duracion: float | None) -> list[Hallazgo]:
         except (TypeError, ValueError):
             return None
 
-    for lista, campo_ini, campo_fin in LISTAS_CON_TIEMPO:
+    for lista, campo_ini, campo_fin, campo_dur, dur_omision, unidad in LISTAS_CON_TIEMPO:
         for i, elem in enumerate(proyecto.get(lista) or []):
             if not isinstance(elem, dict):
                 continue
-            ini, fin = numero(elem.get(campo_ini)), numero(elem.get(campo_fin))
+            ini, fin = _inicio_y_fin(elem, campo_ini, campo_fin, campo_dur, dur_omision, unidad)
             if ini is None or fin is None:
                 continue
             if fin <= ini:
@@ -180,9 +207,9 @@ def _revisar_tiempos(proyecto: dict, duracion: float | None) -> list[Hallazgo]:
     # que la duración declarada no coincida con el archivo.
     if duracion is not None:
         finales = [
-            f for lista, _, campo_fin in LISTAS_CON_TIEMPO
+            f for lista, *campos in LISTAS_CON_TIEMPO
             for elem in (proyecto.get(lista) or [])
-            if isinstance(elem, dict) and (f := numero(elem.get(campo_fin))) is not None
+            if isinstance(elem, dict) and (f := _inicio_y_fin(elem, *campos)[1]) is not None
         ]
         if finales:
             ultimo = max(finales)

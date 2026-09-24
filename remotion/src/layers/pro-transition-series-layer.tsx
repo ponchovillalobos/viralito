@@ -42,13 +42,24 @@ import { none } from "@remotion/transitions/none";
 // experimental `canvas-draw-element`. Sin medir que rindan en este render
 // offline, agregarlas seria prometer algo que no se comprobo.
 import { iris } from "@remotion/transitions/iris";
+// pushCut es CSS puro (escala + destello), como las de arriba. Las transiciones
+// por shader que trae 4.0.527 (dissolve, dreamyZoom, filmBurn, crossZoom, ripple,
+// linearBlur, blurSlide...) se probaron el 2026-09-23 con render real y NO sirven
+// en esta capa: dibujan un canvas opaco que tapa el cuadro entero desde el primer
+// frame, porque estan hechas para pasar de una ESCENA a otra y aqui solo pasan de
+// "vacio" a un panel de color. Para usarlas habria que montar raw y B-roll como
+// escenas de un TransitionSeries, no como capas superpuestas.
+import { pushCut } from "@remotion/transitions/push-cut";
 
 export const proTransitionSeriesSchema = z.object({
   at: z.number(),
   /** Duración del barrido (frames). El overlay total dura un poco más para enmarcar. */
   durationFrames: z.number().default(14),
   kind: z
-    .enum(["slide", "wipe", "flip", "clockWipe", "iris", "fade", "none"])
+    .enum([
+      "slide", "wipe", "flip", "clockWipe", "iris", "fade", "none",
+      "pushCut",
+    ])
     .default("slide"),
   /** Dirección para slide/wipe/flip (las que la soportan). */
   direction: z
@@ -143,6 +154,8 @@ export const ProTransitionSeriesLayer: React.FC<{
               return fade() as unknown as AnyPresentation;
             case "none":
               return none() as unknown as AnyPresentation;
+            case "pushCut":
+              return pushCut({ flashColor: tr.color }) as unknown as AnyPresentation;
             case "slide":
             default:
               return slide({ direction: tr.direction }) as unknown as AnyPresentation;

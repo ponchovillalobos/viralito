@@ -113,8 +113,10 @@ function renderEffect(
     });
     return (
       <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
-        <div style={layer("#ff2d55", jx - 6 * decay, jy, "screen")}>{text}</div>
-        <div style={layer("#00e5ff", -jx + 6 * decay, -jy, "screen")}>{text}</div>
+        {/* Las copias desalineadas son el acento en dos tonos (claro y oscuro), no
+            magenta y cian fijos: la regla es un solo color por video. */}
+        <div style={layer(`${accent}cc`, jx - 6 * decay, jy, "screen")}>{text}</div>
+        <div style={layer(`${accent}66`, -jx + 6 * decay, -jy, "multiply")}>{text}</div>
         <div style={{ ...base, color, position: "relative", textShadow: `0 0 36px ${accent}55` }}>
           {text}
         </div>
@@ -212,15 +214,17 @@ function renderEffect(
     );
   }
 
-  // tracking_in: expande letter-spacing + blur-in.
-  const t = interpolate(frame, [0, fps * 0.8], [0, 1], { extrapolateRight: "clamp" });
+  // tracking_in: entra estirado a lo ancho y se asienta. Antes animaba
+  // letter-spacing y blur, y las dos cosas re-maquetan la línea en cada frame (el
+  // texto saltaba de renglón mientras entraba). Ahora sólo transform + opacidad.
+  const t = interpolate(frame, [0, fps * 0.6], [0, 1], { extrapolateRight: "clamp" });
+  const ease = 1 - Math.pow(1 - t, 3);
   return (
     <div
       style={{
         ...base,
         color,
-        letterSpacing: `${interpolate(t, [0, 1], [0.6, 0.02], { extrapolateRight: "clamp" })}em`,
-        filter: `blur(${(1 - t) * 14}px)`,
+        transform: `scaleX(${interpolate(ease, [0, 1], [1.35, 1])}) translateY(${(1 - ease) * 18}px)`,
         opacity: t,
         textShadow: `0 0 50px ${accent}55`,
       }}

@@ -435,6 +435,24 @@ function applyCapcutFx<T extends object>(
   };
 }
 
+/**
+ * El acento y dos tonos suyos (claro y oscuro), para los fondos animados que
+ * piden varios colores. Antes llevaban cian y violeta fijos al lado del acento:
+ * 5 de 25 estilos rompían la regla de un solo color por video.
+ */
+export function tonosDelAcento(hex: string): string[] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return [hex, hex, hex];
+  const n = parseInt(m[1], 16);
+  const canal = (c: number, k: number) =>
+    Math.round(Math.max(0, Math.min(255, k >= 0 ? c + (255 - c) * k : c * (1 + k))))
+      .toString(16)
+      .padStart(2, "0");
+  const mezcla = (k: number) =>
+    "#" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => canal(c, k)).join("");
+  return [hex, mezcla(0.35), mezcla(-0.35)];
+}
+
 function pickKeywords(ctx: BuildContext, count: number) {
   return ctx.keywords.slice(0, count);
 }
@@ -1231,6 +1249,9 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
       {
         ...base,
         graphics: true,
+        // Al ritmo real de la música (music_map.py) y palabras héroe (type_director.py).
+        beatSync: true,
+        typeDirector: true,
         subtitleStyle: "anton" as const,
         vignette: true,
         captionBounce: false,
@@ -1254,7 +1275,7 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
           : {}),
         animatedBackground: {
           kind: bgKind,
-          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          colors: tonosDelAcento(ctx.accentColor),
           opacity: isBeat ? 0.6 : 0.48,
           audioReactive: true,
         },
@@ -1311,6 +1332,9 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
     return applyCapcutFx(
       {
         ...base,
+        // El texto es el protagonista: palabras héroe + cortes al beat.
+        beatSync: true,
+        typeDirector: true,
         subtitleStyle: "anton" as const,
         vignette: true,
         captionBounce: false,
@@ -1321,7 +1345,7 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.5, scale: 1.08 })),
         animatedBackground: {
           kind: "mesh" as const,
-          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          colors: tonosDelAcento(ctx.accentColor),
           opacity: 0.5,
           audioReactive: true,
         },
@@ -1351,7 +1375,7 @@ export function buildProjectForStyle(ctx: BuildContext, styleId: StyleId) {
         zoomMarks: pickKeywords(ctx, 4).map((kw) => ({ at: kw.start, duration: 0.6, scale: 1.12 })),
         animatedBackground: {
           kind: "aurora" as const,
-          colors: [ctx.accentColor, "#22d3ee", "#a78bfa"],
+          colors: tonosDelAcento(ctx.accentColor),
           opacity: 0.48,
           audioReactive: true,
         },

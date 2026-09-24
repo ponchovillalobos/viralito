@@ -417,9 +417,16 @@ def _recommend(prof: dict) -> dict:
     # (muchos núcleos) con RAM holgada, qwen3:8b vale la pena para tareas de
     # razonamiento como el análisis de clips largos (mejor selección + JSON más
     # confiable que 4b). Para CPUs chicas seguimos en 4b/1.7b por velocidad.
-    if vram_free >= 16000:
+    #
+    # Se decide por VRAM **TOTAL**, igual que whisper_model más arriba y por la misma
+    # razón. Con la libre, el navegador, Steam o Parsec abiertos (1.1-1.7 GB en esta
+    # máquina, medido 2026-09-23) la bajaban de 5000 y el cache quedaba 7 días en
+    # qwen3:4b — el modelo que el párrafo de arriba descartó por alucinar. Que la
+    # placa esté ocupada un rato no cambia qué modelo aguanta: Ollama ya reparte
+    # entre GPU y CPU solo, y `liberar()` descarga el modelo antes de renderizar.
+    if vram_total >= 16000:
         ollama_model = "qwen3:14b"
-    elif vram_free >= 5000:
+    elif vram_total >= 6000:
         ollama_model = "qwen3:8b"
     elif ram_gb >= 24 and cores_physical >= 8:
         # CPU-only fuerte (p.ej. i9/Ryzen 9 con 32 GB): 8b es el sweet spot.
@@ -630,7 +637,8 @@ def _recommend(prof: dict) -> dict:
 #    recomendacion vieja (chromium_gl=None) mientras el codigo ya decia "angle".
 #    O sea: la aceleracion quedo encendida en el codigo y apagada en la practica,
 #    dentro del mismo mecanismo que existe para evitar exactamente eso.
-_REGLAS_VERSION = 4
+# 5: ollama_model pasa de VRAM libre a VRAM total (el cache tenía qwen3:4b fijo).
+_REGLAS_VERSION = 5
 
 
 def _fingerprint(prof: dict) -> str:

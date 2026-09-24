@@ -154,6 +154,10 @@ export interface ResolvedProject {
   audioFilterPre?: string;
   // F3 — Partículas procedurales (chispas en el pico emocional, confeti, etc.).
   particleBursts?: { at: number; duration: number; kind: string; count?: number }[];
+  /** Segundo de la pista desde el que suena la música (lo elige beat-sync). */
+  musicStartSec?: number;
+  /** Destellos de luz (lightLeak) en los drops de la música; los pone beat-sync. */
+  lightLeaks?: { at: number; duration: number; seed: number; color: string; intensity: number }[];
   /**
    * Momentos donde la imagen se congela para rematar.
    *
@@ -176,6 +180,8 @@ export interface ResolvedProject {
   graphics?: boolean;
   dataViz?: unknown[];
   kineticHeadlines?: unknown[];
+  /** Director tipográfico (type_director.py): palabras héroe con titular cinético. */
+  typeDirector?: boolean;
   iconStickers?: unknown[];
   // ILUSTRACIONES CC0 (Phase 4) — personas/escenas multicolor (opt-in vía el
   // REGISTRO de estilos, no vía flag del proyecto). applyIllustrations las llena.

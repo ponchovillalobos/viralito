@@ -177,6 +177,9 @@ const props = {
   musicVolumeCurve: filterAndRemap(project.musicVolumeCurve || [], ["t"]),
   // F3 — Partículas procedurales (confeti/chispas/brasas). Remapean igual.
   particleBursts: filterAndRemap(project.particleBursts || [], ["at"]),
+  lightLeaks: filterAndRemap(project.lightLeaks || [], ["at"]),
+  // La música corre en el reloj de SALIDA: su desfase no se remapea.
+  musicStartSec: project.musicStartSec || 0,
   // Congelados del director emocional. `filterAndRemap` reancla los tiempos al
   // inicio del corte: sin eso, un congelado marcado en el segundo 90 del video
   // original se dispararia en el segundo 90 del CLIP, que no existe.

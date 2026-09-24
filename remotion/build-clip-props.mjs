@@ -109,6 +109,8 @@ const props = {
   musicVolumeCurve: project.musicVolumeCurve || [],
   // F3 — Partículas procedurales (pass-through).
   particleBursts: project.particleBursts || [],
+  lightLeaks: project.lightLeaks || [],
+  musicStartSec: project.musicStartSec || 0,
   // Congelados del director emocional (pass-through, igual que musicVolumeCurve
   // y particleBursts: los clips de largos no hacen jump cuts, sus tiempos ya
   // vienen relativos al corte). `filterAndRemap` no existe en este archivo —

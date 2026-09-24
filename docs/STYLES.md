@@ -180,7 +180,9 @@ No requiere configuración manual — `build-clip-supreme.mjs` lo arma desde la 
 
 **Elementos**:
 - Subtítulos gigantes con bounce (spring overshoot) palabra por palabra
-- Fondo mesh animado que pulsa al beat de la música (familia `motion` + `music`)
+- Fondo mesh animado que pulsa al beat de la música (familia `motion` + `music`), en tonos del acento
+- **Palabras héroe** (`typeDirector`): una cada ~7 s, grande al centro, cuando se dice (ver abajo)
+- **Al ritmo real** (`beatSync`): zooms en los downbeats, golpe + destello en el drop (ver abajo)
 - **Sin emojis, sin stickers, sin floating emojis** — la tipografía es la protagonista
 - Mono-color por video
 
@@ -475,10 +477,59 @@ recorren la cadena entera: `transiciones-alcanzables.test.ts` (las tres copias
 de la lista de transiciones dicen lo mismo) y `congelado-cableado.test.ts` (los
 cinco eslabones del congelado). Los dos se comprobaron rompiéndolos a propósito.
 
+### Al ritmo de la música (`beatSync`) y destellos de luz (`lightLeaks`)
+
+Lo activan `motion_pro`, `motion_beat`, `motion_grid`, `kinetic_type` y los
+`broll_*`. `python/music_map.py` analiza la pista con **beat_this** (MIT, GPU,
+~1 s): beats, **downbeats** (primer tiempo del compás), energía por compás,
+secciones baja/media/alta y **drops**. Acierta el tempo en 77 % de la
+biblioteca contra 68 % de librosa, que queda como respaldo. El mapa se guarda en
+`assets/music/.maps/`.
+
+`beat-sync.ts` ordena el montaje contra ese mapa:
+
+| momento musical | qué pasa |
+|---|---|
+| drop | flash + punch + **destello de luz** (`lightLeaks`, del acento) |
+| downbeat en sección alta | zoom suave (1.08) |
+| downbeat en sección media | zoom suave, uno sí y uno no |
+| sección baja | nada |
+| zoom, punch, transición o corte de B-roll a ≤ min(150 ms, ¼ de beat) de un beat | se mueve AL beat |
+
+**Desde dónde suena la música (`musicStartSec`).** Antes la pista sonaba
+siempre desde el segundo 0 — la intro tranquila — aunque el clip dure 40 s y la
+parte fuerte empiece en el 1:28. Ahora beat-sync elige el **downbeat** que deja
+dentro del clip el tramo de más energía (con premio si un drop cae en el primer
+tercio), el composition la monta con `trimBefore` y el fondo audio-reactivo lee
+ese mismo tramo. Si no hay drop dentro del clip, el golpe va en el compás con el
+mayor salto de energía (≥ 0.15).
+
+Todo cae **un frame antes** del beat (ITU-R BT.1359: 33 ms antes no se nota,
+33 ms tarde sí). Tope: 5 golpes cada 10 s y 1.2 s entre golpes. Corre después
+del director emocional, así sus zooms también caen en la grilla. Con jump cuts
+no corre (la música y los eventos están en tiempos distintos).
+
+`lightLeaks` es `lightLeak` de `@remotion/effects` pintado sobre negro y
+compuesto en `screen` debajo de los subtítulos; el matiz se gira al acento.
+
+### Palabras héroe (`typeDirector` → `kineticHeadlines`)
+
+`python/type_director.py` elige de 1 a 3 palabras que concentran la idea y las
+muestra grandes al centro con un titular cinético, ancladas a cuando se dicen.
+Ollama (qwen3, con **esquema JSON**) devuelve sólo índices del transcript — el
+texto y el tiempo salen del audio, nunca del modelo — y reglas fijas recortan:
+uno cada 7 s como máximo, dos efectos de texto por video, cifras con
+`gradient_sweep`, sin repetir palabra, sin artículos en los bordes. Sin Ollama,
+heurística (cifras, negaciones, palabras con carga). **Los subtítulos siguen
+visibles**: el héroe es un énfasis de ~1 s.
+
 ### Barridos de color en los cortes a B-roll (`proTransitionSeries`)
 
 Un panel del acento cruza el cuadro con las transiciones **oficiales** de
-Remotion (`@remotion/transitions`: `slide`, `wipe`, `flip`, `clockWipe`, `iris`).
+Remotion (`@remotion/transitions`: `slide`, `wipe`, `flip`, `clockWipe`, `iris`,
+`pushCut`). Las transiciones por shader de 4.0.527 (`dissolve`, `filmBurn`,
+`dreamyZoom`…) se probaron y **no sirven aquí**: tapan el cuadro entero desde el
+primer frame porque pasan de una escena a otra, no barren encima del video.
 Es el
 complemento de `proTransitions`, que son las caseras y ponen destellos en los
 beats: aquéllas parpadean, éstas barren.

@@ -17,7 +17,7 @@ import { z } from "zod";
 export const animatedBackgroundSchema = z.object({
   kind: z.enum(["aurora", "mesh", "grid"]).default("aurora"),
   // Paleta (2-3 colores). El director emocional puede elegirla por mood.
-  colors: z.array(z.string()).default(["#34d399", "#22d3ee", "#a78bfa"]),
+  colors: z.array(z.string()).default(["#34d399", "#6ee7b7", "#047857"]), // un solo matiz: el acento y dos tonos
   opacity: z.number().default(0.35),
   audioReactive: z.boolean().default(true),
 });
@@ -26,9 +26,11 @@ export type AnimatedBackground = z.infer<typeof animatedBackgroundSchema>;
 /** Pulso 0..1 desde los graves de la música (solo se monta si hay musicUrl). */
 const AudioPulse: React.FC<{
   musicUrl: string;
+  /** Frames que la música está adelantada (musicStartSec): el pulso lee ESE tramo. */
+  offsetFrames?: number;
   children: (pulse: number) => React.ReactNode;
-}> = ({ musicUrl, children }) => {
-  const frame = useCurrentFrame();
+}> = ({ musicUrl, offsetFrames = 0, children }) => {
+  const frame = useCurrentFrame() + offsetFrames;
   const { fps } = useVideoConfig();
   const { audioData } = useWindowedAudioData({
     src: musicUrl,
@@ -52,7 +54,7 @@ const BackgroundVisual: React.FC<{
 }> = ({ bg, pulse }) => {
   const frame = useCurrentFrame();
   const t = frame / 30;
-  const c = bg.colors.length >= 2 ? bg.colors : ["#34d399", "#22d3ee", "#a78bfa"];
+  const c = bg.colors.length >= 2 ? bg.colors : [bg.colors[0] ?? "#34d399", bg.colors[0] ?? "#6ee7b7", bg.colors[0] ?? "#047857"];
   const baseOpacity = bg.opacity ?? 0.35;
   const energy = 0.6 + pulse * 0.4; // el pulso escala brillo/tamaño
 
@@ -144,13 +146,14 @@ const BackgroundVisual: React.FC<{
 export const AnimatedBackgroundLayer: React.FC<{
   bg: AnimatedBackground;
   musicUrl: string | null;
-}> = ({ bg, musicUrl }) => {
+  musicOffsetFrames?: number;
+}> = ({ bg, musicUrl, musicOffsetFrames = 0 }) => {
   const frame = useCurrentFrame();
   // Respiración de respaldo (sin música o sin audioReactive): onda lenta 0..0.5.
   const breath = 0.25 + 0.25 * Math.sin(frame / 38);
   if (bg.audioReactive && musicUrl) {
     return (
-      <AudioPulse musicUrl={musicUrl}>
+      <AudioPulse musicUrl={musicUrl} offsetFrames={musicOffsetFrames}>
         {(pulse) => <BackgroundVisual bg={bg} pulse={pulse} />}
       </AudioPulse>
     );

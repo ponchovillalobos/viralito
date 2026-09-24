@@ -136,7 +136,7 @@
   {
     "id": "motion_pro",
     "name": "Motion Pro",
-    "tagline": "Animación pura y limpia: fondo aurora que pulsa con la música, sin emojis",
+    "tagline": "Animación limpia al ritmo real de la música: cortes al beat y palabras clave gigantes",
     "emoji": "✨",
     "shortLabel": "MotionPro",
     "families": [
@@ -149,7 +149,7 @@
   {
     "id": "motion_beat",
     "name": "Motion Beat",
-    "tagline": "El fondo late al ritmo de la música (gradiente vivo) + zooms al beat",
+    "tagline": "Todo al ritmo: la música entra en su parte fuerte, zooms al beat y destello en el golpe",
     "emoji": "🎧",
     "shortLabel": "MotionBeat",
     "families": [
@@ -162,7 +162,7 @@
   {
     "id": "motion_grid",
     "name": "Motion Grid",
-    "tagline": "Look retro-tech: cuadrícula en perspectiva + gráficas, limpio y futurista",
+    "tagline": "Look retro-tech: cuadrícula en perspectiva + gráficas, cortes al ritmo de la música",
     "emoji": "🌐",
     "shortLabel": "MotionGrid",
     "families": [
@@ -224,7 +224,7 @@
   {
     "id": "kinetic_type",
     "name": "Tipografía cinética",
-    "tagline": "Subtítulos gigantes que rebotan + fondo mesh que late con la música, sin emojis",
+    "tagline": "Palabras clave gigantes cuando se dicen + subtítulos que rebotan al ritmo, sin emojis",
     "emoji": "⌨️",
     "shortLabel": "Cinetica",
     "families": [

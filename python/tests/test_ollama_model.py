@@ -16,11 +16,13 @@ import config  # noqa: E402
 import hw_profile  # noqa: E402
 
 
-def _ollama_for(vram_free_mb: int, ram_gb: float) -> str:
+def _ollama_for(vram_free_mb: int, ram_gb: float, vram_total_mb: int | None = None) -> str:
     """Corre el _recommend real con un perfil mínimo y devuelve el ollama_model."""
+    total = vram_free_mb if vram_total_mb is None else vram_total_mb
     prof = {
-        "torch_cuda": vram_free_mb > 0,
-        "gpu_nvidia": {"vram_free_mb": vram_free_mb, "compute_capability": 8.0} if vram_free_mb else None,
+        "torch_cuda": total > 0,
+        "gpu_nvidia": {"vram_free_mb": vram_free_mb, "vram_total_mb": total,
+                       "compute_capability": 8.0} if total else None,
         "ram_gb": ram_gb,
         "cores_physical": 8,
     }
@@ -40,6 +42,21 @@ def test_vram_22000_qwen14b():
 
 def test_vram_7000_qwen8b():
     assert _ollama_for(7000, 32.0) == "qwen3:8b"
+
+
+def test_placa_de_6gb_ocupada_por_el_escritorio_sigue_en_8b():
+    # Medido 2026-09-23 en la RTX 3060 Laptop con Brave/Steam/Parsec abiertos:
+    # 6144 MB totales, 4315 libres. Con la regla vieja (VRAM libre) caía a 4b.
+    assert _ollama_for(4315, 28.0, vram_total_mb=6144) == "qwen3:8b"
+
+
+def test_placa_de_6gb_con_ollama_cargado_sigue_en_8b():
+    # El propio Ollama cargado deja 560 MB libres: no debe empujar al modelo chico.
+    assert _ollama_for(560, 28.0, vram_total_mb=6144) == "qwen3:8b"
+
+
+def test_placa_de_4gb_va_a_4b():
+    assert _ollama_for(3500, 16.0, vram_total_mb=4096) == "qwen3:4b"
 
 
 def test_sin_gpu_ram16_qwen4b():

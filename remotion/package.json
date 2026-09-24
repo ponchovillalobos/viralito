@@ -12,6 +12,7 @@
   "dependencies": {
     "@remotion/bundler": "4.0.527",
     "@remotion/cli": "4.0.527",
+    "@remotion/effects": "4.0.527",
     "@remotion/fonts": "4.0.527",
     "@remotion/lottie": "4.0.527",
     "@remotion/media-utils": "4.0.527",

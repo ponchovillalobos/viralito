@@ -31,6 +31,46 @@ import type { ResolvedProject } from "./types";
  * Las gráficas solo salen si el contenido menciona números (%, "3 veces", "de 23 a 78");
  * los titulares salen siempre. Si Ollama está offline, cae a heurística (no rompe).
  */
+/**
+ * Director tipográfico (opt-in por estilo con `typeDirector: true`): elige
+ * palabras héroe ancladas a cuando se dicen — una cada ~7 s, 2 efectos por
+ * video, cifras aparte — y las suma como titulares cinéticos. Los subtítulos
+ * siguen visibles: el héroe es un énfasis de ~1 s, no un reemplazo. Va aparte de
+ * applyGraphics para que un estilo "limpio" (kinetic_type) lo use sin cargar
+ * charts ni íconos.
+ */
+export async function applyTypeDirector(
+  project: ResolvedProject,
+  videoId: string,
+  accentColor = "#fb7185"
+): Promise<void> {
+  if (!project.typeDirector || project.editorialLayout) return;
+  try {
+    const transcriptPath = path.join(TRANSCRIPTS_DIR, `${videoId}.json`);
+    const hay = await fs.access(transcriptPath).then(() => true).catch(() => false);
+    if (!hay) return;
+    const td = await runProcess(
+      PYTHON_EXE,
+      [path.join(PYTHON_DIR, "type_director.py"), transcriptPath, "--accent", accentColor],
+      PYTHON_DIR,
+      undefined,
+      240_000
+    );
+    const line = td.ok
+      ? td.stdout.split(/\r?\n/).filter((l) => l.trim().startsWith("{")).pop()
+      : undefined;
+    const heroes = line
+      ? (JSON.parse(line) as { kineticHeadlines?: unknown[] }).kineticHeadlines
+      : undefined;
+    if (Array.isArray(heroes) && heroes.length) {
+      project.kineticHeadlines = [...(project.kineticHeadlines ?? []), ...heroes];
+      console.log(`[auto-build] director tipográfico: ${heroes.length} palabras héroe`);
+    }
+  } catch (err) {
+    console.warn("[auto-build] director tipográfico falló:", err);
+  }
+}
+
 export async function applyGraphics(
   project: ResolvedProject,
   videoId: string
@@ -693,7 +733,7 @@ export function applyBrollWipes(project: ResolvedProject, accentColor?: string):
   // transformaciones puras). `zoomBlur` y `zoomInOut`, que tambien vienen en el
   // paquete, dibujan con shaders y exigen un flag experimental de Chrome: no
   // entran sin medirlas.
-  const TIPOS = ["wipe", "slide", "iris", "flip"] as const;
+  const TIPOS = ["wipe", "slide", "iris", "flip", "pushCut"] as const;
 
   // La variedad se ELIGE, no se sortea: el mismo video tiene que dar el mismo
   // resultado en cada corrida, o dos renders del mismo clip no se pueden

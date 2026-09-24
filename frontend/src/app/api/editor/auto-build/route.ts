@@ -60,6 +60,7 @@ import {
   applyTextBehind,
   applyTranslate,
   applyGraphics,
+  applyTypeDirector,
   applyIllustrations,
   applyEditorialCutout,
   applyEmotionDirector,
@@ -448,8 +449,6 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
         }
       }
 
-      await applyBeatSync(project, transcript.duration);
-
       // FX enrichments opt-in: tracking, bg-removal, voz IA, texto-detrás, traducción.
       // Cada uno muta `project` si su flag está activo; ninguno rompe si falla.
       await applyTracking(project, videoId);
@@ -465,6 +464,7 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
 
       await applyTranslate(project);
       await applyGraphics(project, videoId);
+      await applyTypeDirector(project, videoId, accentColor);
       // ILUSTRACIONES CC0 (Phase 4) — opt-in vía el REGISTRO (no flag de proyecto):
       // solo los estilos con illustrations:true en style-registry.data.json las
       // reciben. Los demás → render idéntico al histórico.
@@ -483,6 +483,11 @@ export async function processJob(job: Job, body: AutoBuildRequest) {
       }
 
       applyBrollWipes(project, accentColor);
+
+      // Al ritmo: va DESPUÉS del director emocional y de los barridos para que sus
+      // zooms y los cortes de B-roll caigan en la grilla de la música en vez de
+      // competir con ella (antes corría primero y sólo decoraba 12 beats).
+      await applyBeatSync(project, transcript.duration, accentColor);
 
       // Cifras que el hablante menciona, apareciendo cuando las dice, y la
       // banda de nombre/cargo. `word_callouts.py` ya lo hacia entero y NADIE

@@ -73,7 +73,7 @@ def test_pasarse_por_menos_de_un_frame_no_se_reporta(monkeypatch):
 
 def test_marca_instantanea_despues_del_final_es_error(monkeypatch):
     monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
-    p = _proyecto(zoomMarks=[{"time": 11.0}])
+    p = _proyecto(zoomMarks=[{"at": 11.0}])
     h = vp.verificar(p, pathlib.Path("video.mp4"))
     assert "ERROR" in _niveles(h)
 
@@ -236,3 +236,55 @@ def test_un_transcript_vacio_no_cuenta_como_subtitulos(monkeypatch, tmp_path):
     del p["captions"]
     h = vp.verificar(p, pathlib.Path("video.mp4"))
     assert "el video saldría sin texto" in _textos(h, "AVISO")
+
+
+# ---------------------------------------------------------------------------
+# Los nombres de campo REALES del composition. Antes el verificador buscaba
+# start/end en las quince listas y se saltaba en silencio doce de ellas.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("lista", [
+    "wordStickers", "emphasisCards", "floatingEmojis", "reactionZooms", "sceneFx",
+    "iconStickers", "lottieStickers", "particleBursts", "cameraMoves",
+])
+def test_elementos_con_at_y_duration_se_revisan(monkeypatch, lista):
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+    p = _proyecto(**{lista: [{"at": 12.0, "duration": 1.0}]})
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert f"{lista}[0]" in _textos(h, "ERROR")
+
+
+def test_sin_duration_usa_la_del_schema(monkeypatch):
+    # wordSticker dura 1.1 s por omisión: en 9.5 s se pasa del final de 10 s.
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+    p = _proyecto(wordStickers=[{"at": 9.5, "word": "hola", "emoji": "x"}])
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "wordStickers[0]" in _textos(h, "AVISO")
+
+
+def test_transicion_en_frames_se_convierte_a_segundos(monkeypatch):
+    # 60 frames = 2 s: arranca en 9 y termina en 11, se pasa del final.
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+    p = _proyecto(proTransitions=[{"at": 9.0, "durationFrames": 60, "kind": "fade"}])
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "proTransitions[0]" in _textos(h, "AVISO")
+
+
+def test_image_overlay_usa_starttime_y_endtime(monkeypatch):
+    monkeypatch.setattr(vp, "duracion_de", lambda _: 10.0)
+    p = _proyecto(imageOverlays=[{"startTime": 11.0, "endTime": 12.0, "src": "x"}])
+    h = vp.verificar(p, pathlib.Path("video.mp4"))
+    assert "imageOverlays[0]" in _textos(h, "ERROR")
+
+
+def test_un_proyecto_real_de_disco_se_revisa_entero():
+    """El proyecto real que destapó el bug: sus wordStickers tienen `at`/`duration`."""
+    real = pathlib.Path(r"D:/viral-data/videos/projects/Poquito Siento PopReels.json")
+    if not real.exists():
+        pytest.skip("proyecto de referencia no disponible en esta máquina")
+    p = json.loads(real.read_text(encoding="utf-8"))
+    revisados = [
+        lista for lista, *campos in vp.LISTAS_CON_TIEMPO
+        for elem in (p.get(lista) or [])
+        if isinstance(elem, dict) and vp._inicio_y_fin(elem, *campos)[1] is not None
+    ]
+    assert "wordStickers" in revisados
